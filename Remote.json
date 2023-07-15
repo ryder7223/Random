@@ -38,5 +38,21 @@
             "localizedDescription": "Injected with GodMod",
             "icon": "https://raw.githubusercontent.com/apptesters-org/Repo/main/icons/com.dxx.firenow.png",
             "iconURL": "https://raw.githubusercontent.com/apptesters-org/Repo/main/icons/com.dxx.firenow.png"
+        },
+        {
+            "name": "CaculatorPlus",
+            "realBundleID": "com.calc.iphone",
+            "bundleID": "com.calc.iphone",
+            "bundleIdentifier": "com.calc.iphone",
+            "version": "5.7",
+            "versionDate": "2023-07-02",
+            "fullDate": "20230702171446",
+            "size": 6208338,
+            "down": "https://github.com/apptesters-org/Repo/releases/download/02-07-2023/CaculatorPlus_5.7_VIP_%40thisismanpreets_apptesters.org.ipa",
+            "downloadURL": "https://github.com/apptesters-org/Repo/releases/download/02-07-2023/CaculatorPlus_5.7_VIP_%40thisismanpreets_apptesters.org.ipa",
+            "developerName": "",
+            "localizedDescription": "Injected with VIP",
+            "icon": "https://raw.githubusercontent.com/apptesters-org/Repo/main/icons/com.calc.iphone.png",
+            "iconURL": "https://raw.githubusercontent.com/apptesters-org/Repo/main/icons/com.calc.iphone.png"
         }]
         }
