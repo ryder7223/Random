@@ -1,4 +1,13 @@
 {
+    "name": "AppTesters IPA Repo",
+    "identifier": "org.apptesters.repo",
+    "sourceURL": "https://repo.apptesters.org/",
+    "META": {
+        "repoName": "AppTesters IPA Repo",
+        "repoIcon": "https://sts.st/d/5779b391f8aa"
+    },
+    "apps": [
+{
             "name": "UniversalRemote",
             "realBundleID": "com.teix.allinOne",
             "bundleID": "com.teix.allinOne",
@@ -14,3 +23,4 @@
             "icon": "https://raw.githubusercontent.com/apptesters-org/Repo/main/icons/com.teix.allinOne.png",
             "iconURL": "https://raw.githubusercontent.com/apptesters-org/Repo/main/icons/com.teix.allinOne.png"
         }
+                }
