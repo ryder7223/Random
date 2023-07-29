@@ -54,12 +54,10 @@
         const codeDisplay = document.getElementById("codeDisplay");
         codeDisplay.value = code;
 
-        // Show the preview iframe with the rendered output
+        // Create a Blob with the code and set iframe source to a URL of the Blob
+        const blob = new Blob([code], { type: 'text/html' });
         const previewFrame = document.getElementById("previewFrame");
-        const iframeDoc = previewFrame.contentWindow.document;
-        iframeDoc.open();
-        iframeDoc.write(code);
-        iframeDoc.close();
+        previewFrame.src = URL.createObjectURL(blob);
         previewFrame.style.display = "block";
       } catch (error) {
         // Hide "Fetching code..." message
