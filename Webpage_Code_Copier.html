@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clipboard Interaction</title>
+</head>
+<body>
+  <button onclick="fetchAndCopyCode()">Fetch and Copy Code</button>
+  <div id="codeDisplay"></div>
+
+  <script>
+    function fetchAndCopyCode() {
+      const url = "https://wdh.gg/";
+
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Failed to retrieve the URL. Status Code: " + response.status);
+          }
+          return response.text();
+        })
+        .then(code => {
+          // Create a temporary textarea element to copy the code
+          const textarea = document.createElement("textarea");
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          textarea.value = code;
+          
+          // Append the textarea to the document
+          document.body.appendChild(textarea);
+          
+          // Select and copy the code from the textarea
+          textarea.select();
+          
+          try {
+            // Use the Clipboard API to copy the selected text to the clipboard
+            if (document.execCommand("copy")) {
+              // Display the code below the button
+              const codeDisplay = document.getElementById("codeDisplay");
+              codeDisplay.textContent = "Code copied to clipboard: " + code;
+            } else {
+              throw new Error("Failed to copy code to clipboard.");
+            }
+          } catch (error) {
+            // Display an error message below the button
+            const codeDisplay = document.getElementById("codeDisplay");
+            codeDisplay.textContent = "Error copying code: " + error.message;
+          }
+
+          // Remove the textarea from the document
+          document.body.removeChild(textarea);
+        })
+        .catch(error => {
+          // Display an error message below the button
+          const codeDisplay = document.getElementById("codeDisplay");
+          codeDisplay.textContent = "An error occurred during the request: " + error.message;
+        });
+    }
+  </script>
+</body>
+</html>
