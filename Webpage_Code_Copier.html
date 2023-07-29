@@ -1,46 +1,74 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Fetching Code</title>
+  <title>Fetching and Previewing Code</title>
 </head>
 <body>
+  <label for="urlInput">Enter URL:</label>
+  <input type="text" id="urlInput" placeholder="Enter URL here">
   <button onclick="fetchAndDisplayCode()">Fetch Code</button>
   <div>
     <p id="loadingMessage" style="display: none;">Fetching code...</p>
     <textarea id="codeDisplay" rows="10" cols="50" readonly></textarea>
   </div>
+  <iframe id="previewFrame" width="100%" height="400" style="display: none;"></iframe>
 
   <script>
-    function fetchAndDisplayCode() {
-      const url = "https://wdh.gg/";
+    async function fetchAndDisplayCode() {
+      const urlInput = document.getElementById("urlInput");
+      const url = urlInput.value.trim();
+
+      if (!url) {
+        alert("Please enter a valid URL.");
+        return;
+      }
 
       // Show "Fetching code..." message
       const loadingMessage = document.getElementById("loadingMessage");
       loadingMessage.style.display = "block";
 
-      fetch(url)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error("Failed to retrieve the URL. Status Code: " + response.status);
+      try {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error("Failed to retrieve the URL. Status Code: " + response.status);
+        }
+
+        // Process the response as a stream to avoid memory overload
+        const reader = response.body.getReader();
+        let code = '';
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            break;
           }
-          return response.text();
-        })
-        .then(code => {
-          // Hide "Fetching code..." message
-          loadingMessage.style.display = "none";
 
-          // Display the fetched code in the textarea
-          const codeDisplay = document.getElementById("codeDisplay");
-          codeDisplay.value = code;
-        })
-        .catch(error => {
-          // Hide "Fetching code..." message
-          loadingMessage.style.display = "none";
+          code += new TextDecoder().decode(value);
+        }
 
-          // Display an error message in the textarea
-          const codeDisplay = document.getElementById("codeDisplay");
-          codeDisplay.value = "An error occurred during the request: " + error.message;
-        });
+        // Hide "Fetching code..." message
+        loadingMessage.style.display = "none";
+
+        // Display the fetched code in the textarea
+        const codeDisplay = document.getElementById("codeDisplay");
+        codeDisplay.value = code;
+
+        // Show the preview iframe with the rendered output
+        const previewFrame = document.getElementById("previewFrame");
+        const iframeDoc = previewFrame.contentWindow.document;
+        iframeDoc.open();
+        iframeDoc.write(code);
+        iframeDoc.close();
+        previewFrame.style.display = "block";
+      } catch (error) {
+        // Hide "Fetching code..." message
+        loadingMessage.style.display = "none";
+
+        // Display an error message in the textarea
+        const codeDisplay = document.getElementById("codeDisplay");
+        codeDisplay.value = "An error occurred during the request: " + error.message;
+      }
     }
   </script>
 </body>
