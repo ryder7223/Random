@@ -1,15 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Clipboard Interaction</title>
+  <title>Fetching Code</title>
 </head>
 <body>
-  <button onclick="fetchAndCopyCode()">Fetch and Copy Code</button>
-  <div id="codeDisplay"></div>
+  <button onclick="fetchAndDisplayCode()">Fetch Code</button>
+  <div>
+    <p id="loadingMessage" style="display: none;">Fetching code...</p>
+    <textarea id="codeDisplay" rows="10" cols="50" readonly></textarea>
+  </div>
 
   <script>
-    function fetchAndCopyCode() {
+    function fetchAndDisplayCode() {
       const url = "https://wdh.gg/";
+
+      // Show "Fetching code..." message
+      const loadingMessage = document.getElementById("loadingMessage");
+      loadingMessage.style.display = "block";
 
       fetch(url)
         .then(response => {
@@ -19,40 +26,20 @@
           return response.text();
         })
         .then(code => {
-          // Create a temporary textarea element to copy the code
-          const textarea = document.createElement("textarea");
-          textarea.style.position = "fixed";
-          textarea.style.opacity = "0";
-          textarea.value = code;
-          
-          // Append the textarea to the document
-          document.body.appendChild(textarea);
-          
-          // Select and copy the code from the textarea
-          textarea.select();
-          
-          try {
-            // Use the Clipboard API to copy the selected text to the clipboard
-            if (document.execCommand("copy")) {
-              // Display the code below the button
-              const codeDisplay = document.getElementById("codeDisplay");
-              codeDisplay.textContent = "Code copied to clipboard: " + code;
-            } else {
-              throw new Error("Failed to copy code to clipboard.");
-            }
-          } catch (error) {
-            // Display an error message below the button
-            const codeDisplay = document.getElementById("codeDisplay");
-            codeDisplay.textContent = "Error copying code: " + error.message;
-          }
+          // Hide "Fetching code..." message
+          loadingMessage.style.display = "none";
 
-          // Remove the textarea from the document
-          document.body.removeChild(textarea);
+          // Display the fetched code in the textarea
+          const codeDisplay = document.getElementById("codeDisplay");
+          codeDisplay.value = code;
         })
         .catch(error => {
-          // Display an error message below the button
+          // Hide "Fetching code..." message
+          loadingMessage.style.display = "none";
+
+          // Display an error message in the textarea
           const codeDisplay = document.getElementById("codeDisplay");
-          codeDisplay.textContent = "An error occurred during the request: " + error.message;
+          codeDisplay.value = "An error occurred during the request: " + error.message;
         });
     }
   </script>
