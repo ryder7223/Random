@@ -1,1 +1,1 @@
-code = "edcrfv"
+edcrfv
