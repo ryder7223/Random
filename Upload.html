@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+</head>
+<body>
+    <label for="tokenInput">Enter Token:</label>
+    <input type="text" id="tokenInput" placeholder="Enter your token" />
+
+    <br />
+
+    <input type="file" id="fileInput" />
+    <button onclick="uploadFile()">Upload</button>
+    <p id="statusMessage"></p>
+
+    <script>
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            const token = document.getElementById('tokenInput').value;
+
+            if (file && token) {
+                const url = "https://ryder7223.wdh.gg/api/upload";
+                
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        document.getElementById('statusMessage').innerText = "Upload successful!";
+                    } else {
+                        document.getElementById('statusMessage').innerText = `Upload failed. Error Code: ${response.status}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('statusMessage').innerText = "An error occurred during the upload.";
+                });
+            } else {
+                document.getElementById('statusMessage').innerText = "Please choose a file and enter your token before uploading.";
+            }
+        }
+    </script>
+</body>
+</html>
