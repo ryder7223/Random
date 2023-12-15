@@ -1,108 +1,108 @@
 <!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Upload</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 10px;
-        }
-
-        input,
-        button {
-            padding: 10px;
-            margin-bottom: 15px;
-        }
-
-        button {
-            background-color: #4caf50;
-            color: white;
-            cursor: pointer;
-        }
-
-        p {
-            margin-top: 15px;
-            font-weight: bold;
-            color: #333;
-        }
-    </style>
-
-</head>
-
-<body>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Automatically run the provided script to load Eruda
-            (function() {
-                let erudaScript = document.createElement('script');
-                erudaScript.src = "https://cdn.jsdelivr.net/npm/eruda";
-                document.body.appendChild(erudaScript);
-                erudaScript.onload = function() {
-                    eruda.init()
-                }
-            })();
-
-            function uploadFile() {
-                const fileInput = document.getElementById('fileInput');
-                const file = fileInput.files[0];
-                const token = document.getElementById('tokenInput').value;
-
-                if (file && token) {
-                    const url = "https://ryder7223.wdh.gg/api/upload";
-
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    fetch(url, {
+    <html lang="en">
+    
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>File Upload</title>
+        <style>
+            body {
+                font-family: 'Arial', sans-serif;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 20px;
+                text-align: center;
+            }
+    
+            label {
+                display: block;
+                margin-bottom: 10px;
+            }
+    
+            input,
+            button {
+                padding: 10px;
+                margin-bottom: 15px;
+            }
+    
+            button {
+                background-color: #4caf50;
+                color: white;
+                cursor: pointer;
+            }
+    
+            p {
+                margin-top: 15px;
+                font-weight: bold;
+                color: #333;
+            }
+        </style>
+    </head>
+    
+    <body>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                // Automatically run the provided script to load Eruda
+                (function () {
+                    let erudaScript = document.createElement('script');
+                    erudaScript.src = "https://cdn.jsdelivr.net/npm/eruda";
+                    document.body.appendChild(erudaScript);
+                    erudaScript.onload = function () {
+                        eruda.init()
+                    }
+                })();
+    
+                function uploadFile() {
+                    const fileInput = document.getElementById('fileInput');
+                    const file = fileInput.files[0];
+                    const token = document.getElementById('tokenInput').value;
+    
+                    if (file && token) {
+                        const url = "https://ryder7223.wdh.gg/api/upload";
+    
+                        const formData = new FormData();
+                        formData.append('file', file);
+    
+                        fetch(url, {
                             method: 'POST',
                             body: formData,
                             headers: {
                                 'Authorization': token
                             }
                         })
-                        .then(response => response.json())
-                        .then(data => {
-                            console.log(data);
-
-                            if (data.files && data.files.length > 0) {
-                                document.getElementById('statusMessage').innerText = `Upload successful!`;
-                                window.open(data.files[0].url, '_blank');
-                            } else {
-                                document.getElementById('statusMessage').innerText = "Upload successful! No file link in the response.";
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            document.getElementById('statusMessage').innerText = "An error occurred during the upload.";
-                        });
-                } else {
-                    document.getElementById('statusMessage').innerText = "Please choose a file and enter your token before uploading.";
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log(data);
+    
+                                if (data.files && data.files.length > 0) {
+                                    const downloadLink = data.files[0];
+                                    document.getElementById('statusMessage').innerText = `Upload successful! Download link: ${downloadLink}`;
+                                    window.open(downloadLink, '_blank');
+                                } else {
+                                    document.getElementById('statusMessage').innerText = "Upload successful! No file link in the response.";
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                document.getElementById('statusMessage').innerText = "An error occurred during the upload.";
+                            });
+                    } else {
+                        document.getElementById('statusMessage').innerText = "Please choose a file and enter your token before uploading.";
+                    }
                 }
-            }
-
-            document.getElementById('uploadButton').addEventListener('click', uploadFile);
-        });
-    </script>
-
-    <label for="tokenInput">Enter Token:</label>
-    <input type="password" id="tokenInput" placeholder="Enter your token" autocomplete="current-password" />
-
-    <br />
-
-    <input type="file" id="fileInput" />
-    <button id="uploadButton">Upload</button>
-    <p id="statusMessage"></p>
-</body>
-
-</html>
+    
+                document.getElementById('uploadButton').addEventListener('click', uploadFile);
+            });
+        </script>
+    
+        <label for="tokenInput">Enter Token:</label>
+        <input type="password" id="tokenInput" placeholder="Enter your token" autocomplete="current-password" />
+    
+        <br />
+    
+        <input type="file" id="fileInput" />
+        <button id="uploadButton">Upload</button>
+        <p id="statusMessage"></p>
+    </body>
+    
+    </html>
