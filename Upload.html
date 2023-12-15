@@ -7,53 +7,57 @@
 </head>
 <body>
     <script>
-        // Automatically run the provided script to load Eruda
-        (function() {
-            let erudaScript = document.createElement('script');
-            erudaScript.src = "https://cdn.jsdelivr.net/npm/eruda";
-            document.body.appendChild(erudaScript);
-            erudaScript.onload = function() {
-                eruda.init()
+        document.addEventListener('DOMContentLoaded', function() {
+            // Automatically run the provided script to load Eruda
+            (function() {
+                let erudaScript = document.createElement('script');
+                erudaScript.src = "https://cdn.jsdelivr.net/npm/eruda";
+                document.body.appendChild(erudaScript);
+                erudaScript.onload = function() {
+                    eruda.init()
+                }
+            })();
+
+            function uploadFile() {
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+                const token = document.getElementById('tokenInput').value;
+
+                console.log(token); // Check if the token is retrieved correctly
+
+                if (file && token) {
+                    const url = "https://ryder7223.wdh.gg/api/upload";
+                    
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    fetch(url, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Authorization': `${token}`
+                        }
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            document.getElementById('statusMessage').innerText = "Upload successful!";
+                        } else {
+                            document.getElementById('statusMessage').innerText = `Upload failed. Error Code: ${response.status}`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        document.getElementById('statusMessage').innerText = "An error occurred during the upload.";
+                    });
+                } else {
+                    document.getElementById('statusMessage').innerText = "Please choose a file and enter your token before uploading.";
+                }
             }
-        })();
-
-        function uploadFile() {
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-            const token = document.getElementById('tokenInput').value;
-
-            if (file && token) {
-                const url = "https://ryder7223.wdh.gg/api/upload";
-                
-                const formData = new FormData();
-                formData.append('file', file);
-
-                fetch(url, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Authorization': `${token}`
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        document.getElementById('statusMessage').innerText = "Upload successful!";
-                    } else {
-                        document.getElementById('statusMessage').innerText = `Upload failed. Error Code: ${response.status}`;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    document.getElementById('statusMessage').innerText = "An error occurred during the upload.";
-                });
-            } else {
-                document.getElementById('statusMessage').innerText = "Please choose a file and enter your token before uploading.";
-            }
-        }
+        });
     </script>
 
     <label for="tokenInput">Enter Token:</label>
-    <input type="text" id="tokenInput" placeholder="Enter your token" />
+    <input type="password" id="tokenInput" placeholder="Enter your token" autocomplete="current-password" autofill="yes" />
 
     <br />
 
