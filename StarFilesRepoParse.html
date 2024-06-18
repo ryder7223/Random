@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Repository</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        #jsonInput {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+            padding: 5px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            resize: none;
+        }
+        #fileList {
+            list-style-type: none;
+            padding: 0;
+        }
+        #fileList li {
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>File Repository</h2>
+    <textarea id="jsonInput" placeholder="Paste JSON data here..."></textarea><br><br>
+    <button onclick="sortFiles()">Sort Files</button><br><br>
+    <ul id="fileList"></ul>
+
+    <script>
+        function sortFiles() {
+            const jsonInput = document.getElementById('jsonInput').value.trim();
+            
+            // Split the JSON input based on custom delimiters
+            const items = jsonInput.split('},').map(item => {
+                const id = item.split('": {')[0].replace(/"/g, '').trim();
+                const name = item.split('name": "')[1].split('"')[0];
+                return { id, name };
+            });
+
+            // Sort items alphabetically by name
+            items.sort((a, b) => {
+                const nameA = a.name.toUpperCase();
+                const nameB = b.name.toUpperCase();
+                if (nameA < nameB) {
+                    return -1;
+                }
+                if (nameA > nameB) {
+                    return 1;
+                }
+                return 0;
+            });
+
+            // Display sorted items in the file list
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            items.forEach(item => {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `<strong>${item.name}</strong> (ID: ${item.id}) <button onclick="downloadFile('${item.id}')">Download</button>`;
+                fileList.appendChild(listItem);
+            });
+        }
+
+        function downloadFile(id) {
+            window.location.href = `https://download.starfiles.co/${id}`;
+        }
+    </script>
+</body>
+</html>
