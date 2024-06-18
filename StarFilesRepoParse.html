@@ -18,6 +18,13 @@
             border: 1px solid #ccc;
             resize: none;
         }
+        #urlInput {
+            width: 100%;
+            padding: 5px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
         #fileList {
             list-style-type: none;
             padding: 0;
@@ -33,20 +40,45 @@
 </head>
 <body>
     <h2>File Repository</h2>
+    <input type="text" id="urlInput" placeholder="Enter URL containing JSON data..."><br><br>
     <textarea id="jsonInput" placeholder="Paste JSON data here..."></textarea><br><br>
-    <button onclick="sortFiles()">Sort Files</button><br><br>
+    <button onclick="loadJson()">Load JSON</button><br><br>
     <ul id="fileList"></ul>
 
     <script>
-        function sortFiles() {
+        function loadJson() {
+            const url = document.getElementById('urlInput').value.trim();
             const jsonInput = document.getElementById('jsonInput').value.trim();
+            
+            if (url) {
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        parseJson(data);
+                    })
+                    .catch(error => {
+                        alert('Failed to load JSON from URL');
+                        console.error('Error:', error);
+                    });
+            } else if (jsonInput) {
+                try {
+                    const data = JSON.parse(jsonInput);
+                    parseJson(data);
+                } catch (error) {
+                    alert('Invalid JSON format!');
+                    console.error('Error:', error);
+                }
+            } else {
+                alert('Please enter JSON data or a URL');
+            }
+        }
 
-            // Split the JSON input based on custom delimiters
-            const items = jsonInput.split('},').map(item => {
-                const id = item.split('":{')[0].replace(/"{/g, '').trim().replace('"', '').replace(/{/g, '');
-                const name = item.split('name":"')[1].split('"')[0];
-                return { id, name };
-            });
+        function parseJson(data) {
+            // Transform the JSON object to an array of {id, name} objects
+            const items = Object.entries(data).map(([id, file]) => ({
+                id: id.replace('{', ''),
+                name: file.name
+            }));
 
             // Sort items alphabetically by name
             items.sort((a, b) => {
@@ -66,8 +98,7 @@
             fileList.innerHTML = '';
             items.forEach((item, index) => {
                 const listItem = document.createElement('li');
-                const id = index === items.length - 1 ? item.id.replace('{', '') : item.id;
-                listItem.innerHTML = `<strong>${item.name}</strong> (ID: ${id}) <button onclick="downloadFile('${id}')">Download</button> <button onclick="install('${id}')">Install Via TrollStore</button>`;
+                listItem.innerHTML = `<strong>${item.name}</strong> (ID: ${item.id}) <button onclick="downloadFile('${item.id}')">Download</button> <button onclick="install('${item.id}')">Install Via TrollStore</button>`;
                 fileList.appendChild(listItem);
             });
         }
