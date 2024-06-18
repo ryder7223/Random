@@ -36,6 +36,9 @@
             padding: 8px 12px;
             cursor: pointer;
         }
+        select {
+            padding: 8px 12px;
+        }
     </style>
 </head>
 <body>
@@ -98,7 +101,19 @@
             fileList.innerHTML = '';
             items.forEach((item, index) => {
                 const listItem = document.createElement('li');
-                listItem.innerHTML = `<strong>${item.name}</strong> (ID: ${item.id}) <button onclick="downloadFile('${item.id}')">Download</button> <button onclick="install('${item.id}')">Install Via TrollStore</button>`;
+                listItem.innerHTML = `
+                    <strong>${item.name}</strong> (ID: ${item.id})
+                    <button onclick="downloadFile('${item.id}')">Download</button>
+                    <select id="installerSelect-${item.id}">
+                        <option value="apple-magnifier://install?url=https://download.starfiles.co/${item.id}">TrollStore</option>
+                        <option value="scarlet://install=https://download.starfiles.co/${item.id}">Scarlet</option>
+                        <option value="https://signtunes.com/signer#https://download.starfiles.co/${item.id}">Signtunes</option>
+                        <option value="altstore://install?url=https://download.starfiles.co/${item.id}">AltStore</option>
+                        <option value="reprovision://install?url=https://download.starfiles.co/${item.id}">ReProvision</option>
+                        <option value="cloudinstaller://https://download.starfiles.co/${item.id}">AppInstaller iOS</option>
+                    </select>
+                    <button onclick="install('${item.id}')">Install</button>
+                `;
                 fileList.appendChild(listItem);
             });
         }
@@ -108,7 +123,9 @@
         }
 
         function install(id) {
-            window.location.href = `apple-magnifier://install?url=https://download.starfiles.co/${id}`;
+            const select = document.getElementById(`installerSelect-${id}`);
+            const installerUrl = select.value;
+            window.location.href = installerUrl;
         }
     </script>
 </body>
