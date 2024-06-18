@@ -40,7 +40,7 @@
     <script>
         function sortFiles() {
             const jsonInput = document.getElementById('jsonInput').value.trim();
-            
+
             // Split the JSON input based on custom delimiters
             const items = jsonInput.split('},').map(item => {
                 const id = item.split('":{')[0].replace(/"{/g, '').trim().replace('"', '').replace(/{/g, '');
@@ -67,13 +67,17 @@
             items.forEach((item, index) => {
                 const listItem = document.createElement('li');
                 const id = index === items.length - 1 ? item.id.replace('{', '') : item.id;
-                listItem.innerHTML = `<strong>${item.name}</strong> (ID: ${item.id}) <button onclick="downloadFile('${id}')">Download</button>`;
+                listItem.innerHTML = `<strong>${item.name}</strong> (ID: ${id}) <button onclick="downloadFile('${id}')">Download</button> <button onclick="install('${id}')">Install Via TrollStore</button>`;
                 fileList.appendChild(listItem);
             });
         }
 
         function downloadFile(id) {
             window.location.href = `https://download.starfiles.co/${id}`;
+        }
+
+        function install(id) {
+            window.location.href = `apple-magnifier://install?url=https://download.starfiles.co/${id}`;
         }
     </script>
 </body>
