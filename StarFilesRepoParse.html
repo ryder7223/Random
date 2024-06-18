@@ -43,7 +43,7 @@
             
             // Split the JSON input based on custom delimiters
             const items = jsonInput.split('},').map(item => {
-                const id = item.split('":{')[0].replace(/"/g, '').trim().replace('/{ /g');
+                const id = item.split('":{')[0].replace(/"{/g, '').trim().replace('"', '').replace(/{/g, '');
                 const name = item.split('name":"')[1].split('"')[0];
                 return { id, name };
             });
@@ -64,9 +64,10 @@
             // Display sorted items in the file list
             const fileList = document.getElementById('fileList');
             fileList.innerHTML = '';
-            items.forEach(item => {
+            items.forEach((item, index) => {
                 const listItem = document.createElement('li');
-                listItem.innerHTML = `<strong>${item.name}</strong> (ID: ${item.id}) <button onclick="downloadFile('${item.id}')">Download</button>`;
+                const id = index === items.length - 1 ? item.id.replace('{', '') : item.id;
+                listItem.innerHTML = `<strong>${item.name}</strong> (ID: ${item.id}) <button onclick="downloadFile('${id}')">Download</button>`;
                 fileList.appendChild(listItem);
             });
         }
