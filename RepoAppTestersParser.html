@@ -126,7 +126,7 @@
 </head>
 <body>
     <h2>App Repository</h2>
-    <input type="text" id="urlInput" placeholder="https://repo.apptesters.org"><br><br>
+    <input type="text" id="urlInput" placeholder="https://repo.apptesters.org" value="https://repo.apptesters.org"><br><br>
     <textarea id="jsonInput" placeholder="Paste JSON data here..."></textarea><br><br>
     <input type="text" id="searchInput" placeholder="Search apps...">
     <button onclick="loadJson()">Load JSON</button><br><br>
@@ -209,7 +209,7 @@
                 app.versions.forEach(version => {
                     const option = document.createElement('option');
                     option.value = version.downloadURL;
-                    option.text = `Version: ${version.version} (Size: ${formatBytes(version.size)})`;
+                    option.text = `Version:  (Size: )`;
                     versionSelect.appendChild(option);
                 });
 
@@ -222,20 +222,20 @@
                 const appInfo = document.createElement('div');
                 appInfo.className = 'app-info';
                 appInfo.innerHTML = `
-                    <strong>${app.name}</strong> (ID: ${app.bundleIdentifier}) 
-                    <button onclick="showDescription('${app.bundleIdentifier}')">Description</button>
+                    <strong></strong> (ID: ) 
+                    <button onclick="showDescription('')">Description</button>
                 `;
 
                 // Install dropdown
                 const installSelect = document.createElement('select');
-                installSelect.id = `installerSelect-${app.bundleIdentifier}`;
+                installSelect.id = `installerSelect-`;
                 installSelect.innerHTML = `
-                    <option value="apple-magnifier://install?url=${versionSelect.value}">TrollStore</option>
-                    <option value="scarlet://install=${versionSelect.value}">Scarlet</option>
-                    <option value="https://signtunes.com/signer#${versionSelect.value}">SignTunes</option>
-                    <option value="altstore://install?url=${versionSelect.value}">AltStore</option>
-                    <option value="reprovision://install?url=${versionSelect.value}">ReProvision</option>
-                    <option value="cloudinstaller://https://download.starfiles.co/${versionSelect.value}">AppInstaller iOS</option>
+                    <option value="apple-magnifier://install?url=">TrollStore</option>
+                    <option value="scarlet://install=">Scarlet</option>
+                    <option value="https://signtunes.com/signer#">SignTunes</option>
+                    <option value="altstore://install?url=">AltStore</option>
+                    <option value="reprovision://install?url=">ReProvision</option>
+                    <option value="cloudinstaller://https://download.starfiles.co/">AppInstaller iOS</option>
                 `;
 
                 // Install button
@@ -284,7 +284,7 @@
                 app.versions.forEach(version => {
                     const option = document.createElement('option');
                     option.value = version.downloadURL;
-                    option.text = `Version: ${version.version} (Size: ${formatBytes(version.size)})`;
+                    option.text = `Version:  (Size: )`;
                     versionSelect.appendChild(option);
                 });
 
@@ -297,20 +297,20 @@
                 const appInfo = document.createElement('div');
                 appInfo.className = 'app-info';
                 appInfo.innerHTML = `
-                    <strong>${app.name}</strong> (ID: ${app.bundleIdentifier}) 
-                    <button onclick="showDescription('${app.bundleIdentifier}')">Description</button>
+                    <strong></strong> (ID: ) 
+                    <button onclick="showDescription('')">Description</button>
                 `;
 
                 // Install dropdown
                 const installSelect = document.createElement('select');
-                installSelect.id = `installerSelect-${app.bundleIdentifier}`;
+                installSelect.id = `installerSelect-`;
                 installSelect.innerHTML = `
-                    <option value="apple-magnifier://install?url=${versionSelect.value}">TrollStore</option>
-                    <option value="scarlet://install=${versionSelect.value}">Scarlet</option>
-                    <option value="https://signtunes.com/signer#${versionSelect.value}">SignTunes</option>
-                    <option value="altstore://install?url=${versionSelect.value}">AltStore</option>
-                    <option value="reprovision://install?url=${versionSelect.value}">ReProvision</option>
-                    <option value="cloudinstaller://https://download.starfiles.co/${versionSelect.value}">AppInstaller iOS</option>
+                    <option value="apple-magnifier://install?url=">TrollStore</option>
+                    <option value="scarlet://install=">Scarlet</option>
+                    <option value="https://signtunes.com/signer#">SignTunes</option>
+                    <option value="altstore://install?url=">AltStore</option>
+                    <option value="reprovision://install?url=">ReProvision</option>
+                    <option value="cloudinstaller://https://download.starfiles.co/">AppInstaller iOS</option>
                 `;
 
                 // Install button
@@ -352,16 +352,16 @@
         }
 
         function install(downloadURL, bundleIdentifier) {
-            const select = document.getElementById(`installerSelect-${bundleIdentifier}`);
+            const select = document.getElementById(`installerSelect-`);
             const installerUrl = select.value;
-            window.location.href = installerUrl.replace('${id}', encodeURIComponent(downloadURL));
+            window.location.href = installerUrl.replace('', encodeURIComponent(downloadURL));
         }
 
         function showDescription(bundleIdentifier) {
             const app = parsedData.apps.find(app => app.bundleIdentifier === bundleIdentifier);
             if (app) {
                 const description = app.localizedDescription ? app.localizedDescription : 'No description available';
-                document.getElementById('popupContent').innerHTML = `<h3>${app.name} (ID: ${bundleIdentifier})</h3><p>${description}</p>`;
+                document.getElementById('popupContent').innerHTML = `<h3> (ID: )</h3><p></p>`;
                 document.getElementById('overlay').style.display = 'block';
                 document.getElementById('popup').style.display = 'block';
             }
