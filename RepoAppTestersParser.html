@@ -6,47 +6,81 @@
     <title>App Repository</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f2f2f7;
+            margin: 0;
             padding: 20px;
+            color: #1c1c1e;
         }
-        #jsonInput {
-            width: 100%;
-            height: 200px;
-            margin-bottom: 10px;
-            padding: 5px;
-            font-size: 14px;
-            border: 1px solid #ccc;
-            resize: none;
+        h2 {
+            text-align: center;
+            color: #007aff;
         }
-        #urlInput {
+        #jsonInput, #urlInput {
             width: 100%;
-            padding: 5px;
-            font-size: 14px;
-            border: 1px solid #ccc;
+            padding: 10px;
             margin-bottom: 10px;
+            font-size: 16px;
+            border: 1px solid #d1d1d6;
+            border-radius: 10px;
+            box-sizing: border-box;
         }
         #fileList {
             list-style-type: none;
             padding: 0;
         }
         #fileList li {
+            background-color: #ffffff;
+            border-radius: 10px;
             margin-bottom: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
+            padding: 15px;
             display: flex;
             align-items: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         .app-info {
-            margin-left: 10px;
+            margin-left: 15px;
             flex-grow: 1;
         }
-        button {
-            padding: 8px 12px;
+        .app-info strong {
+            display: block;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        .app-info button {
+            background: none;
+            border: none;
+            color: #007aff;
             cursor: pointer;
+            font-size: 14px;
+            padding: 0;
+        }
+        .app-info button:hover {
+            text-decoration: underline;
+        }
+        img {
+            border-radius: 10px;
+            width: 60px;
+            height: 60px;
+        }
+        select, button {
+            padding: 5px 20px;
+            margin: 5px;
+            font-size: 14px;
+            border-radius: 20px;
+            border: 1px solid #d1d1d6;
+            cursor: pointer;
+            background-color: #007aff;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
         }
         select {
-            padding: 8px 12px;
-            margin-right: 10px;
+            background-color: #f2f2f7;
+            color: #1c1c1e;
+        }
+        select:hover, button:hover {
+            opacity: 0.8;
         }
         .popup {
             display: none;
@@ -56,9 +90,10 @@
             transform: translate(-50%, -50%);
             padding: 20px;
             background: white;
-            border: 1px solid #ccc;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             z-index: 10;
+            animation: fadeIn 0.3s;
         }
         .popup .close {
             cursor: pointer;
@@ -74,14 +109,24 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
             z-index: 5;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
         }
     </style>
 </head>
 <body>
     <h2>App Repository</h2>
-    <input type="text" id="urlInput" placeholder="https://repo.apptesters.org"><br><br>
+    <input type="text" id="urlInput" placeholder="Enter URL containing JSON data..."><br><br>
     <textarea id="jsonInput" placeholder="Paste JSON data here..."></textarea><br><br>
     <button onclick="loadJson()">Load JSON</button><br><br>
     <ul id="fileList"></ul>
@@ -171,8 +216,6 @@
                 const appIcon = document.createElement('img');
                 appIcon.src = app.versions[0].iconURL;
                 appIcon.alt = app.name;
-                appIcon.style.width = '50px';
-                appIcon.style.height = '50px';
 
                 // App info
                 const appInfo = document.createElement('div');
@@ -196,7 +239,7 @@
 
                 // Install button
                 const installButton = document.createElement('button');
-                installButton.innerText = 'Install';
+                installButton.innerText = 'Get';
                 installButton.onclick = function() {
                     install(versionSelect.value, app.bundleIdentifier);
                 };
@@ -228,29 +271,33 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         }
 
-        function downloadFile(downloadURL) {
-            window.location.href = downloadURL;
+        function downloadFile(url) {
+            window.location.href = url;
         }
 
         function install(downloadURL, bundleIdentifier) {
             const select = document.getElementById(`installerSelect-${bundleIdentifier}`);
             const installerUrl = select.value;
-            window.location.href = installerUrl;
+            window.location.href = installerUrl.replace('${id}', encodeURIComponent(downloadURL));
         }
 
         function showDescription(bundleIdentifier) {
             const app = parsedData.apps.find(app => app.bundleIdentifier === bundleIdentifier);
             if (app) {
-                const description = app.versions.map(version => `<p>${version.version}: ${version.localizedDescription || 'No description available'}</p>`).join('');
-                document.getElementById('popupContent').innerHTML = `<h3>${app.name} (ID: ${bundleIdentifier})</h3>${description}`;
+                const description = app.localizedDescription ? app.localizedDescription : 'No description available';
+                document.getElementById('popupContent').innerHTML = `<h3>${app.name} (ID: ${bundleIdentifier})</h3><p>${description}</p>`;
                 document.getElementById('overlay').style.display = 'block';
                 document.getElementById('popup').style.display = 'block';
             }
         }
 
         function closePopup() {
-            document.getElementById('overlay').style.display = 'none';
-            document.getElementById('popup').style.display = 'none';
+            document.getElementById('overlay').style.animation = 'fadeOut 0.3s';
+            document.getElementById('popup').style.animation = 'fadeOut 0.3s';
+            setTimeout(() => {
+                document.getElementById('overlay').style.display = 'none';
+                document.getElementById('popup').style.display = 'none';
+            }, 300);
         }
     </script>
 </body>
