@@ -16,7 +16,7 @@
             text-align: center;
             color: #007aff;
         }
-        #jsonInput, #urlInput {
+        #jsonInput, #urlInput, #searchInput {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;
@@ -126,8 +126,9 @@
 </head>
 <body>
     <h2>App Repository</h2>
-    <input type="text" id="urlInput" placeholder="Enter URL containing JSON data..."><br><br>
+    <input type="text" id="urlInput" placeholder="https://repo.apptesters.org"><br><br>
     <textarea id="jsonInput" placeholder="Paste JSON data here..."></textarea><br><br>
+    <input type="text" id="searchInput" placeholder="Search apps...">
     <button onclick="loadJson()">Load JSON</button><br><br>
     <ul id="fileList"></ul>
 
@@ -260,6 +261,81 @@
                 listItem.appendChild(downloadButton);
                 fileList.appendChild(listItem);
             });
+
+            // Add event listener for search input
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', function() {
+                const searchString = this.value.trim().toLowerCase();
+                const filteredApps = sortedApps.filter(app => {
+                    return app.name.toLowerCase().includes(searchString);
+                });
+                renderApps(filteredApps);
+            });
+        }
+
+        function renderApps(apps) {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            apps.forEach(app => {
+                const listItem = document.createElement('li');
+
+                // Create version selector
+                const versionSelect = document.createElement('select');
+                app.versions.forEach(version => {
+                    const option = document.createElement('option');
+                    option.value = version.downloadURL;
+                    option.text = `Version: ${version.version} (Size: ${formatBytes(version.size)})`;
+                    versionSelect.appendChild(option);
+                });
+
+                // App icon
+                const appIcon = document.createElement('img');
+                appIcon.src = app.versions[0].iconURL;
+                appIcon.alt = app.name;
+
+                // App info
+                const appInfo = document.createElement('div');
+                appInfo.className = 'app-info';
+                appInfo.innerHTML = `
+                    <strong>${app.name}</strong> (ID: ${app.bundleIdentifier}) 
+                    <button onclick="showDescription('${app.bundleIdentifier}')">Description</button>
+                `;
+
+                // Install dropdown
+                const installSelect = document.createElement('select');
+                installSelect.id = `installerSelect-${app.bundleIdentifier}`;
+                installSelect.innerHTML = `
+                    <option value="apple-magnifier://install?url=${versionSelect.value}">TrollStore</option>
+                    <option value="scarlet://install=${versionSelect.value}">Scarlet</option>
+                    <option value="https://signtunes.com/signer#${versionSelect.value}">SignTunes</option>
+                    <option value="altstore://install?url=${versionSelect.value}">AltStore</option>
+                    <option value="reprovision://install?url=${versionSelect.value}">ReProvision</option>
+                    <option value="cloudinstaller://https://download.starfiles.co/${versionSelect.value}">AppInstaller iOS</option>
+                `;
+
+                // Install button
+                const installButton = document.createElement('button');
+                installButton.innerText = 'Get';
+                installButton.onclick = function() {
+                    install(versionSelect.value, app.bundleIdentifier);
+                };
+
+                // Download button
+                const downloadButton = document.createElement('button');
+                downloadButton.innerText = 'Download';
+                downloadButton.onclick = function() {
+                    downloadFile(versionSelect.value);
+                };
+
+                // Append elements to list item
+                listItem.appendChild(appIcon);
+                listItem.appendChild(appInfo);
+                listItem.appendChild(versionSelect);
+                listItem.appendChild(installSelect);
+                listItem.appendChild(installButton);
+                listItem.appendChild(downloadButton);
+                fileList.appendChild(listItem);
+            });
         }
 
         function formatBytes(bytes, decimals = 2) {
@@ -292,13 +368,20 @@
         }
 
         function closePopup() {
-            document.getElementById('overlay').style.animation = 'fadeOut 0.3s';
-            document.getElementById('popup').style.animation = 'fadeOut 0.3s';
+            const overlay = document.getElementById('overlay');
+            const popup = document.getElementById('popup');
+        
+            overlay.style.animation = 'fadeOut 0.3s forwards'; // Apply fadeOut animation
+            popup.style.animation = 'fadeOut 0.3s forwards';   // Apply fadeOut animation
+        
             setTimeout(() => {
-                document.getElementById('overlay').style.display = 'none';
-                document.getElementById('popup').style.display = 'none';
-            }, 300);
+                overlay.style.display = 'none';  // Hide overlay after animation
+                popup.style.display = 'none';    // Hide popup after animation
+                overlay.style.animation = '';    // Reset animation property
+                popup.style.animation = '';      // Reset animation property
+            }, 300); // Match the animation duration
         }
+        
     </script>
 </body>
 </html>
