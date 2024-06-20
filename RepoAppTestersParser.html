@@ -16,14 +16,37 @@
             text-align: center;
             color: #007aff;
         }
-        #jsonInput, #urlInput, #searchInput {
-            width: 100%;
-            padding: 10px;
+        .input-container {
+            position: relative;
+        }
+        #jsonInputContainer, #urlInputContainer {
             margin-bottom: 10px;
+        }
+        #jsonInputContainer textarea, .urlInput {
+            width: calc(100% - 50px);
+            padding: 10px;
             font-size: 16px;
             border: 1px solid #d1d1d6;
             border-radius: 10px;
             box-sizing: border-box;
+        }
+        .input-container button {
+            position: absolute;
+            padding-left: 10px;
+            padding-top: 3px;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            margin: auto 0;
+            height: 35px;
+            width: 35px;
+            border: none;
+            background-color: #007aff;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            line-height: 0;
         }
         #fileList {
             list-style-type: none;
@@ -126,10 +149,30 @@
 </head>
 <body>
     <h2>App Repository</h2>
-    <input type="text" id="urlInput" placeholder="https://repo.apptesters.org" value="https://repo.apptesters.org"><br><br>
-    <textarea id="jsonInput" placeholder="Paste JSON data here..."></textarea><br><br>
+
+    <div id="urlInputContainer">
+        <div class="input-container">
+            <input type="text" class="urlInput" placeholder="https://repo.apptesters.org" value="https://repo.apptesters.org">
+            <button onclick="addUrlInput()">+</button>
+        </div>
+    </div>
+    
+    <div id="jsonInputContainer">
+        <div class="input-container">
+            <textarea placeholder="Paste JSON data here..."></textarea>
+            <button onclick="addJsonInput()">+</button>
+        </div>
+    </div>
+
     <input type="text" id="searchInput" placeholder="Search apps...">
     <button onclick="loadJson()">Load JSON</button><br><br>
+
+    <select id="sortSelect" style="display: none;">
+        <option value="name-asc">Name (A-Z)</option>
+        <option value="name-desc">Name (Z-A)</option>
+        <option value="size-asc">Size (Smallest-Largest)</option>
+        <option value="size-desc">Size (Largest-Smallest)</option>
+    </select>
     <ul id="fileList"></ul>
 
     <div id="popup" class="popup">
@@ -139,35 +182,72 @@
     <div id="overlay" class="overlay" onclick="closePopup()"></div>
 
     <script>
-        let parsedData;
+        let parsedData = { apps: [] };
+
+        function addUrlInput() {
+            const container = document.getElementById('urlInputContainer');
+            const inputContainer = document.createElement('div');
+            inputContainer.className = 'input-container';
+            inputContainer.innerHTML = `
+                <input type="text" class="urlInput" placeholder="Enter URL">
+                <button onclick="removeInput(this)">-</button>
+            `;
+            container.appendChild(inputContainer);
+        }
+
+        function addJsonInput() {
+            const container = document.getElementById('jsonInputContainer');
+            const inputContainer = document.createElement('div');
+            inputContainer.className = 'input-container';
+            inputContainer.innerHTML = `
+                <textarea placeholder="Paste JSON data here..."></textarea>
+                <button onclick="removeInput(this)">-</button>
+            `;
+            container.appendChild(inputContainer);
+        }
+
+        function removeInput(button) {
+            button.parentElement.remove();
+        }
 
         function loadJson() {
-            const url = document.getElementById('urlInput').value.trim();
-            const jsonInput = document.getElementById('jsonInput').value.trim();
+            const urlInputs = document.querySelectorAll('.urlInput');
+            const jsonInputs = document.querySelectorAll('#jsonInputContainer textarea');
             
-            if (url) {
-                fetch(url)
-                    .then(response => response.json())
-                    .then(data => {
-                        parsedData = data;
-                        parseJson(data);
-                    })
-                    .catch(error => {
-                        alert('Failed to load JSON from URL');
-                        console.error('Error:', error);
-                    });
-            } else if (jsonInput) {
-                try {
-                    const data = JSON.parse(jsonInput);
-                    parsedData = data;
-                    parseJson(data);
-                } catch (error) {
-                    alert('Invalid JSON format!');
-                    console.error('Error:', error);
+            parsedData.apps = [];
+
+            const fetchPromises = Array.from(urlInputs).map(input => {
+                const url = input.value.trim();
+                if (url) {
+                    return fetch(url).then(response => response.json());
                 }
-            } else {
-                alert('Please enter JSON data or a URL');
-            }
+            });
+
+            const jsonPromises = Array.from(jsonInputs).map(input => {
+                const jsonInput = input.value.trim();
+                if (jsonInput) {
+                    try {
+                        return Promise.resolve(JSON.parse(jsonInput));
+                    } catch (error) {
+                        alert('Invalid JSON format!');
+                        console.error('Error:', error);
+                    }
+                }
+            });
+
+            Promise.all([...fetchPromises, ...jsonPromises])
+                .then(results => {
+                    results.forEach(data => {
+                        if (data && data.apps) {
+                            parsedData.apps.push(...data.apps);
+                        }
+                    });
+                    parseJson(parsedData);
+                })
+                .catch(error => {
+                    alert('Failed to load JSON from one or more URLs');
+                    console.error('Error:', error);
+                });
         }
 
         function parseJson(data) {
@@ -185,122 +265,72 @@
                 apps[bundleIdentifier].versions.push({ version, size, downloadURL, iconURL, localizedDescription });
             });
 
-            // Sort apps alphabetically by name
-            const sortedApps = Object.values(apps).sort((a, b) => {
-                const nameA = a.name.toUpperCase();
-                const nameB = b.name.toUpperCase();
-                if (nameA < nameB) {
-                    return -1;
-                }
-                if (nameA > nameB) {
-                    return 1;
-                }
-                return 0;
-            });
-
-            // Display sorted apps in the file list
-            const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
-            sortedApps.forEach(app => {
-                const listItem = document.createElement('li');
-
-                // Create version selector
-                const versionSelect = document.createElement('select');
-                app.versions.forEach(version => {
-                    const option = document.createElement('option');
-                    option.value = version.downloadURL;
-                    option.text = `Version: ${version.version} (Size: ${formatBytes(version.size)})`;
-                    versionSelect.appendChild(option);
-                });
-
-                // App icon
-                const appIcon = document.createElement('img');
-                appIcon.src = app.versions[0].iconURL;
-                appIcon.alt = app.name;
-
-                // App info
-                const appInfo = document.createElement('div');
-                appInfo.className = 'app-info';
-                appInfo.innerHTML = `
-                    <strong>${app.name}</strong> (ID: ${app.bundleIdentifier}) 
-                    <button onclick="showDescription('${app.bundleIdentifier}')">Description</button>
-                `;
-
-                // Install dropdown
-                const installSelect = document.createElement('select');
-                installSelect.id = `installerSelect-${app.bundleIdentifier}`;
-                installSelect.innerHTML = `
-                    <option value="apple-magnifier://install?url=${versionSelect.value}">TrollStore</option>
-                    <option value="scarlet://install=${versionSelect.value}">Scarlet</option>
-                    <option value="https://signtunes.com/signer#${versionSelect.value}">SignTunes</option>
-                    <option value="altstore://install?url=${versionSelect.value}">AltStore</option>
-                    <option value="reprovision://install?url=${versionSelect.value}">ReProvision</option>
-                    <option value="cloudinstaller://https://download.starfiles.co/${versionSelect.value}">AppInstaller iOS</option>
-                `;
-
-                // Install button
-                const installButton = document.createElement('button');
-                installButton.innerText = 'Get';
-                installButton.onclick = function() {
-                    install(versionSelect.value, app.bundleIdentifier);
-                };
-
-                // Download button
-                const downloadButton = document.createElement('button');
-                downloadButton.innerText = 'Download';
-                downloadButton.onclick = function() {
-                    downloadFile(versionSelect.value);
-                };
-
-                // Append elements to list item
-                listItem.appendChild(appIcon);
-                listItem.appendChild(appInfo);
-                listItem.appendChild(versionSelect);
-                listItem.appendChild(installSelect);
-                listItem.appendChild(installButton);
-                listItem.appendChild(downloadButton);
-                fileList.appendChild(listItem);
-            });
+            const sortedApps = Object.values(apps);
+            renderApps(sortedApps);
 
             // Add event listener for search input
             const searchInput = document.getElementById('searchInput');
             searchInput.addEventListener('input', function() {
                 const searchString = this.value.trim().toLowerCase();
                 const filteredApps = sortedApps.filter(app => {
-                    return app.name.toLowerCase().includes(searchString);
+                    return app.name.toLowerCase().includes(searchString) || app.bundleIdentifier.toLowerCase().includes(searchString);
                 });
                 renderApps(filteredApps);
             });
+
+            // Add event listener for sort select
+            const sortSelect = document.getElementById('sortSelect');
+            sortSelect.addEventListener('change', function() {
+                renderApps(sortedApps);
+            });
+            sortSelect.style.display = 'inline-block'; // Show sort select
         }
 
         function renderApps(apps) {
             const fileList = document.getElementById('fileList');
             fileList.innerHTML = '';
+
+            const sortSelect = document.getElementById('sortSelect');
+            const sortValue = sortSelect.value;
+
+            apps.sort((a, b) => {
+                const nameA = a.name.toUpperCase();
+                const nameB = b.name.toUpperCase();
+
+                if (sortValue === 'name-asc') {
+                    return nameA.localeCompare(nameB);
+                } else if (sortValue === 'name-desc') {
+                    return nameB.localeCompare(nameA);
+                } else if (sortValue === 'size-asc') {
+                    const sizeA = a.versions[0].size || 0;
+                    const sizeB = b.versions[0].size || 0;
+                    return sizeA - sizeB;
+                } else if (sortValue === 'size-desc') {
+                    const sizeA = a.versions[0].size || 0;
+                    const sizeB = b.versions[0].size || 0;
+                    return sizeB - sizeA;
+                }
+            });
+
             apps.forEach(app => {
                 const listItem = document.createElement('li');
-
-                // Create version selector
-                const versionSelect = document.createElement('select');
-                app.versions.forEach(version => {
-                    const option = document.createElement('option');
-                    option.value = version.downloadURL;
-                    option.text = `Version: ${version.version} (Size: ${formatBytes(version.size)})`;
-                    versionSelect.appendChild(option);
-                });
-
-                // App icon
                 const appIcon = document.createElement('img');
-                appIcon.src = app.versions[0].iconURL;
-                appIcon.alt = app.name;
-
-                // App info
                 const appInfo = document.createElement('div');
+
+                appIcon.src = app.versions[0].iconURL || 'https://via.placeholder.com/60';
                 appInfo.className = 'app-info';
                 appInfo.innerHTML = `
-                    <strong>${app.name}</strong> (ID: ${app.bundleIdentifier}) 
+                    <strong>${app.name}</strong>
+                    <span>${app.bundleIdentifier}</span><br>
                     <button onclick="showDescription('${app.bundleIdentifier}')">Description</button>
                 `;
 
+                // Version dropdown
+                const versionSelect = document.createElement('select');
+                versionSelect.innerHTML = app.versions.map(version => {
+                    return `<option value="${version.downloadURL}">${version.version} (${formatBytes(version.size)})</option>`;
+                }).join('');
+                
                 // Install dropdown
                 const installSelect = document.createElement('select');
                 installSelect.id = `installerSelect-${app.bundleIdentifier}`;
@@ -370,18 +400,17 @@
         function closePopup() {
             const overlay = document.getElementById('overlay');
             const popup = document.getElementById('popup');
-        
-            overlay.style.animation = 'fadeOut 0.3s forwards'; // Apply fadeOut animation
-            popup.style.animation = 'fadeOut 0.3s forwards';   // Apply fadeOut animation
-        
+
+            overlay.style.animation = 'fadeOut 0.3s forwards';
+            popup.style.animation = 'fadeOut 0.3s forwards';
+
             setTimeout(() => {
-                overlay.style.display = 'none';  // Hide overlay after animation
-                popup.style.display = 'none';    // Hide popup after animation
-                overlay.style.animation = '';    // Reset animation property
-                popup.style.animation = '';      // Reset animation property
-            }, 300); // Match the animation duration
+                overlay.style.display = 'none';
+                popup.style.display = 'none';
+                overlay.style.animation = '';
+                popup.style.animation = '';
+            }, 300);
         }
-        
     </script>
 </body>
 </html>
