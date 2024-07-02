@@ -1,4 +1,7 @@
-<html><head><base href="Tetris" />
+<!DOCTYPE html>
+<html>
+<head>
+<base href="Tetris" />
 <title>Tetris</title>
 <style>
   body {
@@ -11,6 +14,7 @@
     height: 100vh;
     margin: 0;
     overflow: hidden;
+    position: relative;
   }
   #game-container {
     display: flex;
@@ -23,8 +27,15 @@
     margin-left: 20px;
     display: flex;
     flex-direction: column;
-    height: 404px;
     justify-content: space-between;
+    height: 404px;
+  }
+  #next-piece-panel {
+    margin-right: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 404px;
   }
   .info-box {
     background-color: #222;
@@ -43,10 +54,45 @@
     font-size: 32px;
     color: #fff;
   }
+  #next-piece-canvas {
+    border: none;
+    background-color: #222;
+  }
+  .mobile-controls {
+    position: absolute;
+    bottom: 10px;
+  }
+  .left-controls {
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+  }
+  .right-controls {
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .control-button {
+    background-color: #333;
+    border: 2px solid #555;
+    color: #fff;
+    font-size: 18px;
+    padding: 10px;
+    margin: 5px;
+    border-radius: 5px;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
 <div id="game-container">
+  <div id="next-piece-panel">
+    <div class="info-box">
+      <div class="info-box-title">NEXT PIECE</div>
+      <canvas id="next-piece-canvas" width="100" height="100"></canvas>
+    </div>
+  </div>
   <canvas id="tetris" width="240" height="400"></canvas>
   <div id="info-panel">
     <div class="info-box">
@@ -68,13 +114,31 @@
   </div>
 </div>
 
+<div class="mobile-controls left-controls" id="left-controls">
+  <button class="control-button" id="rotate-left-button">Z</button>
+  <button class="control-button" id="rotate-right-button">X</button>
+  <button class="control-button" id="drop-button">DROP</button>
+</div>
+<div class="mobile-controls right-controls" id="right-controls">
+  <button class="control-button" id="restart-button">RESTART</button>
+  <div>
+    <button class="control-button" id="left-button">←</button>
+    <button class="control-button" id="right-button">→</button>
+    <button class="control-button" id="down-button">↓</button>
+  </div>
+</div>
+
 <script>
 const canvas = document.getElementById('tetris');
 const context = canvas.getContext('2d');
+const nextPieceCanvas = document.getElementById('next-piece-canvas');
+const nextPieceContext = nextPieceCanvas.getContext('2d');
 const scoreElement = document.getElementById('score');
 const highScoreElement = document.getElementById('high-score');
 const levelElement = document.getElementById('level');
 const linesElement = document.getElementById('lines');
+const leftControls = document.getElementById('left-controls');
+const rightControls = document.getElementById('right-controls');
 
 context.scale(20, 20);
 
@@ -104,6 +168,7 @@ const player = {
 };
 
 let highScore = 0;
+let nextPiece = null;
 
 let softDropActive = false;
 let softDropInterval;
@@ -186,6 +251,23 @@ function drawMatrix(matrix, offset) {
     });
 }
 
+function drawNextPiece() {
+    nextPieceContext.clearRect(0, 0, nextPieceCanvas.width, nextPieceCanvas.height);
+
+    const scale = 20; // Scale factor for the next piece
+    const offsetX = (nextPieceCanvas.width / 2) - (nextPiece.matrix[0].length * scale / 2);
+    const offsetY = (nextPieceCanvas.height / 2) - (nextPiece.matrix.length * scale / 2);
+
+    nextPiece.matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+            if (value !== 0) {
+                nextPieceContext.fillStyle = colors[value];
+                nextPieceContext.fillRect(offsetX + x * scale, offsetY + y * scale, scale, scale);
+            }
+        });
+    });
+}
+
 function drawShadowPiece() {
     const shadowPos = getDropPosition();
     player.matrix.forEach((row, y) => {
@@ -240,10 +322,21 @@ function playerMove(dir) {
 
 function playerReset() {
     const pieces = 'ILJOTSZ';
-    player.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
+    if (!nextPiece) {
+        nextPiece = {
+            matrix: createPiece(pieces[pieces.length * Math.random() | 0])
+        };
+    }
+    player.matrix = nextPiece.matrix;
+    nextPiece = {
+        matrix: createPiece(pieces[pieces.length * Math.random() | 0])
+    };
+    drawNextPiece();
+
     player.pos.y = 0;
     player.pos.x = (arena[0].length / 2 | 0) -
                    (player.matrix[0].length / 2 | 0);
+
     if (collide(arena, player)) {
         arena.forEach(row => row.fill(0));
         player.score = 0;
@@ -492,6 +585,55 @@ window.addEventListener('keydown', function(e) {
   }
 });
 
+// Mobile controls
+function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+if (isMobile()) {
+    const leftControls = document.getElementById('left-controls');
+    const rightControls = document.getElementById('right-controls');
+
+    leftControls.style.display = 'flex';
+    rightControls.style.display = 'flex';
+} else {
+    const leftControls = document.getElementById('left-controls');
+    const rightControls = document.getElementById('right-controls');
+
+    leftControls.style.display = 'none';
+    rightControls.style.display = 'none';
+}
+
+// Button listeners for mobile controls
+document.getElementById('rotate-left-button').addEventListener('click', () => {
+    playerRotate(-1);
+});
+document.getElementById('rotate-right-button').addEventListener('click', () => {
+    playerRotate(1);
+});
+document.getElementById('drop-button').addEventListener('click', () => {
+    while (!collide(arena, player)) {
+        player.pos.y++;
+    }
+    player.pos.y--;
+    merge(arena, player);
+    playerReset();
+    arenaSweep();
+    updateScore();
+});
+document.getElementById('restart-button').addEventListener('click', () => {
+    restartGame();
+});
+document.getElementById('left-button').addEventListener('click', () => {
+    startLeftMove();
+});
+document.getElementById('right-button').addEventListener('click', () => {
+    startRightMove();
+});
+document.getElementById('down-button').addEventListener('click', () => {
+    startSoftDrop();
+});
+
 playerReset();
 updateScore();
 updateLevel();
@@ -499,4 +641,5 @@ updateLines();
 update();
 
 </script>
-</body></html>
+</body>
+</html>
