@@ -3,79 +3,269 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Cube with Three.js</title>
+    <title>3D Object with Touch Controls and Momentum</title>
     <style>
-        body { margin: 0; }
+        body { margin: 0; overflow: hidden; }
         canvas { display: block; }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+        }
+        .controls label {
+            margin: 5px 0;
+        }
+        .controls input,
+        .controls select {
+            width: 200px;
+        }
     </style>
 </head>
 <body>
+    <div class="controls">
+        <label for="color">Color:</label>
+        <input type="color" id="color" value="#0077ff">
+        
+        <label for="roughness">Roughness:</label>
+        <input type="range" id="roughness" min="0" max="1" step="0.01" value="0.5">
+        
+        <label for="metalness">Metalness:</label>
+        <input type="range" id="metalness" min="0" max="1" step="0.01" value="0.5">
+        
+        <label for="friction">Friction:</label>
+        <input type="range" id="friction" min="0" max="1" step="0.01" value="0.95">
+        
+        <label for="lightIntensity">Light Intensity:</label>
+        <input type="range" id="lightIntensity" min="0" max="2" step="0.1" value="1">
+        
+        <label for="lightX">Light X:</label>
+        <input type="range" id="lightX" min="-10" max="10" step="0.1" value="5">
+        
+        <label for="lightY">Light Y:</label>
+        <input type="range" id="lightY" min="-10" max="10" step="0.1" value="5">
+        
+        <label for="lightZ">Light Z:</label>
+        <input type="range" id="lightZ" min="-10" max="10" step="0.1" value="5">
+        
+        <label for="shape">Shape:</label>
+        <select id="shape">
+            <option value="cube">Cube</option>
+            <option value="sphere">Sphere</option>
+            <option value="cylinder">Cylinder</option>
+            <option value="cone">Cone</option>
+            <option value="torus">Torus</option>
+        </select>
+    </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-    // Create the scene
-    const scene = new THREE.Scene();
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-    // Set up the camera
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 5;
+        // Initial geometry and material
+        let geometry = new THREE.BoxGeometry();
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x0077ff, // Cube color
+            roughness: 0.5,  // Shading roughness
+            metalness: 0.5,  // Reflectivity
+        });
 
-    // Create the renderer
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+        // Initial cube mesh
+        let cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
 
-    // Create a cube geometry
-    const geometry = new THREE.BoxGeometry();
+        // Light source
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 5, 5).normalize();
+        scene.add(light);
 
-    // Create a gradient material with shading
-    const material = new THREE.MeshPhongMaterial({
-        vertexColors: THREE.FaceColors,
-        shininess: 100
-    });
+        // Camera position
+        camera.position.z = 5;
 
-    // Create the mesh
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+        // Variables for custom controls with momentum
+        let isDragging = false;
+        let previousTouchPosition = { x: 0, y: 0 };
+        let velocity = { x: 0, y: 0 };
+        let friction = 0.95;  // Slowdown factor
 
-    // Add gradient colors to the cube's faces
-    geometry.faces.forEach((face, index) => {
-        const color = new THREE.Color();
-        color.setHSL(index / geometry.faces.length, 1.0, 0.5); // Adjust hue, saturation, and lightness
-        face.color.copy(color);
-    });
+        // Touch start event
+        renderer.domElement.addEventListener('touchstart', function(event) {
+            isDragging = true;
+            velocity = { x: 0, y: 0 };  // Reset velocity
+            previousTouchPosition.x = event.touches[0].clientX;
+            previousTouchPosition.y = event.touches[0].clientY;
+        });
 
-    // Add a light source
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(1, 1, 1).normalize();
-    scene.add(light);
+        // Touch end event
+        renderer.domElement.addEventListener('touchend', function(event) {
+            isDragging = false;
+        });
 
-    // Add ambient light
-    const ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
-    scene.add(ambientLight);
+        // Touch move event
+        renderer.domElement.addEventListener('touchmove', function(event) {
+            if (isDragging) {
+                const touch = event.touches[0];
+                const deltaMove = {
+                    x: touch.clientX - previousTouchPosition.x,
+                    y: touch.clientY - previousTouchPosition.y
+                };
 
-    // Animation loop
-    function animate() {
-        requestAnimationFrame(animate);
+                velocity.x = deltaMove.x * 0.1;  // Adjust for sensitivity
+                velocity.y = deltaMove.y * 0.1;
 
-        // Rotate the cube for better view
-        cube.rotation.x += 0.01;
-        cube.rotation.y += 0.01;
+                const deltaRotationQuaternion = new THREE.Quaternion()
+                    .setFromEuler(new THREE.Euler(
+                        toRadians(deltaMove.y * 0.5),
+                        toRadians(deltaMove.x * 0.5),
+                        0,
+                        'XYZ'
+                    ));
 
-        renderer.render(scene, camera);
-    }
+                cube.quaternion.multiplyQuaternions(deltaRotationQuaternion, cube.quaternion);
 
-    // Adjust canvas size when the window is resized
-    window.addEventListener('resize', () => {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        renderer.setSize(width, height);
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-    });
+                previousTouchPosition.x = touch.clientX;
+                previousTouchPosition.y = touch.clientY;
+            }
+        });
 
-    animate();
-</script>
+        // Utility function to convert degrees to radians
+        function toRadians(angle) {
+            return angle * (Math.PI / 180);
+        }
 
+        // Animation loop with momentum
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!isDragging) {
+                // Apply momentum
+                const momentumRotationQuaternion = new THREE.Quaternion()
+                    .setFromEuler(new THREE.Euler(
+                        toRadians(velocity.y),
+                        toRadians(velocity.x),
+                        0,
+                        'XYZ'
+                    ));
+                cube.quaternion.multiplyQuaternions(momentumRotationQuaternion, cube.quaternion);
+
+                // Apply friction to slow down
+                velocity.x *= friction;
+                velocity.y *= friction;
+
+                // Stop completely when velocity is very low
+                if (Math.abs(velocity.x) < 0.001) velocity.x = 0;
+                if (Math.abs(velocity.y) < 0.001) velocity.y = 0;
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Adjust on window resize
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+
+        // Get slider elements
+        const colorInput = document.getElementById('color');
+        const roughnessInput = document.getElementById('roughness');
+        const metalnessInput = document.getElementById('metalness');
+        const frictionInput = document.getElementById('friction');
+        const lightIntensityInput = document.getElementById('lightIntensity');
+        const lightXInput = document.getElementById('lightX');
+        const lightYInput = document.getElementById('lightY');
+        const lightZInput = document.getElementById('lightZ');
+        const shapeSelect = document.getElementById('shape');
+
+        let currentGeometry = geometry; // Keep track of current geometry
+
+        // Function to create and update the mesh with the selected shape
+        function updateShape() {
+            // Remove the old cube from the scene
+            scene.remove(cube);
+
+            // Determine the selected shape
+            const shape = shapeSelect.value;
+
+            // Create the new geometry based on the selected shape
+            switch (shape) {
+                case 'cube':
+                    currentGeometry = new THREE.BoxGeometry();
+                    break;
+                case 'sphere':
+                    currentGeometry = new THREE.SphereGeometry(1, 32, 32);
+                    break;
+                case 'cylinder':
+                    currentGeometry = new THREE.CylinderGeometry(1, 1, 2, 32);
+                    break;
+                case 'cone':
+                    currentGeometry = new THREE.ConeGeometry(1, 2, 32);
+                    break;
+                case 'torus':
+                    currentGeometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
+                    break;
+                default:
+                    currentGeometry = new THREE.BoxGeometry();
+                    break;
+            }
+
+            // Create a new mesh with the updated geometry and the same material
+            cube = new THREE.Mesh(currentGeometry, material);
+
+            // Add the new cube to the scene
+            scene.add(cube);
+        }
+
+        // Update material properties based on slider values
+        function updateMaterial() {
+            material.color.set(colorInput.value);
+            material.roughness = parseFloat(roughnessInput.value);
+            material.metalness = parseFloat(metalnessInput.value);
+        }
+
+        // Update friction value
+        function updateFriction() {
+            friction = parseFloat(frictionInput.value);
+        }
+
+        // Update light properties based on slider values
+        function updateLight() {
+            light.intensity = parseFloat(lightIntensityInput.value);
+            light.position.set(
+                parseFloat(lightXInput.value),
+                parseFloat(lightYInput.value),
+                parseFloat(lightZInput.value)
+            );
+        }
+
+        // Event listeners for sliders and shape selector
+        colorInput.addEventListener('input', updateMaterial);
+        roughnessInput.addEventListener('input', updateMaterial);
+        metalnessInput.addEventListener('input', updateMaterial);
+        frictionInput.addEventListener('input', updateFriction);
+        lightIntensityInput.addEventListener('input', updateLight);
+        lightXInput.addEventListener('input', updateLight);
+        lightYInput.addEventListener('input', updateLight);
+        lightZInput.addEventListener('input', updateLight);
+        shapeSelect.addEventListener('change', updateShape);
+
+        // Initialize material, friction, light, and shape with slider values
+        updateMaterial();
+        updateFriction();
+        updateLight();
+        updateShape();
+    </script>
 </body>
 </html>
