@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editable XOR Cipher and POST Request</title>
+    <style>
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Editable XOR Cipher and POST Request</h1>
+        <form id="dataForm">
+            <!-- Dynamically generate text boxes here -->
+        </form>
+        <button id="sendRequest">Send Request</button>
+    </div>
+
+    <script>
+        const initialData = {
+            "accountID": 16565069,
+            "gjp2": "aa500109918e7d19ac0084814f374576cc3327dc",
+            "userName": "ryder7223",
+            "stars": 348,
+            "moons": 23,
+            "demons": 2,
+            "diamonds": 1580,
+            "icon": 2,
+            "color1": 10,
+            "color2": 11,
+            "color3": 0,
+            "iconType": 5,
+            "coins": 41,
+            "userCoins": 44,
+            "special": 0,
+            "accIcon": 89,
+            "accShip": 51,
+            "accBall": 33,
+            "accBird": 11,
+            "accDart": 13,
+            "accRobot": 2,
+            "accGlow": 0,
+            "accSpider": 14,
+            "accExplosion": 15,
+            "accSwing": 1,
+            "accJetpack": 1,
+            "dinfo": "96978035,76821414",
+            "dinfow": 0,
+            "dinfog": 0,
+            "sinfo": "44,17,7,13,5,4,0,0,1,2,1,0",
+            "sinfod": 6,
+            "sinfog": 11,
+            "seed": "bpWu6YlJKy",
+            "secret": "Wmfd2893gb7"
+        };
+
+        // Populate the form with input fields based on initialData
+        const form = document.getElementById('dataForm');
+
+        for (const key in initialData) {
+            const formGroup = document.createElement('div');
+            formGroup.className = 'form-group';
+
+            const label = document.createElement('label');
+            label.setAttribute('for', key);
+            label.textContent = key;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = key;
+            input.name = key;
+            input.value = initialData[key];
+
+            formGroup.appendChild(label);
+            formGroup.appendChild(input);
+            form.appendChild(formGroup);
+        }
+
+        // XOR cipher function
+        function xorCipher(data, key) {
+            const keyLength = key.length;
+            let xored = '';
+            
+            for (let i = 0; i < data.length; i++) {
+                const dataChar = data.charCodeAt(i);
+                const keyChar = key.charCodeAt(i % keyLength);
+                const xoredChar = String.fromCharCode(dataChar ^ keyChar);
+                xored += xoredChar;
+            }
+            
+            return xored;
+        }
+
+        // Generate checksum function
+        function generateChk(values, key, salt) {
+            values.push(salt);
+            const string = values.join('');  // Convert all to string and concatenate
+            
+            // SHA-1 hash
+            const sha1 = new TextEncoder().encode(string);
+            return crypto.subtle.digest('SHA-1', sha1).then(buffer => {
+                const hashArray = Array.from(new Uint8Array(buffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                
+                // XOR cipher the hash
+                const xored = xorCipher(hashHex, key);
+                
+                // Base64 encode the XORed result
+                const final = btoa(xored).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                
+                return final;
+            });
+        }
+
+        document.getElementById('sendRequest').addEventListener('click', async () => {
+            const formData = new FormData(form);
+            const data = {};
+
+            formData.forEach((value, key) => {
+                if (!isNaN(value)) {
+                    data[key] = parseFloat(value);  // Convert to number if possible
+                } else {
+                    data[key] = value;  // Otherwise, keep as string
+                }
+            });
+
+            // Generate seed2 using the generateChk function
+            data['seed2'] = await generateChk([
+                data['accountID'], data['userCoins'], data['demons'], data['stars'], data['coins'], 
+                data['iconType'], data['icon'], data['diamonds'], data['accIcon'], data['accShip'], 
+                data['accBall'], data['accBird'], data['accDart'], data['accRobot'], data['accGlow'], 
+                data['accSpider'], data['accExplosion'], data['dinfo'].length, data['dinfow'], 
+                data['dinfog'], data['sinfo'], data['sinfod'], data['sinfog']
+            ], "85271", "xI35fsAapCRg");
+
+            console.log("seed2: " + data['seed2']);
+
+            // Send POST request
+            fetch('http://www.boomlings.com/database/updateGJUserScore22.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'User-Agent': ''
+                },
+                body: new URLSearchParams(data)
+            })
+            .then(response => response.text())
+            .then(responseText => {
+                console.log("Response: " + responseText);
+            })
+            .catch(error => {
+                console.error("Error: ", error);
+            });
+        });
+    </script>
+</body>
+</html>
