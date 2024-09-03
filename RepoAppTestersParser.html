@@ -5,155 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>App Repository</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #f2f2f7;
-            margin: 0;
-            padding: 20px;
-            color: #1c1c1e;
-        }
-        h2 {
-            text-align: center;
-            color: #007aff;
-        }
-        .input-container {
-            position: relative;
-        }
-        #jsonInputContainer, #urlInputContainer {
-            margin-bottom: 10px;
-        }
-        #jsonInputContainer textarea, .urlInput {
-            width: calc(100% - 50px);
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #d1d1d6;
-            border-radius: 10px;
-            box-sizing: border-box;
-        }
-        #searchInput {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            font-size: 16px;
-            border: 1px solid #d1d1d6;
-            border-radius: 10px;
-            box-sizing: border-box;
-        }
-        .input-container button {
-            position: absolute;
-            padding-left: 10px;
-            padding-top: 3px;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            margin: auto 0;
-            height: 35px;
-            width: 35px;
-            border: none;
-            background-color: #007aff;
-            color: white;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 24px;
-            line-height: 0;
-        }
-        #fileList {
-            list-style-type: none;
-            padding: 0;
-        }
-        #fileList li {
-            background-color: #ffffff;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            padding: 15px;
-            display: flex;
-            align-items: center;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-        .app-info {
-            margin-left: 15px;
-            flex-grow: 1;
-        }
-        .app-info strong {
-            display: block;
-            font-size: 18px;
-            margin-bottom: 5px;
-        }
-        .app-info button {
-            background: none;
-            border: none;
-            color: #007aff;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 0;
-        }
-        .app-info button:hover {
-            text-decoration: underline;
-        }
-        img {
-            border-radius: 10px;
-            width: 60px;
-            height: 60px;
-        }
-        select, button {
-            padding: 5px 20px;
-            margin: 5px;
-            font-size: 14px;
-            border-radius: 20px;
-            border: 1px solid #d1d1d6;
-            cursor: pointer;
-            background-color: #007aff;
-            color: white;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        select {
-            background-color: #f2f2f7;
-            color: #1c1c1e;
-        }
-        select:hover, button:hover {
-            opacity: 0.8;
-        }
-        .popup {
-            display: none;
-            position: fixed;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            padding: 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            z-index: 10;
-            animation: fadeIn 0.3s;
-        }
-        .popup .close {
-            cursor: pointer;
-            color: red;
-            float: right;
-            margin: -10px -10px 0 0;
-            font-size: 20px;
-        }
-        .overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
-            z-index: 5;
-            animation: fadeIn 0.3s;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
+        /* Existing styles */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f2f2f7; margin: 0; padding: 20px; color: #1c1c1e; }
+        h2 { text-align: center; color: #007aff; }
+        .input-container { position: relative; }
+        #jsonInputContainer, #urlInputContainer { margin-bottom: 10px; }
+        #jsonInputContainer textarea, .urlInput { width: calc(100% - 50px); padding: 10px; font-size: 16px; border: 1px solid #d1d1d6; border-radius: 10px; box-sizing: border-box; }
+        #searchInput { width: 100%; padding: 10px; margin-bottom: 10px; font-size: 16px; border: 1px solid #d1d1d6; border-radius: 10px; box-sizing: border-box; }
+        .input-container button { position: absolute; padding-left: 10px; padding-top: 3px; right: 0; top: 0; bottom: 0; margin: auto 0; height: 35px; width: 35px; border: none; background-color: #007aff; color: white; border-radius: 50%; cursor: pointer; font-size: 24px; line-height: 0; }
+        #fileList { list-style-type: none; padding: 0; }
+        #fileList li { background-color: #ffffff; border-radius: 10px; margin-bottom: 20px; padding: 15px; display: flex; align-items: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+        .app-info { margin-left: 15px; flex-grow: 1; }
+        .app-info strong { display: block; font-size: 18px; margin-bottom: 5px; }
+        .app-info button { background: none; border: none; color: #007aff; cursor: pointer; font-size: 14px; padding: 0; }
+        .app-info button:hover { text-decoration: underline; }
+        img { border-radius: 10px; width: 60px; height: 60px; }
+        select, button { padding: 5px 20px; margin: 5px; font-size: 14px; border-radius: 20px; border: 1px solid #d1d1d6; cursor: pointer; background-color: #007aff; color: white; font-weight: bold; text-transform: uppercase; }
+        select { background-color: #f2f2f7; color: #1c1c1e; }
+        select:hover, button:hover { opacity: 0.8; }
+        .popup { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); z-index: 10; animation: fadeIn 0.3s; }
+        .popup .close { cursor: pointer; color: red; float: right; margin: -10px -10px 0 0; font-size: 20px; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); z-index: 5; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
     </style>
 </head>
 <body>
@@ -228,7 +102,10 @@
             const fetchPromises = Array.from(urlInputs).map(input => {
                 const url = input.value.trim();
                 if (url) {
-                    return fetch(url).then(response => response.json());
+                    return fetch(url).then(response => response.json()).catch(error => {
+                        console.error('Failed to fetch JSON from URL:', url, error);
+                        alert('Failed to load JSON from one or more URLs');
+                    });
                 }
             });
 
@@ -254,8 +131,7 @@
                     parseJson(parsedData);
                 })
                 .catch(error => {
-                    alert('Failed to load JSON from one or more URLs');
-                    console.error('Error:', error);
+                    console.error('Error processing JSON data:', error);
                 });
         }
 
@@ -297,128 +173,67 @@
 
         function renderApps(apps) {
             const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
+            fileList.innerHTML = ''; // Clear existing content
 
-            const sortSelect = document.getElementById('sortSelect');
-            const sortValue = sortSelect.value;
-
-            apps.sort((a, b) => {
-                const nameA = a.name.toUpperCase();
-                const nameB = b.name.toUpperCase();
-
-                if (sortValue === 'name-asc') {
-                    return nameA.localeCompare(nameB);
-                } else if (sortValue === 'name-desc') {
-                    return nameB.localeCompare(nameA);
-                } else if (sortValue === 'size-asc') {
-                    const sizeA = a.versions[0].size || 0;
-                    const sizeB = b.versions[0].size || 0;
-                    return sizeA - sizeB;
-                } else if (sortValue === 'size-desc') {
-                    const sizeA = a.versions[0].size || 0;
-                    const sizeB = b.versions[0].size || 0;
-                    return sizeB - sizeA;
-                }
-            });
+            const sortOption = document.getElementById('sortSelect').value;
+            if (sortOption) {
+                apps.sort((a, b) => {
+                    switch (sortOption) {
+                        case 'name-asc':
+                            return a.name.localeCompare(b.name);
+                        case 'name-desc':
+                            return b.name.localeCompare(a.name);
+                        case 'size-asc':
+                            return getSize(a) - getSize(b);
+                        case 'size-desc':
+                            return getSize(b) - getSize(a);
+                        default:
+                            return 0;
+                    }
+                });
+            }
 
             apps.forEach(app => {
-                const listItem = document.createElement('li');
-                const appIcon = document.createElement('img');
-                const appInfo = document.createElement('div');
-
-                appIcon.src = app.versions[0].iconURL || 'https://via.placeholder.com/60';
-                appInfo.className = 'app-info';
-                appInfo.innerHTML = `
-                    <strong>${app.name}</strong>
-                    <span>${app.bundleIdentifier}</span><br>
-                    <button onclick="showDescription('${app.bundleIdentifier}')">Description</button>
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <img src="${app.versions[0].iconURL || 'default-icon.png'}" alt="${app.name}">
+                    <div class="app-info">
+                        <strong>${app.name}</strong>
+                        <button onclick="showVersions('${app.bundleIdentifier}')">View Versions</button>
+                    </div>
                 `;
-
-                // Version dropdown
-                const versionSelect = document.createElement('select');
-                versionSelect.innerHTML = app.versions.map(version => {
-                    return `<option value="${version.downloadURL}">${version.version} (${formatBytes(version.size)})</option>`;
-                }).join('');
-                
-                // Install dropdown
-                const installSelect = document.createElement('select');
-                installSelect.id = `installerSelect-${app.bundleIdentifier}`;
-                installSelect.innerHTML = `
-                    <option value="apple-magnifier://install?url=${versionSelect.value}">TrollStore</option>
-                    <option value="scarlet://install=${versionSelect.value}">Scarlet</option>
-                    <option value="https://signtunes.com/signer#${versionSelect.value}">SignTunes</option>
-                    <option value="altstore://install?url=${versionSelect.value}">AltStore</option>
-                    <option value="reprovision://install?url=${versionSelect.value}">ReProvision</option>
-                    <option value="cloudinstaller://https://download.starfiles.co/${versionSelect.value}">AppInstaller iOS</option>
-                `;
-
-                // Install button
-                const installButton = document.createElement('button');
-                installButton.innerText = 'Get';
-                installButton.onclick = function() {
-                    install(versionSelect.value, app.bundleIdentifier);
-                };
-
-                // Download button
-                const downloadButton = document.createElement('button');
-                downloadButton.innerText = 'Download';
-                downloadButton.onclick = function() {
-                    downloadFile(versionSelect.value);
-                };
-
-                // Append elements to list item
-                listItem.appendChild(appIcon);
-                listItem.appendChild(appInfo);
-                listItem.appendChild(versionSelect);
-                listItem.appendChild(installSelect);
-                listItem.appendChild(installButton);
-                listItem.appendChild(downloadButton);
-                fileList.appendChild(listItem);
+                fileList.appendChild(li);
             });
         }
 
-        function formatBytes(bytes, decimals = 2) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-        }
-
-        function downloadFile(url) {
-            window.location.href = url;
-        }
-
-        function install(downloadURL, bundleIdentifier) {
-            const select = document.getElementById(`installerSelect-${bundleIdentifier}`);
-            const installerUrl = select.value;
-            window.location.href = installerUrl.replace('${id}', encodeURIComponent(downloadURL));
-        }
-
-        function showDescription(bundleIdentifier) {
-            const app = parsedData.apps.find(app => app.bundleIdentifier === bundleIdentifier);
+        function showVersions(bundleIdentifier) {
+            const app = parsedData.apps.find(a => a.bundleIdentifier === bundleIdentifier);
             if (app) {
-                const description = app.localizedDescription ? app.localizedDescription : 'No description available';
-                document.getElementById('popupContent').innerHTML = `<h3>${app.name} (ID: ${bundleIdentifier})</h3><p>${description}</p>`;
-                document.getElementById('overlay').style.display = 'block';
+                const content = app.versions.map(version => `
+                    <div>
+                        <strong>Version: ${version.version}</strong><br>
+                        <p>Size: ${version.size || 'Unknown'}</p>
+                        <p>Description: ${version.localizedDescription || 'No description available'}</p>
+                        <button onclick="window.open('${version.downloadURL}', '_blank')">Download</button>
+                    </div>
+                `).join('');
+                
+                document.getElementById('popupContent').innerHTML = content;
                 document.getElementById('popup').style.display = 'block';
+                document.getElementById('overlay').style.display = 'block';
             }
         }
 
         function closePopup() {
-            const overlay = document.getElementById('overlay');
-            const popup = document.getElementById('popup');
+            document.getElementById('popup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
 
-            overlay.style.animation = 'fadeOut 0.3s forwards';
-            popup.style.animation = 'fadeOut 0.3s forwards';
-
-            setTimeout(() => {
-                overlay.style.display = 'none';
-                popup.style.display = 'none';
-                overlay.style.animation = '';
-                popup.style.animation = '';
-            }, 300);
+        function getSize(app) {
+            return app.versions.reduce((total, version) => {
+                const size = parseFloat(version.size);
+                return total + (isNaN(size) ? 0 : size);
+            }, 0);
         }
     </script>
 </body>
