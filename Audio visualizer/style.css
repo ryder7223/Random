@@ -1,0 +1,22 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #000;
+    margin: 0;
+    overflow: hidden;
+}
+
+.container {
+    text-align: center;
+}
+
+#visualizer {
+    display: block;
+    margin: 0 auto;
+    width: 800px;
+    height: 300px;
+    border: 1px solid #fff;
+    background-color: #111;
+}
