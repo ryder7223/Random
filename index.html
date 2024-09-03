@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Metadata Editor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+        }
+        #fileInfo {
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+    <!-- Include the exif-js library -->
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+</head>
+<body>
+    <h1>File Metadata Editor</h1>
+    <input type="file" id="fileInput">
+    <button id="loadMetadataBtn" onclick="loadMetadata()">Load Metadata</button>
+    <div id="fileInfo">
+        <h2>Edit Metadata</h2>
+        <textarea id="metadataText"></textarea><br><br>
+        <button onclick="saveFile()">Save Changes</button>
+    </div>
+    <script>
+        let selectedFile;
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            selectedFile = event.target.files[0];
+            if (!selectedFile) {
+                alert("Please select a file first.");
+            }
+        });
+
+        function loadMetadata() {
+            if (!selectedFile) {
+                alert("Please select a file first.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const arrayBuffer = e.target.result;
+
+                EXIF.getData(arrayBuffer, function() {
+                    const allMetaData = EXIF.getAllTags(this);
+                    const metadataTextArea = document.getElementById('metadataText');
+                    let metadataStr = '';
+
+                    for (const key in allMetaData) {
+                        if (Object.prototype.hasOwnProperty.call(allMetaData, key)) {
+                            metadataStr += `${key}: ${allMetaData[key]}\n`;
+                        }
+                    }
+
+                    metadataTextArea.value = metadataStr;
+                    document.getElementById('fileInfo').style.display = 'block';
+                });
+            };
+
+            reader.readAsArrayBuffer(selectedFile);
+        }
+
+        function saveFile() {
+            const text = document.getElementById('metadataText').value;
+            const blob = new Blob([text], { type: 'text/plain' });
+
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = 'edited_metadata.txt';
+
+            link.click();
+            window.URL.revokeObjectURL(link.href);
+        }
+    </script>
+</body>
+</html>
