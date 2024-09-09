@@ -95,8 +95,11 @@
         }
 
         function parseJson(data) {
+            // Access the "result" field in the JSON structure
+            const files = data.result;
+
             // Transform the JSON object to an array of {id, name} objects
-            const items = Object.entries(data).map(([id, file]) => ({
+            const items = Object.entries(files).map(([id, file]) => ({
                 id: id.replace('{', ''),
                 name: file.name
             }));
@@ -115,25 +118,7 @@
             });
 
             // Display sorted items in the file list
-            const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
-            items.forEach((item, index) => {
-                const listItem = document.createElement('li');
-                listItem.innerHTML = `
-                    <strong>${item.name}</strong> (ID: ${item.id})
-                    <select id="installerSelect-${item.id}">
-                        <option value="apple-magnifier://install?url=https://download.starfiles.co/${item.id}">TrollStore</option>
-                        <option value="scarlet://install=https://download.starfiles.co/${item.id}">Scarlet</option>
-                        <option value="https://signtunes.com/signer#https://download.starfiles.co/${item.id}">Signtunes</option>
-                        <option value="altstore://install?url=https://download.starfiles.co/${item.id}">AltStore</option>
-                        <option value="reprovision://install?url=https://download.starfiles.co/${item.id}">ReProvision</option>
-                        <option value="cloudinstaller://https://download.starfiles.co/${item.id}">AppInstaller iOS</option>
-                    </select>
-                    <button onclick="downloadFile('${item.id}')">Download</button>
-                    <button onclick="install('${item.id}')">Install</button>
-                `;
-                fileList.appendChild(listItem);
-            });
+            renderItems(items);
 
             // Add event listener for search input
             const searchInput = document.getElementById('searchInput');
@@ -149,31 +134,31 @@
         function renderItems(items) {
             const fileList = document.getElementById('fileList');
             fileList.innerHTML = '';
-            items.forEach((item, index) => {
+            items.forEach((item) => {
                 const listItem = document.createElement('li');
                 listItem.innerHTML = `
-                    <strong>${item.name}</strong> (ID: ${item.id})
-                    <select id="installerSelect-${item.id}">
-                        <option value="apple-magnifier://install?url=https://download.starfiles.co/${item.id}">TrollStore</option>
-                        <option value="scarlet://install=https://download.starfiles.co/${item.id}">Scarlet</option>
-                        <option value="https://signtunes.com/signer#https://download.starfiles.co/${item.id}">Signtunes</option>
-                        <option value="altstore://install?url=https://download.starfiles.co/${item.id}">AltStore</option>
-                        <option value="reprovision://install?url=https://download.starfiles.co/${item.id}">ReProvision</option>
-                        <option value="cloudinstaller://https://download.starfiles.co/${item.id}">AppInstaller iOS</option>
+                    <strong></strong> (ID: )
+                    <select id="installerSelect-">
+                        <option value="apple-magnifier://install?url=https://download.starfiles.co/">TrollStore</option>
+                        <option value="scarlet://install=https://download.starfiles.co/">Scarlet</option>
+                        <option value="https://signtunes.com/signer#https://download.starfiles.co/">Signtunes</option>
+                        <option value="altstore://install?url=https://download.starfiles.co/">AltStore</option>
+                        <option value="reprovision://install?url=https://download.starfiles.co/">ReProvision</option>
+                        <option value="cloudinstaller://https://download.starfiles.co/">AppInstaller iOS</option>
                     </select>
-					<button onclick="downloadFile('${item.id}')">Download</button>
-                    <button onclick="install('${item.id}')">Install</button>
+                    <button onclick="downloadFile('')">Download</button>
+                    <button onclick="install('')">Install</button>
                 `;
                 fileList.appendChild(listItem);
             });
         }
 
         function downloadFile(id) {
-            window.location.href = `https://download.starfiles.co/${id}`;
+            window.location.href = `https://download.starfiles.co/`;
         }
 
         function install(id) {
-            const select = document.getElementById(`installerSelect-${id}`);
+            const select = document.getElementById(`installerSelect-`);
             const installerUrl = select.value;
             window.location.href = installerUrl;
         }
