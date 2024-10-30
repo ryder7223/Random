@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .output {
+            white-space: pre-wrap; /* Maintains spacing and line breaks */
+            font-family: monospace; /* Monospaced font */
+            border: 1px solid #ddd;
+            padding: 10px;
+            width: 80%;
+            margin-top: 10px;
+            overflow-wrap: break-word;
+            background-color: #f9f9f9;
+        }
+        label, .controls {
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ASCII Art Viewer</h1>
+    
+    <!-- Text Input Area -->
+    <textarea id="textInput" rows="6" cols="60" placeholder="Enter ASCII art or text here..."></textarea>
+    
+    <!-- Font Size Control -->
+    <div class="controls">
+        <label for="fontSize">Font Size: </label>
+        <input type="range" id="fontSize" min="8" max="32" value="16" oninput="updateFontSize(this.value)">
+        <span id="fontSizeValue">16px</span>
+    </div>
+    
+    <!-- Output Area -->
+    <div id="output" class="output"></div>
+
+    <script>
+        const textInput = document.getElementById("textInput");
+        const output = document.getElementById("output");
+        const fontSizeDisplay = document.getElementById("fontSizeValue");
+
+        // Update the output whenever the text input changes
+        textInput.addEventListener("input", () => {
+            output.textContent = textInput.value;
+        });
+
+        // Update the font size of the output and display the size value
+        function updateFontSize(size) {
+            output.style.fontSize = size + "px";
+            fontSizeDisplay.textContent = size + "px";
+        }
+
+        // Initialize with default text if needed
+        textInput.value = "Enter your ASCII art here!";
+        output.textContent = textInput.value;
+        updateFontSize(16); // Default font size
+    </script>
+</body>
+</html>
