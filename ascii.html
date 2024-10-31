@@ -37,9 +37,16 @@
     <div class="controls">
         <label for="fontSize">Font Size: </label>
         <input type="range" id="fontSize" min="1" max="64" value="16" oninput="updateFontSize(this.value)">
-        <span id="fontSizeValue">16px</span>
+        <input type="number" id="fontSizeValue" value="16" min="1" max="64" onchange="updateFontSize(this.value)"> px
     </div>
     
+    <!-- Line Spacing Control -->
+    <div class="controls">
+        <label for="lineSpacing">Line Spacing: </label>
+        <input type="range" id="lineSpacing" min="0.5" max="2" step="0.01" value="1.2" oninput="updateLineSpacing(this.value)">
+        <input type="number" id="lineSpacingValue" value="1.2" min="0.5" max="2" step="0.01" onchange="updateLineSpacing(this.value)">
+    </div>
+
     <!-- Output Area -->
     <div id="output" class="output"></div>
 
@@ -47,22 +54,34 @@
         const textInput = document.getElementById("textInput");
         const output = document.getElementById("output");
         const fontSizeDisplay = document.getElementById("fontSizeValue");
+        const lineSpacingDisplay = document.getElementById("lineSpacingValue");
 
         // Update the output whenever the text input changes
         textInput.addEventListener("input", () => {
             output.textContent = textInput.value;
         });
 
-        // Update the font size of the output and display the size value
+        // Update the font size of the output and synchronize with the range slider and input box
         function updateFontSize(size) {
+            size = Math.max(1, Math.min(64, size));  // Clamp value between 1 and 64
             output.style.fontSize = size + "px";
-            fontSizeDisplay.textContent = size + "px";
+            fontSizeDisplay.value = size;
+            document.getElementById("fontSize").value = size;
+        }
+
+        // Update the line spacing of the output and synchronize with the range slider and input box
+        function updateLineSpacing(spacing) {
+            spacing = Math.max(0.5, Math.min(2, spacing));  // Clamp value between 0.5 and 2
+            output.style.lineHeight = spacing;
+            lineSpacingDisplay.value = spacing;
+            document.getElementById("lineSpacing").value = spacing;
         }
 
         // Initialize with default text if needed
         textInput.value = "Enter your ASCII art here!";
         output.textContent = textInput.value;
         updateFontSize(16); // Default font size
+        updateLineSpacing(1.2); // Default line spacing
     </script>
 </body>
 </html>
