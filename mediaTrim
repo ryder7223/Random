@@ -174,9 +174,9 @@
             const fadeIn = parseFloat(fadeInInput.value);
             const fadeOut = parseFloat(fadeOutInput.value);
             const outputExtension = outputFormat.value;
-            const outputFileName = `.`;
+            const outputFileName = `${fileNameWithoutExt}.${outputExtension}`;
 
-            let ffmpegCommand = `ffmpeg -ss  -i "" -t `;
+            let ffmpegCommand = `ffmpeg -ss ${startTime} -i "${fileInput.files[0].name}" -t ${duration}`;
 
             if (outputExtension === "mp3") {
                 ffmpegCommand += " -acodec libmp3lame";
@@ -188,18 +188,18 @@
 
             let fadeFilter = '';
             if (fadeIn > 0) {
-                fadeFilter += `afade=t=in:ss=0:d=`;
+                fadeFilter += `afade=t=in:ss=0:d=${fadeIn}`;
             }
             if (fadeOut > 0) {
                 const fadeOutStart = duration - fadeOut;
-                fadeFilter += fadeFilter ? `,afade=t=out:st=:d=` : `afade=t=out:st=:d=`;
+                fadeFilter += fadeFilter ? `,afade=t=out:st=${fadeOutStart}:d=${fadeOut}` : `afade=t=out:st=${fadeOutStart}:d=${fadeOut}`;
             }
             if (fadeFilter) {
-                ffmpegCommand += ` -af ""`;
+                ffmpegCommand += ` -af "${fadeFilter}"`;
             }
 
-            ffmpegCommand += ` ""`;
-            outputDiv.textContent = `FFmpeg Command: `;
+            ffmpegCommand += ` "${outputFileName}"`;
+            outputDiv.textContent = `FFmpeg Command: ${ffmpegCommand}`;
         }
 
         const button = document.createElement('button');
