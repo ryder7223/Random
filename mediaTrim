@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Trimmer with Fade Effects</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #output { margin-top: 20px; }
+        input[type=range] { width: 100%; }
+    </style>
+</head>
+<body>
+    <h1>Media Trimmer with Fade Effects</h1>
+
+    <!-- Input for media file -->
+    <input type="file" id="fileInput" accept="audio/*, video/*">
+
+    <!-- Audio/video player -->
+    <div id="playerContainer">
+        <audio id="audioPlayer" controls hidden></audio>
+        <video id="videoPlayer" controls hidden></video>
+    </div>
+
+    <!-- Sliders and text inputs for trimming -->
+    <div>
+        <label for="startRange">Start Time:</label>
+        <input type="range" id="startRange" min="0" value="0" step="0.1">
+        <input type="number" id="startTimeInput" min="0" value="0" step="0.1" style="width: 60px;">
+        <span>seconds</span>
+
+        <label for="endRange">End Time:</label>
+        <input type="range" id="endRange" min="0" value="0" step="0.1">
+        <input type="number" id="endTimeInput" min="0" value="0" step="0.1" style="width: 60px;">
+        <span>seconds</span>
+    </div>
+
+    <!-- Fade-in and fade-out controls -->
+    <div>
+        <h3>Fade Effects</h3>
+        <label for="fadeInDuration">Fade In Duration:</label>
+        <input type="range" id="fadeInDuration" min="0" max="10" value="0" step="0.1">
+        <input type="number" id="fadeInInput" min="0" max="10" value="0" step="0.1" style="width: 60px;">
+        <span>seconds</span>
+
+        <label for="fadeOutDuration">Fade Out Duration:</label>
+        <input type="range" id="fadeOutDuration" min="0" max="10" value="0" step="0.1">
+        <input type="number" id="fadeOutInput" min="0" max="10" value="0" step="0.1" style="width: 60px;">
+        <span>seconds</span>
+    </div>
+
+    <!-- Output file type selection -->
+    <div>
+        <label for="outputFormat">Output Format:</label>
+        <select id="outputFormat">
+            <option value="mp4">MP4</option>
+            <option value="mp3">MP3</option>
+            <option value="wav">WAV</option>
+            <option value="mov">MOV</option>
+            <option value="avi">AVI</option>
+        </select>
+    </div>
+
+    <!-- Output area for ffmpeg command -->
+    <div id="output"></div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const startRange = document.getElementById('startRange');
+        const endRange = document.getElementById('endRange');
+        const startTimeInput = document.getElementById('startTimeInput');
+        const endTimeInput = document.getElementById('endTimeInput');
+        const fadeInDuration = document.getElementById('fadeInDuration');
+        const fadeOutDuration = document.getElementById('fadeOutDuration');
+        const fadeInInput = document.getElementById('fadeInInput');
+        const fadeOutInput = document.getElementById('fadeOutInput');
+        const outputFormat = document.getElementById('outputFormat');
+        const outputDiv = document.getElementById('output');
+
+        let mediaElement, duration, fileNameWithoutExt;
+        let fadeInterval;
+
+        function updateInputs() {
+            startTimeInput.value = startRange.value;
+            endTimeInput.value = endRange.value;
+            fadeInInput.value = fadeInDuration.value;
+            fadeOutInput.value = fadeOutDuration.value;
+        }
+
+        // Load selected media file
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileURL = URL.createObjectURL(file);
+            fileNameWithoutExt = file.name.split('.').slice(0, -1).join('.');
+
+            if (file.type.startsWith("audio")) {
+                audioPlayer.src = fileURL;
+                audioPlayer.hidden = false;
+                videoPlayer.hidden = true;
+                mediaElement = audioPlayer;
+            } else if (file.type.startsWith("video")) {
+                videoPlayer.src = fileURL;
+                videoPlayer.hidden = false;
+                audioPlayer.hidden = true;
+                mediaElement = videoPlayer;
+            }
+
+            mediaElement.onloadedmetadata = () => {
+                duration = mediaElement.duration;
+                startRange.max = endRange.max = duration;
+                startRange.value = 0;
+                endRange.value = duration;
+                updateInputs();
+            };
+        });
+
+        // Sync slider values with text inputs and adjust playback position
+        startRange.addEventListener('input', () => {
+            updateInputs();
+            if (mediaElement) mediaElement.currentTime = parseFloat(startRange.value);
+        });
+
+        endRange.addEventListener('input', () => {
+            updateInputs();
+            if (mediaElement) mediaElement.currentTime = parseFloat(endRange.value);
+        });
+
+        fadeInDuration.addEventListener('input', updateInputs);
+        fadeOutDuration.addEventListener('input', updateInputs);
+
+        startTimeInput.addEventListener('input', () => {
+            startRange.value = startTimeInput.value;
+            if (mediaElement) mediaElement.currentTime = parseFloat(startTimeInput.value);
+        });
+
+        endTimeInput.addEventListener('input', () => {
+            endRange.value = endTimeInput.value;
+            if (mediaElement) mediaElement.currentTime = parseFloat(endTimeInput.value);
+        });
+
+        fadeInInput.addEventListener('input', () => fadeInDuration.value = fadeInInput.value);
+        fadeOutInput.addEventListener('input', () => fadeOutDuration.value = fadeOutInput.value);
+
+        function applyFadesPreview() {
+            const fadeIn = parseFloat(fadeInInput.value);
+            const fadeOut = parseFloat(fadeOutInput.value);
+            const playbackDuration = parseFloat(endTimeInput.value) - parseFloat(startTimeInput.value);
+            clearInterval(fadeInterval);
+
+            fadeInterval = setInterval(() => {
+                const currentTime = mediaElement.currentTime - parseFloat(startTimeInput.value);
+
+                if (fadeIn > 0 && currentTime <= fadeIn) {
+                    mediaElement.volume = currentTime / fadeIn;
+                } else if (fadeOut > 0 && currentTime >= playbackDuration - fadeOut) {
+                    mediaElement.volume = (playbackDuration - currentTime) / fadeOut;
+                } else {
+                    mediaElement.volume = 1.0;
+                }
+            }, 100);
+        }
+
+        mediaElement && mediaElement.addEventListener('play', applyFadesPreview);
+        mediaElement && mediaElement.addEventListener('pause', () => clearInterval(fadeInterval));
+
+        function generateFFmpegCommand() {
+            const startTime = parseFloat(startTimeInput.value);
+            const endTime = parseFloat(endTimeInput.value);
+            const duration = endTime - startTime;
+            const fadeIn = parseFloat(fadeInInput.value);
+            const fadeOut = parseFloat(fadeOutInput.value);
+            const outputExtension = outputFormat.value;
+            const outputFileName = `.`;
+
+            let ffmpegCommand = `ffmpeg -ss  -i "" -t `;
+
+            if (outputExtension === "mp3") {
+                ffmpegCommand += " -acodec libmp3lame";
+            } else if (outputExtension === "wav") {
+                ffmpegCommand += " -acodec pcm_s16le";
+            } else if (outputExtension === "mp4" || outputExtension === "mov" || outputExtension === "avi") {
+                ffmpegCommand += " -c copy";
+            }
+
+            let fadeFilter = '';
+            if (fadeIn > 0) {
+                fadeFilter += `afade=t=in:ss=0:d=`;
+            }
+            if (fadeOut > 0) {
+                const fadeOutStart = duration - fadeOut;
+                fadeFilter += fadeFilter ? `,afade=t=out:st=:d=` : `afade=t=out:st=:d=`;
+            }
+            if (fadeFilter) {
+                ffmpegCommand += ` -af ""`;
+            }
+
+            ffmpegCommand += ` ""`;
+            outputDiv.textContent = `FFmpeg Command: `;
+        }
+
+        const button = document.createElement('button');
+        button.textContent = 'Generate FFmpeg Command';
+        button.onclick = generateFFmpegCommand;
+        document.body.appendChild(button);
+    </script>
+</body>
+</html>
