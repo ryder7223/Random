@@ -1,15 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Media Trimmer</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        #output { margin-top: 20px; }
-        input[type=range] { width: 100%; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        #output {
+            margin-top: 20px;
+        }
+
+        input[type=range] {
+            width: 100%;
+        }
     </style>
 </head>
+
 <body>
     <h1>Media Trimmer</h1>
 
@@ -80,7 +91,6 @@
         const outputDiv = document.getElementById('output');
 
         let mediaElement, duration, fileNameWithoutExt;
-        let fadeInterval;
 
         function updateInputs() {
             startTimeInput.value = startRange.value;
@@ -117,7 +127,6 @@
                 updateInputs();
             };
         });
-
         // Sync slider values with text inputs and adjust playback position
         startRange.addEventListener('input', () => {
             updateInputs();
@@ -175,17 +184,26 @@
             const fadeOut = parseFloat(fadeOutInput.value);
             const outputExtension = outputFormat.value;
             const outputFileName = `${fileNameWithoutExt}.${outputExtension}`;
+            const isAudioOnlyInput = fileInput.files[0].type.startsWith("audio");
 
             let ffmpegCommand = `ffmpeg -ss ${startTime} -i "${fileInput.files[0].name}" -t ${duration}`;
 
+            // Determine output codec and filters based on format
             if (outputExtension === "mp3") {
                 ffmpegCommand += " -acodec libmp3lame";
             } else if (outputExtension === "wav") {
                 ffmpegCommand += " -acodec pcm_s16le";
-            } else if (outputExtension === "mp4" || outputExtension === "mov" || outputExtension === "avi") {
-                ffmpegCommand += " -c copy";
+            } else if (["mp4", "mov", "avi"].includes(outputExtension)) {
+                if (isAudioOnlyInput) {
+                    // Add a silent video stream for audio-only inputs when outputting to a video format
+                    ffmpegCommand += ` -vf "color=size=320x240:rate=10:color=black" -shortest`;
+                    ffmpegCommand += " -acodec aac -vcodec libx264";
+                } else {
+                    ffmpegCommand += " -c copy";
+                }
             }
 
+            // Apply fades if specified
             let fadeFilter = '';
             if (fadeIn > 0) {
                 fadeFilter += `afade=t=in:ss=0:d=${fadeIn}`;
