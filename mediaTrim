@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Trimmer with Fade Effects</title>
+    <title>Media Trimmer</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         #output { margin-top: 20px; }
@@ -11,7 +11,7 @@
     </style>
 </head>
 <body>
-    <h1>Media Trimmer with Fade Effects</h1>
+    <h1>Media Trimmer</h1>
 
     <!-- Input for media file -->
     <input type="file" id="fileInput" accept="audio/*, video/*">
@@ -28,7 +28,7 @@
         <input type="range" id="startRange" min="0" value="0" step="0.1">
         <input type="number" id="startTimeInput" min="0" value="0" step="0.1" style="width: 60px;">
         <span>seconds</span>
-
+        <p></p>
         <label for="endRange">End Time:</label>
         <input type="range" id="endRange" min="0" value="0" step="0.1">
         <input type="number" id="endTimeInput" min="0" value="0" step="0.1" style="width: 60px;">
@@ -42,7 +42,7 @@
         <input type="range" id="fadeInDuration" min="0" max="10" value="0" step="0.1">
         <input type="number" id="fadeInInput" min="0" max="10" value="0" step="0.1" style="width: 60px;">
         <span>seconds</span>
-
+        <p></p>
         <label for="fadeOutDuration">Fade Out Duration:</label>
         <input type="range" id="fadeOutDuration" min="0" max="10" value="0" step="0.1">
         <input type="number" id="fadeOutInput" min="0" max="10" value="0" step="0.1" style="width: 60px;">
