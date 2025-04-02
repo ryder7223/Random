@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Media Trimmer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #output { margin-top: 20px; }
+    input[type=range] { width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>Media Trimmer</h1>
+
+  <!-- Input for media file -->
+  <input type="file" id="fileInput" accept="audio/*, video/*" />
+
+  <!-- Audio/video player -->
+  <div id="playerContainer">
+    <audio id="audioPlayer" controls hidden></audio>
+    <video id="videoPlayer" controls hidden></video>
+  </div>
+
+  <!-- Sliders and text inputs for trimming -->
+  <div>
+    <label for="startRange">Start Time:</label>
+    <input type="range" id="startRange" min="0" value="0" step="0.1" />
+    <input type="number" id="startTimeInput" min="0" value="0" step="0.1" style="width: 60px;" />
+    <span>seconds</span>
+    <p></p>
+    <label for="endRange">End Time:</label>
+    <input type="range" id="endRange" min="0" value="0" step="0.1" />
+    <input type="number" id="endTimeInput" min="0" value="0" step="0.1" style="width: 60px;" />
+    <span>seconds</span>
+  </div>
+
+  <!-- Fade-in and fade-out controls -->
+  <div>
+    <h3>Fade Effects</h3>
+    <label for="fadeInDuration">Fade In Duration:</label>
+    <input type="range" id="fadeInDuration" min="0" max="10" value="0" step="0.1" />
+    <input type="number" id="fadeInInput" min="0" max="10" value="0" step="0.1" style="width: 60px;" />
+    <span>seconds</span>
+    <p></p>
+    <label for="fadeOutDuration">Fade Out Duration:</label>
+    <input type="range" id="fadeOutDuration" min="0" max="10" value="0" step="0.1" />
+    <input type="number" id="fadeOutInput" min="0" max="10" value="0" step="0.1" style="width: 60px;" />
+    <span>seconds</span>
+  </div>
+
+  <!-- Speed control -->
+  <div>
+    <h3>Speed Control</h3>
+    <label for="speedControl">Speed (Slider: 0.5 - 2.0):</label>
+    <input type="range" id="speedControl" min="0.5" max="2.0" value="1.0" step="0.1" />
+    <br />
+    <label for="speedInput">Speed (Editable Number):</label>
+    <!-- Remove max attribute so any value can be typed -->
+    <input type="number" id="speedInput" value="1.0" step="0.1" style="width: 60px;" />
+    <span>times normal</span>
+  </div>
+
+  <!-- Output file type selection -->
+  <div>
+    <label for="outputFormat">Output Format:</label>
+    <select id="outputFormat">
+      <option value="mp4">MP4</option>
+      <option value="mp3">MP3</option>
+      <option value="wav">WAV</option>
+      <option value="mov">MOV</option>
+      <option value="avi">AVI</option>
+    </select>
+  </div>
+
+  <!-- Output area for ffmpeg command -->
+  <div id="output"></div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const startRange = document.getElementById('startRange');
+    const endRange = document.getElementById('endRange');
+    const startTimeInput = document.getElementById('startTimeInput');
+    const endTimeInput = document.getElementById('endTimeInput');
+    const fadeInDuration = document.getElementById('fadeInDuration');
+    const fadeOutDuration = document.getElementById('fadeOutDuration');
+    const fadeInInput = document.getElementById('fadeInInput');
+    const fadeOutInput = document.getElementById('fadeOutInput');
+    const speedControl = document.getElementById('speedControl');
+    const speedInput = document.getElementById('speedInput');
+    const outputFormat = document.getElementById('outputFormat');
+    const outputDiv = document.getElementById('output');
+
+    let mediaElement, duration, fileNameWithoutExt;
+    let fadeInterval;
+
+    function updateInputs() {
+      // Update slider-based fields, but do not override the number input if manually changed.
+      startTimeInput.value = startRange.value;
+      endTimeInput.value = endRange.value;
+      fadeInInput.value = fadeInDuration.value;
+      fadeOutInput.value = fadeOutDuration.value;
+      // Do not update speedInput here so that any manual entry is preserved.
+    }
+
+    // Load selected media file
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const fileURL = URL.createObjectURL(file);
+      fileNameWithoutExt = file.name.split('.').slice(0, -1).join('.');
+
+      if (file.type.startsWith("audio")) {
+        audioPlayer.src = fileURL;
+        audioPlayer.hidden = false;
+        videoPlayer.hidden = true;
+        mediaElement = audioPlayer;
+      } else if (file.type.startsWith("video")) {
+        videoPlayer.src = fileURL;
+        videoPlayer.hidden = false;
+        audioPlayer.hidden = true;
+        mediaElement = videoPlayer;
+      }
+
+      mediaElement.onloadedmetadata = () => {
+        duration = mediaElement.duration;
+        startRange.max = endRange.max = duration;
+        startRange.value = 0;
+        endRange.value = duration;
+        updateInputs();
+      };
+    });
+
+    // Sync slider values with text inputs and adjust playback position
+    startRange.addEventListener('input', () => {
+      updateInputs();
+      if (mediaElement) mediaElement.currentTime = parseFloat(startRange.value);
+    });
+    endRange.addEventListener('input', () => {
+      updateInputs();
+      if (mediaElement) mediaElement.currentTime = parseFloat(endRange.value);
+    });
+    fadeInDuration.addEventListener('input', updateInputs);
+    fadeOutDuration.addEventListener('input', updateInputs);
+    
+    // When slider changes, update playback rate and update the number input as a suggestion
+    speedControl.addEventListener('input', () => {
+      // Only update speedInput if the user hasn't manually typed a different value.
+      if (!document.activeElement.isEqualNode(speedInput)) {
+        speedInput.value = speedControl.value;
+      }
+      if (mediaElement) mediaElement.playbackRate = parseFloat(speedControl.value);
+    });
+
+    // When user manually edits the number input, update playback rate.
+    speedInput.addEventListener('input', () => {
+      const speedVal = parseFloat(speedInput.value);
+      if (mediaElement) mediaElement.playbackRate = speedVal;
+    });
+
+    startTimeInput.addEventListener('input', () => {
+      startRange.value = startTimeInput.value;
+      if (mediaElement) mediaElement.currentTime = parseFloat(startTimeInput.value);
+    });
+    endTimeInput.addEventListener('input', () => {
+      endRange.value = endTimeInput.value;
+      if (mediaElement) mediaElement.currentTime = parseFloat(endTimeInput.value);
+    });
+    fadeInInput.addEventListener('input', () => fadeInDuration.value = fadeInInput.value);
+    fadeOutInput.addEventListener('input', () => fadeOutDuration.value = fadeOutInput.value);
+
+    // (Optional) Preview fade effects by adjusting volume over time
+    function applyFadesPreview() {
+      const fadeIn = parseFloat(fadeInInput.value);
+      const fadeOut = parseFloat(fadeOutInput.value);
+      const playbackDuration = parseFloat(endTimeInput.value) - parseFloat(startTimeInput.value);
+      clearInterval(fadeInterval);
+      fadeInterval = setInterval(() => {
+        const currentTime = mediaElement.currentTime - parseFloat(startTimeInput.value);
+        if (fadeIn > 0 && currentTime <= fadeIn) {
+          mediaElement.volume = currentTime / fadeIn;
+        } else if (fadeOut > 0 && currentTime >= playbackDuration - fadeOut) {
+          mediaElement.volume = (playbackDuration - currentTime) / fadeOut;
+        } else {
+          mediaElement.volume = 1.0;
+        }
+      }, 100);
+    }
+    mediaElement && mediaElement.addEventListener('play', applyFadesPreview);
+    mediaElement && mediaElement.addEventListener('pause', () => clearInterval(fadeInterval));
+
+    function generateFFmpegCommand() {
+      const startTime = parseFloat(startTimeInput.value);
+      const endTime = parseFloat(endTimeInput.value);
+      const duration = endTime - startTime;
+      const fadeIn = parseFloat(fadeInInput.value);
+      const fadeOut = parseFloat(fadeOutInput.value);
+      // Use the number input's speed (can be any value) for the command
+      const speed = parseFloat(speedInput.value);
+      const outputExtension = outputFormat.value;
+
+      // Check if the selected output extension is the same as the input extension.
+      const inputExtension = fileInput.files[0].name.split('.').pop().toLowerCase();
+      let outputFileName = `${fileNameWithoutExt}.${outputExtension}`;
+      if (inputExtension === outputExtension) {
+        outputFileName = `${fileNameWithoutExt}_trimmed.${outputExtension}`;
+      }
+
+      const isAudioOnlyInput = fileInput.files[0].type.startsWith("audio");
+
+      let ffmpegCommand = `ffmpeg -ss ${startTime} -i "${fileInput.files[0].name}" -t ${duration}`;
+
+      // Build audio filter chain
+      let audioFilters = [];
+      if (speed !== 1) {
+        audioFilters.push(`atempo=${speed}`);
+      }
+      let fadeFilter = '';
+      if (fadeIn > 0) {
+        fadeFilter += `afade=t=in:ss=0:d=${fadeIn}`;
+      }
+      if (fadeOut > 0) {
+        const fadeOutStart = duration - fadeOut;
+        fadeFilter += fadeFilter ? `,afade=t=out:st=${fadeOutStart}:d=${fadeOut}` : `afade=t=out:st=${fadeOutStart}:d=${fadeOut}`;
+      }
+      if (fadeFilter) {
+        audioFilters.push(fadeFilter);
+      }
+      if (audioFilters.length > 0) {
+        ffmpegCommand += ` -af "${audioFilters.join(',')}"`;
+      }
+
+      // Handle output format
+      if (outputExtension === "mp3") {
+        ffmpegCommand += " -acodec libmp3lame";
+      } else if (outputExtension === "wav") {
+        ffmpegCommand += " -acodec pcm_s16le";
+      } else if (["mp4", "mov", "avi"].includes(outputExtension)) {
+        if (isAudioOnlyInput) {
+          // For audio-only inputs to video formats, add a silent video stream.
+          ffmpegCommand += ` -vf "color=size=320x240:rate=10:color=black" -shortest -acodec aac -vcodec libx264`;
+        } else {
+          // For video inputs: if speed is changed, re-encode video; otherwise copy streams.
+          if (speed !== 1) {
+            ffmpegCommand += ` -filter:v "setpts=PTS/${speed}" -acodec aac -vcodec libx264`;
+          } else {
+            ffmpegCommand += " -c copy";
+          }
+        }
+      }
+
+      ffmpegCommand += ` "${outputFileName}"`;
+      outputDiv.textContent = `FFmpeg Command: ${ffmpegCommand}`;
+    }
+
+    const button = document.createElement('button');
+    button.textContent = 'Generate FFmpeg Command';
+    button.onclick = generateFFmpegCommand;
+    document.body.appendChild(button);
+  </script>
+</body>
+</html>

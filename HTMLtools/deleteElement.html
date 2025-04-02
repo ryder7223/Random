@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bookmarklet Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      line-height: 1.5;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+      margin-bottom: 1rem;
+      font-family: monospace;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+    label {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Bookmarklet Generator</h1>
+    <p>Paste an HTML element below and click "Generate Bookmarklet" to create a bookmarklet that deletes all matching elements on the page where it is run.</p>
+    
+    <label for="inputHtml">HTML Element:</label>
+    <textarea id="inputHtml" placeholder="Paste your HTML element here..."></textarea>
+    
+    <button id="generateButton">Generate Bookmarklet</button>
+    
+    <label for="outputBookmarklet">Generated Bookmarklet:</label>
+    <textarea id="outputBookmarklet" readonly placeholder="Your bookmarklet code will appear here..."></textarea>
+    
+    <p>You can drag the generated bookmarklet link to your bookmarks bar. When clicked, it will remove all elements that match the generated CSS selector.</p>
+  </div>
+
+  <script>
+    document.getElementById("generateButton").addEventListener("click", function(){
+      var input = document.getElementById("inputHtml").value.trim();
+      if(!input) {
+        return;
+      }
+      
+      // Create a temporary container and insert the HTML
+      var temp = document.createElement("div");
+      temp.innerHTML = input;
+      var el = temp.firstElementChild;
+      if(!el){
+        return;
+      }
+      
+      // Build a CSS selector from the tag and its classes
+      var tag = el.tagName.toLowerCase();
+      var classList = el.classList;
+      var selector = tag;
+      if(classList.length > 0){
+        // Map each class to its CSS-escaped version and join them with a dot prefix
+        selector += Array.from(classList).map(function(c) {
+          return "." + CSS.escape(c);
+        }).join('');
+      }
+      
+      // Double-escape backslashes so the bookmarklet string remains valid
+      var escapedSelector = selector.replace(/\\/g, "\\\\");
+      
+      // Construct the bookmarklet code
+      var code = "javascript:(function(){var els=document.querySelectorAll('" + escapedSelector + "'); els.forEach(function(el){el.remove();});})();";
+      
+      // Output the bookmarklet code
+      document.getElementById("outputBookmarklet").value = code;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Editor & Previewer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-okaidia.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .tabs button {
+            flex: 1;
+            padding: 10px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            text-align: center;
+            font-size: 1rem;
+        }
+        .tabs button.active {
+            background: #eaeaea;
+            font-weight: bold;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            font-size: 1rem;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: block;
+            margin-top: 10px;
+            background: #f9f9f9;
+            resize: none;
+        }
+        #preview {
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        pre {
+            background-color: #2d2d2d;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: "Courier New", Courier, monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Markdown Editor & Previewer</h1>
+
+        <div class="tabs">
+            <button class="active" id="editTab" onclick="toggleView('edit')">Editor</button>
+            <button id="previewTab" onclick="toggleView('preview')">Preview</button>
+        </div>
+
+        <div id="editorContainer">
+            <textarea id="markdownInput" placeholder="Write your markdown here..." oninput="updatePreview()"></textarea>
+        </div>
+
+        <div id="previewContainer">
+            <div id="preview"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@2.0.0/lib/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-markdown.min.js"></script>
+
+    <script>
+        function toggleView(view) {
+            const editTab = document.getElementById("editTab");
+            const previewTab = document.getElementById("previewTab");
+            const editorContainer = document.getElementById("editorContainer");
+            const previewContainer = document.getElementById("previewContainer");
+
+            if (view === 'edit') {
+                editTab.classList.add("active");
+                previewTab.classList.remove("active");
+                editorContainer.style.display = "block";
+                previewContainer.style.display = "none";
+            } else {
+                previewTab.classList.add("active");
+                editTab.classList.remove("active");
+                editorContainer.style.display = "none";
+                previewContainer.style.display = "block";
+                updatePreview(); // Ensure preview is updated when switching to preview tab
+            }
+        }
+
+        function updatePreview() {
+            const markdownInput = document.getElementById("markdownInput").value;
+            const previewDiv = document.getElementById("preview");
+
+            // Render markdown to HTML using marked.js
+            const htmlContent = marked(markdownInput);
+
+            // Set the inner HTML of the preview div
+            previewDiv.innerHTML = htmlContent;
+
+            // Apply syntax highlighting for any code blocks using Prism.js
+            Prism.highlightAll();
+        }
+
+        // Initialize the editor in "Editor" mode by default
+        toggleView('edit');
+    </script>
+
+</body>
+</html>

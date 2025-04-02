@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Userscript Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      line-height: 1.5;
+    }
+    input, textarea, button {
+      width: 100%;
+      margin-bottom: 1rem;
+      font-family: monospace;
+      padding: 0.5rem;
+      box-sizing: border-box;
+    }
+    textarea {
+      height: 100px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+    label {
+      font-weight: bold;
+      margin-bottom: 0.25rem;
+      display: block;
+    }
+    .field-group {
+      margin-bottom: 1.5rem;
+    }
+  </style>
+  <!-- Include js-beautify library from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.7/beautify.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Userscript Generator</h1>
+    <p>Fill out the fields below to generate your userscript metadata block.</p>
+
+    <div class="field-group">
+      <label for="name">Name</label>
+      <input id="name" type="text" placeholder="Enter script name" />
+    </div>
+    
+    <div class="field-group">
+      <label for="namespace">Namespace</label>
+      <input id="namespace" type="text" placeholder="Enter namespace" />
+    </div>
+    
+    <div class="field-group">
+      <label for="version">Version</label>
+      <input id="version" type="text" placeholder="Enter version" />
+    </div>
+    
+    <div class="field-group">
+      <label for="description">Description</label>
+      <input id="description" type="text" placeholder="Enter description" />
+    </div>
+    
+    <div class="field-group">
+      <label for="author">Author</label>
+      <input id="author" type="text" placeholder="Enter author name" />
+    </div>
+    
+    <div class="field-group">
+      <label for="match">Match URLs (one per line)</label>
+      <textarea id="match" placeholder="Enter match URL(s), one per line"></textarea>
+    </div>
+    
+    <div class="field-group">
+      <label for="grant">Grants (one per line)</label>
+      <textarea id="grant" placeholder="Enter grant(s), one per line"></textarea>
+    </div>
+    
+    <div class="field-group">
+      <label for="scriptContent">Script Content</label>
+      <textarea id="scriptContent" placeholder="(function() {\n  'use strict';\n  // Your code here\n})();"></textarea>
+    </div>
+    
+    <button id="generateButton">Generate Userscript</button>
+    
+    <label for="outputUserscript">Generated Userscript:</label>
+    <textarea id="outputUserscript" readonly placeholder="Your complete userscript will appear here..."></textarea>
+  </div>
+  
+  <script>
+    document.getElementById("generateButton").addEventListener("click", function(){
+      // Gather field values
+      var name = document.getElementById("name").value.trim();
+      var namespace = document.getElementById("namespace").value.trim();
+      var version = document.getElementById("version").value.trim();
+      var description = document.getElementById("description").value.trim();
+      var author = document.getElementById("author").value.trim();
+      var matchRaw = document.getElementById("match").value.trim();
+      var grantRaw = document.getElementById("grant").value.trim();
+      var scriptContent = document.getElementById("scriptContent").value.trim();
+      
+      // Build metadata lines. Only include a line if a value was provided.
+      var metadataLines = [];
+      metadataLines.push("// ==UserScript==");
+      
+      if(name) {
+        metadataLines.push("// @name       " + name);
+      }
+      if(namespace) {
+        metadataLines.push("// @namespace  " + namespace);
+      }
+      if(version) {
+        metadataLines.push("// @version    " + version);
+      }
+      if(description) {
+        metadataLines.push("// @description  " + description);
+      }
+      if(author) {
+        metadataLines.push("// @author     " + author);
+      }
+      
+      // Process match entries: split by newline and add prefix if line is not empty
+      if(matchRaw) {
+        var matchLines = matchRaw.split('\n');
+        matchLines.forEach(function(line) {
+          line = line.trim();
+          if(line) {
+            metadataLines.push("// @match      " + line);
+          }
+        });
+      }
+      
+      // Process grant entries: split by newline and add prefix if line is not empty
+      if(grantRaw) {
+        var grantLines = grantRaw.split('\n');
+        grantLines.forEach(function(line) {
+          line = line.trim();
+          if(line) {
+            metadataLines.push("// @grant      " + line);
+          }
+        });
+      }
+      
+      metadataLines.push("// ==/UserScript==");
+      
+      // Combine metadata block and script content
+      var userscript = metadataLines.join("\n") + "\n\n" + scriptContent;
+      
+      // Beautify the final javascript code using js-beautify
+      // Configure options as needed; here we use a basic configuration.
+      var beautifiedScript = js_beautify(userscript, {
+        indent_size: 2,
+        space_in_empty_paren: true
+      });
+      
+      // Output the beautified userscript
+      document.getElementById("outputUserscript").value = beautifiedScript;
+    });
+  </script>
+</body>
+</html>

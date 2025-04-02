@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regex Tester & Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        textarea {
+            width: 100%;
+            font-size: 1rem;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: block;
+            margin-bottom: 10px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        button:hover {
+            background: #eaeaea;
+        }
+        pre {
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            background: #fff;
+            margin-top: 20px;
+        }
+        .copy-button {
+            width: auto;
+            display: block;
+            margin: 10px auto;
+            background: #fff;
+        }
+        .copy-button:hover {
+            background: #eaeaea;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Regex Tester & Generator</h1>
+        <label for="inputText">Input String:</label>
+        <textarea id="inputText" rows="4" placeholder="Enter string to match against..."></textarea>
+
+        <label for="regexPattern">Regex Pattern:</label>
+        <textarea id="regexPattern" rows="4" placeholder="Enter regex pattern..."></textarea>
+
+        <button onclick="testRegex()">Test Regex</button>
+
+        <div id="result">
+            <h3>Matches:</h3>
+            <pre id="matchResults"></pre>
+        </div>
+
+        <div id="errorMessage" class="error"></div>
+
+        <button class="copy-button" onclick="copyResult()">Copy Result</button>
+    </div>
+
+    <script>
+        function testRegex() {
+            const inputText = document.getElementById("inputText").value;
+            const regexPattern = document.getElementById("regexPattern").value;
+            const matchResults = document.getElementById("matchResults");
+            const errorMessage = document.getElementById("errorMessage");
+
+            try {
+                const regex = new RegExp(regexPattern, 'g');
+                const matches = inputText.match(regex);
+
+                if (matches) {
+                    matchResults.textContent = matches.join('\n');
+                    errorMessage.textContent = '';  // Clear any previous error message
+                } else {
+                    matchResults.textContent = 'No matches found.';
+                    errorMessage.textContent = '';  // Clear any previous error message
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Invalid regular expression.';
+                matchResults.textContent = '';  // Clear any previous match results
+            }
+        }
+
+        function copyResult() {
+            const matchResults = document.getElementById("matchResults").textContent;
+            navigator.clipboard.writeText(matchResults).then(function() {
+                alert('Result copied to clipboard!');
+            }, function(err) {
+                alert('Failed to copy text: ', err);
+            });
+        }
+    </script>
+
+</body>
+</html>
