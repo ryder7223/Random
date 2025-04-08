@@ -198,6 +198,25 @@
       </div>
     </div>
   </div>
+  <!-- Keybinds Button at the bottom left -->
+  <button id="keybinds-btn" style="position: fixed; bottom: 10px; left: 10px; width: 120px; padding: 10px; font-size: 14px;   background: #444; border: 2px solid #777; color: #fff; cursor: pointer;">Keybinds</button>
+  
+  <!-- Keybinds Overlay (Hidden by default) -->
+  <div id="keybinds-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; backdrop-filter: blur(5px);  background: rgba(0, 0, 0, 0.7); display: none; z-index: 300; align-items: center; justify-content: center;">
+    <div id="keybinds-menu" style="background: #222; border: 2px solid #777; padding: 20px; text-align: center; max-width: 400  px; color: #fff;">
+      <h2>Keybinds</h2>
+      <ul style="list-style-type: none; padding: 0;">
+        <li><strong>Move Left:</strong> ←</li>
+        <li><strong>Move Right:</strong> →</li>
+        <li><strong>Rotate ↻:</strong> ↑</li>
+        <li><strong>Rotate ↺:</strong> Z</li>
+        <li><strong>Soft Drop:</strong> ↓</li>
+        <li><strong>Hard Drop:</strong> Space</li>
+        <li><strong>Pause:</strong> Esc</li>
+      </ul>
+      <button id="done-btn" style="padding: 10px 20px; background: #444; border: 2px solid #777; color: #fff; cursor: pointer;   font-size: 16px;">Done</button>
+    </div>
+  </div>
 
   <!-- Center area: Top panel and game canvas -->
   <div id="center">
@@ -248,7 +267,6 @@
     const ctx = canvas.getContext('2d');
     const nextCanvas = document.getElementById('next-canvas');
     const nextCtx = nextCanvas.getContext('2d');
-
     const topPanel = document.getElementById('top-panel');
     const currentScoreEl = document.getElementById('current-score');
     const highScoreEl = document.getElementById('high-score');
@@ -257,6 +275,10 @@
     const pauseBtn = document.getElementById('pause-btn');
     const pauseOverlay = document.getElementById('pause-overlay');
     const resumeBtn = document.getElementById('resume-btn');
+    // Keybinds button and overlay elements
+    const keybindsBtn = document.getElementById('keybinds-btn');
+    const keybindsOverlay = document.getElementById('keybinds-overlay');
+    const doneBtn = document.getElementById('done-btn');
 
     // Left stat elements – each stat container holds a canvas and a text span
     const statContainers = {
@@ -718,14 +740,55 @@
       } else {
         void 0;
       }
-    
+      // Show keybinds overlay when the button is clicked
+      keybindsBtn.addEventListener('click', () => {
+        keybindsOverlay.style.display = 'flex';
+      });
+      
+      // Close the keybinds overlay when the "Done" button is clicked
+      doneBtn.addEventListener('click', () => {
+        keybindsOverlay.style.display = 'none';
+      });
+      
+      // Close the keybinds overlay when the Escape key is pressed
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          keybindsOverlay.style.display = 'none';
+        }
+      });
+      // Function to properly handle closing the overlay and resuming the game
+      function closeKeybindsOverlay() {
+        keybindsOverlay.style.display = 'none';
+        paused = false;
+        pauseOverlay.style.display = 'none';
+        // Reset lastTime to avoid jump in deltaTime
+        lastTime = performance.now();
+        update();  // Resume the game when the overlay is closed
+      }
+      
+      // Show keybinds overlay when the button is clicked
+      keybindsBtn.addEventListener('click', () => {
+        keybindsOverlay.style.display = 'flex';
+        paused = true;  // Pause the game when the overlay is visible
+      });
+      
+      // Close the keybinds overlay when the "Done" button is clicked
+      doneBtn.addEventListener('click', closeKeybindsOverlay);
+      
+      // Close the keybinds overlay when the Escape key is pressed (but don't trigger the pause)
+      document.addEventListener('keydown', (e) => {
+        // Only close the keybinds overlay if it's visible and the Escape key is pressed
+        if (keybindsOverlay.style.display === 'flex' && e.key === 'Escape') {
+          closeKeybindsOverlay();
+        }
+      });
 
     /***** Key and Repeat Handling *****/
     document.addEventListener('keydown', event => {
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " ", "Escape"].includes(event.key)) {
-        event.preventDefault();
-      }
-    
+            event.preventDefault();
+          }
+
       if (gameOver) {
         if (event.key === 'r' || event.key === 'Enter') restartGame();
         return;
