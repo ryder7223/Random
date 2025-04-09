@@ -655,7 +655,9 @@
         currentScore += 1;
         updateStats();
       }
+      dropCounter = 0; // Reset gravity drop counter to prevent extra falling while soft dropping.
     }
+
     function moveLeft() {
       currentPiece.pos.x -= 1;
       if (collides(currentPiece, board)) currentPiece.pos.x += 1;
@@ -720,20 +722,23 @@
     }
 
     /***** Main Update Loop *****/
-      function update(time = 0) {
-        if (paused || gameOver) return;
-        const deltaTime = time - lastTime;
-        lastTime = time;
-        dropCounter += deltaTime;
+    function update(time = 0) {
+      if (paused || gameOver) return;
+      const deltaTime = time - lastTime;
+      lastTime = time;
       
-        if (!downRepeatTimer && dropCounter > dropInterval) {
+      if (!downRepeatTimer) { // Only accumulate drop time when not soft dropping.
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) {
           gravityDrop();
           dropCounter = 0;
         }
-      
-        draw();
-        animFrameId = requestAnimationFrame(update);
       }
+      
+      draw();
+      animFrameId = requestAnimationFrame(update);
+    }
+
 
       draw();
       if (!gameOver) {
