@@ -100,9 +100,10 @@ def cleanup():
         pass
 
 if __name__ == "__main__":
-    #minimiseWindow()
+    minimiseWindow()
     atexit.register(cleanup)
     modifyVolume(1)
     keyboard.hook(make_key_handler())
     while True:
+
         time.sleep(1)
