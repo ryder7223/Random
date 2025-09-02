@@ -3,128 +3,557 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown Editor & Previewer</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-okaidia.min.css" rel="stylesheet">
+    <title>Markdown Editor</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
     <style>
+        :root {
+            --background-color: #1e1e1e;
+            --editor-bg: #252526;
+            --preview-bg: #1e1e1e;
+            --text-color: #d4d4d4;
+            --border-color: #3c3c3c;
+            --button-bg: #333;
+            --button-hover-bg: #444;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: #f5f5f5;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            background: var(--background-color);
+            color: var(--text-color);
+            overflow: hidden;
         }
-        h1 {
-            text-align: center;
-        }
+
         .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .tabs {
             display: flex;
+            height: 100vh;
+        }
+
+        .editor-pane, .preview-pane {
+            width: 50%;
+            height: 100%;
+            overflow-y: auto;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .editor-pane {
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .toolbar {
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
             margin-bottom: 10px;
         }
-        .tabs button {
-            flex: 1;
-            padding: 10px;
-            background: #f0f0f0;
-            border: 1px solid #ccc;
+
+        .toolbar button {
+            background: var(--button-bg);
+            color: white;
+            border: 1px solid var(--border-color);
+            padding: 5px 10px;
             cursor: pointer;
-            text-align: center;
-            font-size: 1rem;
-        }
-        .tabs button.active {
-            background: #eaeaea;
+            margin-right: 5px;
+            border-radius: 3px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 32px;
+            font-size: 16px;
             font-weight: bold;
         }
-        textarea {
+
+        .toolbar button span {
+            display: inline-block;
+            line-height: 1;
+        }
+
+        .toolbar button:hover {
+            background: var(--button-hover-bg);
+        }
+
+        .toolbar button svg {
+            width: 18px;
+            height: 18px;
+        }
+        
+        #markdownInput {
             width: 100%;
-            height: 300px;
-            font-size: 1rem;
+            height: 100%;
+            background: var(--editor-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            font-family: "Fira Code", "Courier New", monospace;
+            font-size: 14px;
             padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            display: block;
-            margin-top: 10px;
-            background: #f9f9f9;
+            box-sizing: border-box;
             resize: none;
+            outline: none;
         }
+        
         #preview {
-            background: #fff;
-            border: 1px solid #ccc;
-            padding: 15px;
-            border-radius: 4px;
-            margin-top: 10px;
+            padding: 0 15px;
+            box-sizing: border-box;
         }
-        pre {
+        
+        #preview h1, #preview h2, #preview h3 {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: .3em;
+        }
+
+        #preview table {
+            border-collapse: collapse;
+            margin: 1rem 0;
+            width: 100%;
+        }
+        #preview th, #preview td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+        }
+        #preview th {
+            background-color: var(--editor-bg);
+        }
+        
+        #preview blockquote {
+            border-left: .25em solid var(--border-color);
+            padding: 0 1em;
+            color: #999;
+            margin-left: 0;
+        }
+        
+        #preview pre {
+            position: relative;
             background-color: #2d2d2d;
-            color: white;
-            padding: 10px;
             border-radius: 4px;
-            font-family: "Courier New", Courier, monospace;
+        }
+        
+        #preview code {
+            font-family: "Fira Code", "Courier New", monospace;
+        }
+
+        #preview a {
+            color: #61afef;
+            text-decoration: none;
+        }
+
+        #preview a:hover {
+            text-decoration: underline;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: var(--button-bg);
+            color: white;
+            border: none;
+            padding: 5px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        #preview pre:hover .copy-btn {
+            opacity: 1;
+        }
+
+        .copy-btn:hover {
+            background: var(--button-hover-bg);
         }
     </style>
 </head>
 <body>
-
     <div class="container">
-        <h1>Markdown Editor & Previewer</h1>
-
-        <div class="tabs">
-            <button class="active" id="editTab" onclick="toggleView('edit')">Editor</button>
-            <button id="previewTab" onclick="toggleView('preview')">Preview</button>
+        <div class="editor-pane">
+            <div class="toolbar">
+                <button onclick="applyBlockFormat('## ')" title="Heading"><i data-feather="type"></i></button>
+                <button onclick="insertText('**', '**')" title="Bold"><i data-feather="bold"></i></button>
+                <button onclick="insertText('*', '*')" title="Italic"><i data-feather="italic"></i></button>
+                <button onclick="insertText('~~', '~~')" title="Strikethrough"><i data-feather="minus-square"></i></button>
+                <button onclick="insertLink()" title="Link"><i data-feather="link"></i></button>
+                <button onclick="insertImage()" title="Image"><i data-feather="image"></i></button>
+                <button onclick="applyBlockFormat('> ')" title="Quote"><i data-feather="chevron-right"></i></button>
+                <button onclick="insertText('`', '`')" title="Code"><i data-feather="code"></i></button>
+                <button onclick="insertCodeBlock()" title="Fenced Code Block"><i data-feather="terminal"></i></button>
+                <button onclick="applyBlockFormat('- ')" title="Unordered List"><i data-feather="list"></i></button>
+                <button onclick="applyBlockFormat('1')" title="Ordered List"><i data-feather="circle"></i></button>
+                <button onclick="applyBlockFormat('- [ ] ')" title="Task List"><i data-feather="check-square"></i></button>
+                <button onclick="insertTable()" title="Table"><i data-feather="grid"></i></button>
+                <button onclick="insertHorizontalRule()" title="Horizontal Rule"><i data-feather="minus"></i></button>
+            </div>
+            <textarea id="markdownInput" placeholder="Write your markdown here..."></textarea>
         </div>
-
-        <div id="editorContainer">
-            <textarea id="markdownInput" placeholder="Write your markdown here..." oninput="updatePreview()"></textarea>
-        </div>
-
-        <div id="previewContainer">
+        <div class="preview-pane">
             <div id="preview"></div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/marked@2.0.0/lib/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-markdown.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.2.12/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.3/dist/purify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    
+    <!-- Prism components for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-docker.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-fsharp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-gcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-git.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-http.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-lisp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-lua.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-makefile.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-perl.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-powershell.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-r.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-regex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-ruby.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-swift.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-turtle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-uri.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-xml-doc.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yang.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-arduino.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    
     <script>
-        function toggleView(view) {
-            const editTab = document.getElementById("editTab");
-            const previewTab = document.getElementById("previewTab");
-            const editorContainer = document.getElementById("editorContainer");
-            const previewContainer = document.getElementById("previewContainer");
+        const textarea = document.getElementById('markdownInput');
+        
+        const pairMap = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`' };
 
-            if (view === 'edit') {
-                editTab.classList.add("active");
-                previewTab.classList.remove("active");
-                editorContainer.style.display = "block";
-                previewContainer.style.display = "none";
-            } else {
-                previewTab.classList.add("active");
-                editTab.classList.remove("active");
-                editorContainer.style.display = "none";
-                previewContainer.style.display = "block";
-                updatePreview(); // Ensure preview is updated when switching to preview tab
+        textarea.addEventListener('input', updatePreview);
+        textarea.addEventListener('keydown', handleKeydown);
+
+        function handleKeydown(e) {
+            if (e.key === 'Enter') {
+                handleEnter(e);
+                return;
+            }
+            if (e.key === 'Tab') {
+                handleTab(e);
+                return;
+            }
+            if (e.key in pairMap) {
+                handlePairing(e);
+                return;
+            }
+            if (e.key === 'Backspace') {
+                handleBackspace(e);
             }
         }
+
+        function handlePairing(e) {
+            e.preventDefault();
+            const openChar = e.key;
+            const closeChar = pairMap[openChar];
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const selectedText = text.substring(start, end);
+            const newText = openChar + selectedText + closeChar;
+            
+            textarea.value = text.substring(0, start) + newText + text.substring(end);
+
+            textarea.selectionStart = start + 1;
+            textarea.selectionEnd = end + 1;
+            textarea.focus();
+            updatePreview();
+        }
+
+        function handleBackspace(e) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            if (start !== end) return;
+
+            const text = textarea.value;
+            const charBefore = text.substring(start - 1, start);
+            const charAfter = text.substring(start, start + 1);
+
+            if (pairMap[charBefore] === charAfter) {
+                e.preventDefault();
+                textarea.value = text.substring(0, start - 1) + text.substring(start + 1);
+                textarea.selectionStart = textarea.selectionEnd = start - 1;
+                textarea.focus();
+                updatePreview();
+            }
+        }
+
+        function handleTab(e) {
+            e.preventDefault();
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const indent = '    ';
+
+            if (start === end) {
+                textarea.value = text.substring(0, start) + indent + text.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = start + indent.length;
+            } else {
+                const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+                let lineEnd = text.indexOf('\n', end - 1);
+                if (lineEnd === -1) lineEnd = text.length;
+
+                const selectedLinesText = text.substring(lineStart, lineEnd);
+                const lines = selectedLinesText.split('\n');
+                let newLines;
+                let lengthChange = 0;
+
+                if (e.shiftKey) { // Un-indent
+                    newLines = lines.map(line => {
+                        if (line.startsWith(indent)) {
+                            lengthChange -= indent.length;
+                            return line.substring(indent.length);
+                        }
+                        return line;
+                    });
+                } else { // Indent
+                    newLines = lines.map(line => {
+                        lengthChange += indent.length;
+                        return indent + line;
+                    });
+                }
+                const newSelectedLinesText = newLines.join('\n');
+                textarea.value = text.substring(0, lineStart) + newSelectedLinesText + text.substring(lineEnd);
+                textarea.selectionStart = start;
+                textarea.selectionEnd = end + lengthChange;
+            }
+            updatePreview();
+        }
+
+        function handleEnter(e) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+            const currentLine = text.substring(lineStart, end);
+
+            const listMatch = currentLine.match(/^(\s*)(([-*+]|\d+\.)\s)(\[[ x]\]\s)?/);
+
+            if (listMatch) {
+                const content = currentLine.substring(listMatch[0].length);
+                if (!content.trim()) {
+                    e.preventDefault();
+                    textarea.value = text.substring(0, lineStart) + text.substring(end);
+                    textarea.selectionStart = textarea.selectionEnd = lineStart;
+                    updatePreview();
+                    return;
+                }
+                
+                e.preventDefault();
+                let indentation = listMatch[1];
+                let marker = listMatch[2];
+                let taskMarker = listMatch[4] ? '[ ] ' : '';
+                let nextMarker;
+
+                if (/\d+\./.test(marker)) {
+                    const num = parseInt(marker, 10);
+                    nextMarker = (num + 1) + '. ';
+                } else {
+                    nextMarker = marker;
+                }
+                
+                const newLine = '\n' + indentation + nextMarker + taskMarker;
+                textarea.value = text.substring(0, end) + newLine + text.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = end + newLine.length;
+
+            } else {
+                 const indentMatch = currentLine.match(/^(\s*)/);
+                 if (indentMatch) {
+                    e.preventDefault();
+                    const indentation = indentMatch[1];
+                    const newLine = '\n' + indentation;
+                    textarea.value = text.substring(0, end) + newLine + text.substring(end);
+                    textarea.selectionStart = textarea.selectionEnd = end + newLine.length;
+                }
+            }
+            updatePreview();
+        }
+
+        function insertText(before, after) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const selectedText = text.substring(start, end);
+            const newText = `${before}${selectedText}${after}`;
+            
+            textarea.value = text.substring(0, start) + newText + text.substring(end);
+            
+            textarea.selectionStart = start + before.length;
+            textarea.selectionEnd = end + before.length;
+            textarea.focus();
+            updatePreview();
+        }
+
+        function insertLink() {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const selectedText = text.substring(start, end);
+
+            if (selectedText) {
+                const newText = `[${selectedText}]()`;
+                textarea.value = text.substring(0, start) + newText + text.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = start + newText.length - 1;
+            } else {
+                const placeholder = '[]()';
+                textarea.value = text.substring(0, start) + placeholder + text.substring(start);
+                textarea.selectionStart = textarea.selectionEnd = start + 1;
+            }
+            textarea.focus();
+            updatePreview();
+        }
+
+        function insertImage() {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const selectedText = text.substring(start, end);
+
+            const newText = `![${selectedText}]()`;
+            textarea.value = text.substring(0, start) + newText + text.substring(end);
+            textarea.selectionStart = textarea.selectionEnd = start + newText.length - 1;
+            textarea.focus();
+            updatePreview();
+        }
+
+        function applyBlockFormat(prefix) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            let text = textarea.value;
+            let lineStart = text.lastIndexOf('\n', start - 1) + 1;
+            
+            let selection = text.substring(start, end);
+            if(selection) {
+                let selectionLineEnd = text.indexOf('\n', end - 1);
+                if (selectionLineEnd === -1) {
+                    selectionLineEnd = text.length;
+                }
+                const selectedLinesText = text.substring(lineStart, selectionLineEnd);
+                const lines = selectedLinesText.split('\n');
+                const newLines = lines.map(line => line ? prefix + line : line).join('\n');
+                textarea.value = text.substring(0, lineStart) + newLines + text.substring(selectionLineEnd);
+            } else {
+                 textarea.value = text.substring(0, lineStart) + prefix + text.substring(lineStart);
+                 textarea.selectionStart = lineStart + prefix.length;
+                 textarea.selectionEnd = lineStart + prefix.length;
+            }
+            textarea.focus();
+            updatePreview();
+        }
+        
+        function insertHorizontalRule() {
+            const start = textarea.selectionStart;
+            const text = textarea.value;
+            const hr = '\n\n---\n\n';
+            textarea.value = text.substring(0, start) + hr + text.substring(start);
+            textarea.selectionStart = textarea.selectionEnd = start + hr.length;
+            textarea.focus();
+            updatePreview();
+        }
+
+        function insertCodeBlock() {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const prefix = (text.substring(0, start).endsWith('\n\n') || start === 0) ? '' : (text.substring(0, start).endsWith('\n') ? '\n' : '\n\n');
+            const codeBlock = prefix + '```\n```';
+            
+            textarea.value = text.substring(0, start) + codeBlock + text.substring(end);
+            
+            textarea.selectionStart = textarea.selectionEnd = start + prefix.length + 3;
+            textarea.focus();
+            updatePreview();
+        }
+
+        function insertTable() {
+            const tableTemplate = 
+`| Header 1 | Header 2 |
+|----------|----------|
+| Cell 1   | Cell 2   |`;
+            
+            const textarea = document.getElementById('markdownInput');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            
+            const newText = (text.substring(0, start).endsWith('\n') || start === 0 ? '' : '\n') + tableTemplate + '\n';
+
+            textarea.value = text.substring(0, start) + newText + text.substring(end);
+            
+            const cursorPosition = start + newText.indexOf('Header 1');
+            textarea.selectionStart = cursorPosition;
+            textarea.selectionEnd = cursorPosition + 'Header 1'.length;
+
+            textarea.focus();
+            updatePreview();
+        }
+
+        marked.setOptions({
+            gfm: true,
+            breaks: true,
+            highlight: function(code, lang) {
+                if (Prism.languages[lang]) {
+                    return Prism.highlight(code, Prism.languages[lang], lang);
+                } else {
+                    return code;
+                }
+            }
+        });
 
         function updatePreview() {
             const markdownInput = document.getElementById("markdownInput").value;
             const previewDiv = document.getElementById("preview");
+            
+            const htmlContent = marked.parse(markdownInput);
+            previewDiv.innerHTML = DOMPurify.sanitize(htmlContent);
+            
+            addCopyButtons();
+            Prism.highlightAllUnder(previewDiv);
+        }
+        
+        function addCopyButtons() {
+            const pres = document.querySelectorAll('#preview pre');
+            pres.forEach(pre => {
+                if (pre.querySelector('.copy-btn')) return; // Don't add if button exists
 
-            // Render markdown to HTML using marked.js
-            const htmlContent = marked(markdownInput);
-
-            // Set the inner HTML of the preview div
-            previewDiv.innerHTML = htmlContent;
-
-            // Apply syntax highlighting for any code blocks using Prism.js
-            Prism.highlightAll();
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.textContent = 'Copy';
+                
+                copyBtn.addEventListener('click', () => {
+                    const code = pre.querySelector('code');
+                    navigator.clipboard.writeText(code.innerText).then(() => {
+                        copyBtn.textContent = 'Copied!';
+                        setTimeout(() => {
+                            copyBtn.textContent = 'Copy';
+                        }, 2000);
+                    });
+                });
+                
+                pre.appendChild(copyBtn);
+            });
         }
 
-        // Initialize the editor in "Editor" mode by default
-        toggleView('edit');
+        // Initial render
+        updatePreview();
+        feather.replace();
     </script>
-
 </body>
 </html>
