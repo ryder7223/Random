@@ -1,0 +1,9 @@
+[ENABLE]
+
+"GeometryDash.exe"+3A290E:
+db 90 90
+
+[DISABLE]
+
+"GeometryDash.exe"+3A290E:
+db FF C3
