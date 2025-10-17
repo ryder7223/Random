@@ -1305,7 +1305,7 @@ if __name__ == "__main__":
                 time.sleep(1)
                 letterType(f"${profit:.2f}", 0.1)
                 time.sleep(0.5)
-                print("\nPress Enter to save/exit...")
+                print("\nPress Enter to save...")
 
                 cursor.execute(
                     "INSERT OR REPLACE INTO Users (username, money, bets) VALUES (?, ?, ?)",
@@ -1315,7 +1315,6 @@ if __name__ == "__main__":
                 conn.commit()
                 conn.close()
                 input()
-                break
 
             elif choice == "3":
                 clear()
