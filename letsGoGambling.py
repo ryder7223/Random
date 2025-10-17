@@ -3,6 +3,7 @@ import random
 import sys
 import time
 import math
+import sqlite3
 
 global RED
 global GREY
@@ -14,6 +15,56 @@ GREY = '\033[90m'
 YELLOW = "\033[93m"
 GREEN = "\033[92m"
 RESET = '\033[0m'
+
+global databaseFile
+databaseFile = 'progress.db'
+
+def init_database():
+    conn = sqlite3.connect(databaseFile)
+    cursor = conn.cursor()    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Users (
+            username TEXT PRIMARY KEY,
+            money REAL,
+            bets INTEGER
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def getOrCreateUser(username: str) -> tuple[float, int]:
+    conn = sqlite3.connect(databaseFile)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT money, bets FROM Users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+
+    if row:  # Existing user
+        balance = row[0]
+        totalBets = row[1]
+    else:  # New user
+        balance = 100.00
+        totalBets = 0
+        cursor.execute("INSERT INTO Users (username, money, bets) VALUES (?, ?, ?)", (username, balance, totalBets))
+        conn.commit()
+
+    conn.close()
+    return balance, totalBets
+
+def listUsers():
+    conn = sqlite3.connect(databaseFile)
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM Users")
+    rows = cursor.fetchall()
+    conn.close()
+    if not rows:
+        print("No users found.")
+    else:
+        print("=== Registered Users ===")
+        for username in rows:
+            print(username)
+        print("=" * 24)
+    input("\nPress Enter to continue...")
 
 def letterType(string: str, duration: float):
     for char in string:
@@ -27,16 +78,16 @@ def clear():
 def pause():
     input("\nPress Enter to continue...")
 
-def printHeader(balance):
+def printHeader(balance: float):
     clear()
     print(f"Current Balance: ${balance:,.2f}")
     print("=" * 36)
     print()
 
-def roundMoney(value):
+def roundMoney(value: float) -> float:
     return round(value + 1e-8, 2)
 
-def validateBet(balance):
+def validateBet(balance: float) -> float:
     betInput = input("Enter your bet amount: ").strip()
     if not betInput.replace('.', '', 1).isdigit():
         print("Invalid bet format.")
@@ -54,18 +105,18 @@ def validateBet(balance):
     return roundMoney(bet)
 
 # ---------------------- Games ----------------------
-def coinFlip(balance):
+def coinFlip(balance: float, totalBets: int) -> tuple[float, int]:
     print("Coin Flip — Double your bet")
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     choice = input("Heads or Tails (h/t): ").strip().lower()
     if choice not in ["h", "t"]:
         print("Invalid choice.")
         pause()
-        return balance
+        return balance, totalBets
 
     print("Flipping coin...")
     time.sleep(1.2)
@@ -83,25 +134,26 @@ def coinFlip(balance):
         print(f"It's a loss. You now have ${balance:.2f}")
 
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def diceDuel(balance):
+def diceDuel(balance: float, totalBets: int) -> tuple[float, int]:
     print("Dice Duel — Roll against the dealer (tie = loss).")
     print("Player and dealer roll a 6-sided die each.")
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     print("Rolling dice...")
     time.sleep(1.2)
-    player_roll = random.randint(1, 6)
-    dealer_roll = random.randint(1, 6)
+    playerRoll = random.randint(1, 6)
+    dealerRoll = random.randint(1, 6)
 
-    print(f"You rolled: {player_roll}")
-    print(f"Dealer rolled: {dealer_roll}")
+    print(f"You rolled: {playerRoll}")
+    print(f"Dealer rolled: {dealerRoll}")
 
-    if player_roll > dealer_roll:
+    if playerRoll > dealerRoll:
         balance += bet
         print(f"You win! You now have ${balance:.2f}")
     else:
@@ -109,58 +161,60 @@ def diceDuel(balance):
         print(f"You lost. You now have ${balance:.2f}")
 
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def highLow(balance):
+def highLow(balance: float, totalBets: int) -> tuple[float, int]:
     print("High-Low — Guess if the next card is higher or lower (1–13).")
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
-    current_card = random.randint(2, 12)
-    print(f"\nCurrent card: {current_card}")
+    currentCard = random.randint(2, 12)
+    print(f"\nCurrent card: {currentCard}")
     choice = input("Will the next card be (h)igher or (l)ower? ").strip().lower()
     if choice not in ["h", "l"]:
         print("Invalid choice.")
         pause()
-        return balance
+        return balance, totalBets
 
-    next_card = random.randint(1, 13)
-    print(f"Next card: {next_card}")
+    nextCard = random.randint(1, 13)
+    print(f"Next card: {nextCard}")
 
-    higher_count = 13 - current_card   # numbers strictly greater than current_card
-    lower_count  = current_card - 1    # numbers strictly lower than current_card
+    higherCount = 13 - currentCard   # numbers strictly greater than currentCard
+    lowerCount  = currentCard - 1    # numbers strictly lower than currentCard
     denom = 13.0                       # total possible next-card outcomes (1..13)
 
-    higher_prob = higher_count / denom
-    lower_prob  = lower_count  / denom
+    higherProb = higherCount / denom
+    lowerProb  = lowerCount  / denom
 
-    house_edge = 0.05  # 5% house edge
+    houseEdge = 0.05  # 5% house edge
 
     if choice == "h":
-        win_prob = higher_prob
-        win_condition = next_card > current_card
+        winProb = higherProb
+        winCondition = nextCard > currentCard
     else:
-        win_prob = lower_prob
-        win_condition = next_card < current_card
+        winProb = lowerProb
+        winCondition = nextCard < currentCard
 
-    # If win_prob is zero (impossible guess), it's automatically a loss
-    if win_prob == 0:
+    # If winProb is zero (impossible guess), it's automatically a loss
+    if winProb == 0:
         print("That guess is impossible given the current card — automatic loss.")
         balance -= bet
         print(f"You lost ${bet:.2f}. New balance: ${balance:.2f}")
         pause()
-        return balance
+        totalBets += 1
+        return balance, totalBets
 
     # Payout multiplier inverse to chance, reduced by house edge
-    payout = (1.0 / win_prob) * (1.0 - house_edge)
+    payout = (1.0 / winProb) * (1.0 - houseEdge)
 
     # Ensure payout is positive; (it will be > 1 for reasonable house edges except pathological cases)
     if payout <= 0:
         payout = 1.0
 
-    if win_condition:
+    if winCondition:
         winnings = bet * payout - bet
         balance += winnings   # net: +bet*(payout-1)
         print(f"You win! Payout multiplier: {payout:.2f}x (${winnings:.2f})")
@@ -170,15 +224,16 @@ def highLow(balance):
 
     print(f"New balance: ${balance:.2f}")
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def slotMachine(balance):
+def slotMachine(balance, totalBets):
     print("Slot Machine — Match symbols to win!")
     print("Possible symbols: [7, $, *, @, #]")
     
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     symbols = ["7", "$", "*", "@", "#"]
     print("\nSpinning reels...")
@@ -198,26 +253,27 @@ def slotMachine(balance):
         print(f"No match. You lost ${bet:.2f}")
 
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def blackjack(balance):
+def blackjack(balance: float, totalBets: int):
     print("Blackjack — Try to beat the dealer without going over 21.")
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     suits = ['♠', '♥', '♦', '♣']
     ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 
-    def draw_card():
+    def drawCard():
         rank = random.choice(ranks)
         suit = random.choice(suits)
         # Return tuple: (symbol, value)
         value = min(ranks.index(rank) + 1, 10)  # Face cards count as 10, Ace as 1
         return (f"{rank}{suit}", value)
 
-    def hand_value(cards):
+    def handValue(cards):
         total = sum(v for _, v in cards)
         aces = sum(1 for r, _ in cards if r.startswith('A'))
         while aces > 0 and total + 10 <= 21:
@@ -225,50 +281,51 @@ def blackjack(balance):
             aces -= 1
         return total
 
-    player = [draw_card(), draw_card()]
-    dealer = [draw_card(), draw_card()]
+    player = [drawCard(), drawCard()]
+    dealer = [drawCard(), drawCard()]
 
-    def show_hand(cards, reveal_all=True):
-        if reveal_all:
+    def showHand(cards, revealAll=True):
+        if revealAll:
             return " ".join(c for c, _ in cards)
         else:
             return f"{cards[0][0]} ??"
 
     # Player turn
-    while hand_value(player) < 21:
+    while handValue(player) < 21:
         printHeader(balance)
-        print(f"Your cards: {show_hand(player)} (Total: {hand_value(player)})")
-        print(f"Dealer shows: {show_hand(dealer, reveal_all=False)}")
+        print(f"Your cards: {showHand(player)} (Total: {handValue(player)})")
+        print(f"Dealer shows: {showHand(dealer, revealAll=False)}")
         move = input("\nHit or Stand (h/s): ").strip().lower()
         clear()
         if move == "h":
-            player.append(draw_card())
+            player.append(drawCard())
         elif move == "s":
             break
         else:
             print("Invalid choice.")
 
-    player_total = hand_value(player)
-    if player_total > 21:
+    playerTotal = handValue(player)
+    if playerTotal > 21:
         printHeader(balance)
-        print(f"You bust! Your total was {player_total}. Dealer wins.")
+        print(f"You bust! Your total was {playerTotal}. Dealer wins.")
         balance -= bet
         pause()
-        return balance
+        totalBets += 1
+        return balance, totalBets
 
     # Dealer turn
-    while hand_value(dealer) < 17:
-        dealer.append(draw_card())
-    dealer_total = hand_value(dealer)
+    while handValue(dealer) < 17:
+        dealer.append(drawCard())
+    dealerTotal = handValue(dealer)
     printHeader(balance)
-    print(f"Your cards: {show_hand(player)} (Total: {hand_value(player)})")
-    print(f"Dealer's cards: {show_hand(dealer)} (Total: {dealer_total})")
+    print(f"Your cards: {showHand(player)} (Total: {handValue(player)})")
+    print(f"Dealer's cards: {showHand(dealer)} (Total: {dealerTotal})")
 
-    if dealer_total > 21 or player_total > dealer_total:
+    if dealerTotal > 21 or playerTotal > dealerTotal:
         winnings = bet * 2
         balance += bet
         print(f"You win! Payout: ${winnings:.2f}")
-    elif dealer_total == player_total:
+    elif dealerTotal == playerTotal:
         print("Push — It's a tie.")
     else:
         print("Dealer wins.")
@@ -276,9 +333,10 @@ def blackjack(balance):
 
     print(f"New balance: ${balance:.2f}")
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def roulette(balance):
+def roulette(balance: float, totalBets: int) -> tuple[float, int]:
     """European Roulette — Animated spin with red/black/green betting and single number option."""
     print("Roulette — Bet on a color or a number (0–36).")
     print("1) Red/Black/Green (pays 1.9x for red/black, 30x for green)")
@@ -286,15 +344,15 @@ def roulette(balance):
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     choice = input("Choose bet type (1/2): ").strip()
     if choice not in ["1", "2"]:
         print("Invalid choice.")
         pause()
-        return balance
+        return balance, totalBets
 
-    red_numbers = {1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
+    redNumbers = {1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
 
     # --- Collect guess BEFORE spinning ---
     if choice == "1":
@@ -302,55 +360,55 @@ def roulette(balance):
         if guess not in ["red", "black", "green"]:
             print("Invalid color.")
             pause()
-            return balance
+            return balance, totalBets
     else:
-        guess_input = input("Enter your number (0–36): ").strip()
-        if not guess_input.isdigit():
+        guessInput = input("Enter your number (0–36): ").strip()
+        if not guessInput.isdigit():
             print("Invalid number.")
             pause()
-            return balance
-        guess = int(guess_input)
+            return balance, totalBets
+        guess = int(guessInput)
         if not (0 <= guess <= 36):
             print("Number must be between 0–36.")
             pause()
-            return balance
+            return balance, totalBets
 
     # --- Animation setup ---
-    spin_length = 15
-    window_size = 9
-    pointer_index = 4  # middle of window
+    spinLength = 15
+    windowSize = 9
+    pointerIndex = 4  # middle of window
     numbers = list(range(37))
-    wheel = random.choices(numbers, k=spin_length + window_size + 10)
+    wheel = random.choices(numbers, k=spinLength + windowSize + 10)
 
     print("Spinning the wheel...")
     time.sleep(1)
 
     delay = 0.05
-    for i in range(spin_length):
+    for i in range(spinLength):
         clear()
-        window = wheel[i:i + window_size]
+        window = wheel[i:i + windowSize]
         display = []
         for n in window:
-            color_code = RED if n in red_numbers else GREY if n != 0 else GREEN
-            display.append(f"{color_code}{n:02d}{RESET}")
+            colorCode = RED if n in redNumbers else GREY if n != 0 else GREEN
+            display.append(f"{colorCode}{n:02d}{RESET}")
         print(" ".join(display))
-        print(" " * (sum(3 for _ in window[:pointer_index])) + "^")
+        print(" " * (sum(3 for _ in window[:pointerIndex])) + "^")
         time.sleep(delay)
         delay *= 1.3  # slow down gradually
 
-    final_index = spin_length - 1 + pointer_index
-    result_number = wheel[final_index]
-    result_color = "red" if result_number in red_numbers else "black" if result_number != 0 else "green"
+    finalIndex = spinLength - 1 + pointerIndex
+    resultNumber = wheel[finalIndex]
+    resultColor = "red" if resultNumber in redNumbers else "black" if resultNumber != 0 else "green"
 
     clear()
-    color_code = RED if result_color == "red" else GREY if result_color == "black" else GREEN
-    print(f"            {color_code}{result_number:02d}{RESET}")
+    colorCode = RED if resultColor == "red" else GREY if resultColor == "black" else GREEN
+    print(f"            {colorCode}{resultNumber:02d}{RESET}")
     print("            ^")
 
     # --- Outcome handling ---
     if choice == "1":
-        if guess == result_color:
-            if result_color == "green":
+        if guess == resultColor:
+            if resultColor == "green":
                 winnings = bet * 30
                 balance += winnings
                 print(f"Jackpot! You won ${winnings:.2f}")
@@ -362,7 +420,7 @@ def roulette(balance):
             balance -= bet
             print(f"You lost ${bet:.2f}.")
     else:
-        if guess == result_number:
+        if guess == resultNumber:
             winnings = bet * 30
             balance += winnings
             print(f"Jackpot! You won ${winnings:.2f}")
@@ -372,15 +430,16 @@ def roulette(balance):
 
     print(f"New balance: ${balance:.2f}")
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def craps(balance):
+def craps(balance: float, totalBets: int) -> tuple[float, int]:
     print("Craps — Roll 2 dice. 7 or 11 to win, 2/3/12 to lose.")
     print("Roll any other starting number twice to win.")
     
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     die1 = random.randint(1, 6)
     die2 = random.randint(1, 6)
@@ -414,41 +473,42 @@ def craps(balance):
 
     print(f"New balance: ${balance:.2f}")
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def wheelOfFortune(balance):
+def wheelOfFortune(balance: float, totalBets: int) -> tuple[float, int]:
     print("Wheel of Fortune — Spin for random prizes!")
     print("Possible outcomes: Lose, 1.5x, 2x, 5x, 10x, 20x")
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     outcomes = ["Lose", "Lose", "Lose", "1.5x", " 2x ", " 5x ", "10x ", "20x "]
     weights  = [0.35, 0.25, 0.15, 0.15, 0.06, 0.03, 0.009, 0.001]
 
-    spin_length = 30
-    window_size = 5
-    pointer_index = 2  # middle of window
+    spinLength = 30
+    windowSize = 5
+    pointerIndex = 2  # middle of window
 
     # Generate a long wheel strip with enough random outcomes
-    wheel = random.choices(outcomes, weights, k=spin_length + window_size + 10)
+    wheel = random.choices(outcomes, weights, k=spinLength + windowSize + 10)
 
     print("Spinning the wheel...")
     time.sleep(1)
 
     delay = 0.05
-    for i in range(spin_length):
+    for i in range(spinLength):
         clear()
-        window = wheel[i:i + window_size]
+        window = wheel[i:i + windowSize]
         print(" ".join(str(x) for x in window))
-        print(" " * (sum(len(str(x)) + 1 for x in window[:pointer_index])) + " ^")
+        print(" " * (sum(len(str(x)) + 1 for x in window[:pointerIndex])) + " ^")
         time.sleep(delay)
         delay *= 1.08
 
     # Use the middle item of the last window as the final result
-    final_index = spin_length - 1 + pointer_index
-    result = wheel[final_index]
+    finalIndex = spinLength - 1 + pointerIndex
+    result = wheel[finalIndex]
 
     clear()
     print(f"          {result}     ")
@@ -465,35 +525,36 @@ def wheelOfFortune(balance):
 
     print(f"New balance: ${balance:.2f}")
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def baccarat(balance):
+def baccarat(balance: float, totalBets: int) -> tuple[float, int]:
     print("Baccarat — Bet on Player, Banker, or Tie.")
     print("Player and Banker both choose a number from 0-9.")
     
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     print("Bet options: (p) Player, (b) Banker, (t) Tie")
     choice = input("Place your bet: ").strip().lower()
     if choice not in ["p", "b", "t"]:
         print("Invalid choice.")
         pause()
-        return balance
+        return balance, totalBets
 
-    def draw_hand():
+    def drawHand():
         return random.randint(0, 9)
 
-    player_score = draw_hand()
-    banker_score = draw_hand()
-    print(f"Player: {player_score}, Banker: {banker_score}")
+    playerScore = drawHand()
+    bankerScore = drawHand()
+    print(f"Player: {playerScore}, Banker: {bankerScore}")
 
-    if choice == "p" and player_score > banker_score:
+    if choice == "p" and playerScore > bankerScore:
         payout = 1.95
-    elif choice == "b" and banker_score > player_score:
+    elif choice == "b" and bankerScore > playerScore:
         payout = 1.95 * 0.95  # 5% commission on banker win
-    elif choice == "t" and player_score == banker_score:
+    elif choice == "t" and playerScore == bankerScore:
         payout = 8.0
     else:
         payout = 0
@@ -508,52 +569,54 @@ def baccarat(balance):
 
     print(f"New balance: ${balance:.2f}")
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def doubleOrNothing(balance):
+def doubleOrNothing(balance: float, totalBets: int) -> tuple[float, int]:
     print("Double or Nothing — Keep flipping to double your bet each time!")
     
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
-    current_bet = bet
+    currentBet = bet
     while True:
-        print(f"\nCurrent bet: ${current_bet:.2f}, Balance: ${balance:.2f}")
+        print(f"\nCurrent bet: ${currentBet:.2f}, Balance: ${balance:.2f}")
         choice = input("Flip coin? (y/n to stop and cash out): ").strip().lower()
         if choice != "y":
-            balance += current_bet - bet  # Add winnings so far
-            print(f"You cash out with ${current_bet:.2f}")
+            balance += currentBet - bet  # Add winnings so far
+            print(f"You cash out with ${currentBet:.2f}")
             break
 
         if random.random() < 0.45:
-            current_bet *= 2
+            currentBet *= 2
             print("You won this flip! Bet doubled.")
         else:
-            balance -= current_bet
-            print(f"You lost! Lost ${current_bet:.2f}")
-            current_bet = 0
+            balance -= currentBet
+            print(f"You lost! Lost ${currentBet:.2f}")
+            currentBet = 0
             break
 
     print(f"New balance: ${balance:.2f}")
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def lottery(balance):
+def lottery(balance: float, totalBets: int) -> tuple[float, int]:
     print("Lottery — Pick 3 numbers (0–9). Match any of them to win!")
     
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     picks = []
     for i in range(3):
-        pick_input = input(f"Pick number {i+1} (0–9): ").strip()
-        if not pick_input.isdigit() or not (0 <= int(pick_input) <= 9):
+        pickInput = input(f"Pick number {i+1} (0–9): ").strip()
+        if not pickInput.isdigit() or not (0 <= int(pickInput) <= 9):
             print("Invalid choice.")
             pause()
-            return balance
-        picks.append(int(pick_input))
+            return balance, totalBets
+        picks.append(int(pickInput))
 
     drawn = [random.randint(0, 9) for _ in range(3)]
     print(f"Drawn numbers: {drawn}")
@@ -578,16 +641,17 @@ def lottery(balance):
 
     print(f"New balance: ${balance:.2f}")
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def pickARange(balance):
+def pickARange(balance: float, totalBets: int) -> tuple[float, int]:
     print("Pick-A-Range — Pick a range of 1–50.")
     print("A random number will be generated from 1-50")
     print("Choose a smaller range for a bigger prize with lower odds.")
     
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     rangeInput = input("Pick a range in the form low-high (e.g., 5-15): ").strip()
     try:
@@ -597,7 +661,7 @@ def pickARange(balance):
     except ValueError:
         print("Invalid range.")
         pause()
-        return balance
+        return balance, totalBets
 
     drawn = random.randint(1, 50)
     print(f"Drawn number: {drawn}")
@@ -616,15 +680,16 @@ def pickARange(balance):
 
     print(f"New balance: ${balance:.2f}")
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def scratchie(balance):
+def scratchie(balance: float, totalBets: int) -> tuple[float, int]:
     print("Lottery Scratchie — Each ticket costs $2.00.")
     ticketPrice = 2.00
     if balance < ticketPrice:
         print("Not enough funds.")
         pause()
-        return balance
+        return balance, totalBets
     balance -= ticketPrice
     print("Scratching ticket...")
     time.sleep(1.5)
@@ -641,14 +706,15 @@ def scratchie(balance):
         print("No win this time.")
     balance = roundMoney(balance)
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def multilineSlots(balance):
+def multilineSlots(balance: float, totalBets: int) -> tuple[float, int]:
     print("Multiline Slots — Match lines for combos!")
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     symbols = ["7", "$", "*", "@", "#", "&", "%"]
     grid = [[random.choice(symbols) for _ in range(5)] for _ in range(3)]
@@ -707,14 +773,15 @@ def multilineSlots(balance):
 
     balance = roundMoney(balance)
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def lucky7s(balance):
+def lucky7s(balance: float, totalBets: int) -> tuple[float, int]:
     print("Lucky 7s — Roll 7s to win!")
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     reels = [random.randint(1, 7) for _ in range(3)]
     print(f"Rolled: {reels[0]} | {reels[1]} | {reels[2]}")
@@ -737,9 +804,10 @@ def lucky7s(balance):
 
     balance = roundMoney(balance)
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def poker(balance):
+def poker(balance: float, totalBets: int) -> tuple[float, int]:
     print("Welcome to Texas Hold'em Poker!")
     print("Rules:")
     print("- You will play against 3 opponents.")
@@ -750,7 +818,7 @@ def poker(balance):
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
     suits = ['♠', '♥', '♦', '♣']
@@ -764,7 +832,7 @@ def poker(balance):
 
     rankValues = {r: i for i, r in enumerate(ranks, 2)}
 
-    def showTable(roundName):
+    def showTable(roundName: str):
         clear()
         printHeader(balance)
         print(f"--- {roundName} ---")
@@ -775,7 +843,7 @@ def poker(balance):
             print("Community Cards: None yet")
         print(f"Current pot: ${pot:.2f}\n")
 
-    def evaluateHand(hand):
+    def evaluateHand(hand: list) -> tuple[bool, bool, list[int], int, list[int]]:
         values = sorted([rankValues[c[:-1]] for c in hand])
         suitsInHand = [c[-1] for c in hand]
         counts = {v: values.count(v) for v in values}
@@ -787,7 +855,7 @@ def poker(balance):
             values = [1, 2, 3, 4, 5]
         return (isStraight, isFlush, freq, max(values), values)
 
-    def handScore(hand):
+    def handScore(hand: list) -> tuple[int, list[int], str]:
         isStraight, isFlush, freq, high, values = evaluateHand(hand)
         if isStraight and isFlush and max(values) == 14:
             return (10, values[::-1], "Royal Flush")
@@ -810,7 +878,7 @@ def poker(balance):
         else:
             return (1, values[::-1], "High Card")
 
-    def generateCombinations(cards, n=5):
+    def generateCombinations(cards: list, n=5) -> list:
         combos = []
         def backtrack(start, path):
             if len(path) == n:
@@ -821,7 +889,7 @@ def poker(balance):
         backtrack(0, [])
         return combos
 
-    def evaluateBestHand(cards):
+    def evaluateBestHand(cards: list) -> tuple:
         best = (-1, [], "", [])
         for combo in generateCombinations(cards, 5):
             cat, tiebreak, label = handScore(combo)
@@ -829,7 +897,7 @@ def poker(balance):
                 best = (cat, tiebreak, label, combo)
         return best
 
-    def playerAction(roundName):
+    def playerAction(roundName: str):
         nonlocal pot, folded, bet
         while True:
             print(f"Your options: [C]heck/Call, [R]aise, [F]old")
@@ -881,7 +949,7 @@ def poker(balance):
         balance = roundMoney(balance)
         print(f"You folded pre-flop and lost ${bet:.2f}.")
         pause()
-        return balance
+        return balance, totalBets
     input("\nEnter to continue...")
     # --- Flop ---
     communityCards.extend([deck.pop() for _ in range(3)])
@@ -893,7 +961,7 @@ def poker(balance):
         balance = roundMoney(balance)
         print(f"You folded after the flop and lost ${bet:.2f}.")
         pause()
-        return balance
+        return balance, totalBets
     input("\nEnter to continue...")
     # --- Turn ---
     communityCards.append(deck.pop())
@@ -905,7 +973,7 @@ def poker(balance):
         balance = roundMoney(balance)
         print(f"You folded after the turn and lost ${bet:.2f}.")
         pause()
-        return balance
+        return balance, totalBets
     input("\nEnter to continue...")
     # --- River ---
     communityCards.append(deck.pop())
@@ -917,7 +985,7 @@ def poker(balance):
         balance = roundMoney(balance)
         print(f"You folded after the river and lost ${bet:.2f}.")
         pause()
-        return balance
+        return balance, totalBets
     input("\nEnter to continue...")
     # --- Showdown ---
     playerBest = evaluateBestHand(playerHand + communityCards)
@@ -970,21 +1038,22 @@ def poker(balance):
 
     balance = roundMoney(balance)
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
-def horseRacing(balance):
+def horseRacing(balance: float, totalBets: int) -> tuple[float, int]:
     print("Horse Racing — Bet on a horse (A–E)!")
 
     bet = validateBet(balance)
     if bet is None:
-        return balance
+        return balance, totalBets
 
     horses = ['A', 'B', 'C', 'D', 'E']
     choice = input("Choose your horse (A–E): ").strip().upper()
     if choice not in horses:
         print("Invalid choice.")
         pause()
-        return balance
+        return balance, totalBets
 
     positions = {h: 0 for h in horses}
     trackLength = 20
@@ -1034,11 +1103,12 @@ def horseRacing(balance):
 
     balance = roundMoney(balance)
     pause()
-    return balance
+    totalBets += 1
+    return balance, totalBets
 
 # ---------------------- Stats ----------------------
 
-def stats(balance, startingBalance, totalBets):
+def stats(balance: float, startingBalanc: float, totalBets: int):
     clear()
     profit = balance - startingBalance
     print("=== GAME STATS ===")
@@ -1051,10 +1121,9 @@ def stats(balance, startingBalance, totalBets):
 
 # ---------------------- Main Loop ----------------------
 
-def main():
-    balance = 100.00
-    startingBalance = balance
-    totalBets = 0
+def main(startingBalance: float, totalBets: int) -> tuple[float, float, int]:
+    balance = startingBalance
+    startingBalance = 100.00
 
     games = {
         "1": coinFlip,
@@ -1101,13 +1170,12 @@ def main():
             print("19) Quit")
     
             choice = input("\nSelect an option: ").strip()
-            totalBets += 1
     
             # Handle game selections 1–17
             if choice in games:
                 clear()
                 printHeader(balance)
-                balance = games[choice](balance)
+                balance, totalBets = games[choice](balance, totalBets)
     
             elif choice == "18":
                 profit = roundMoney(balance - startingBalance)
@@ -1134,17 +1202,67 @@ def main():
     
             clear()
     except KeyboardInterrupt:
-        return balance, startingBalance
+        return balance, startingBalance, totalBets
+    except Exception as e:
+        print(e)
+        input("Awaiting...")
 
 if __name__ == "__main__":
     try:
-        balance, startingBalance = main()
         clear()
-        profit = roundMoney(balance - startingBalance)
-        print(f"You made: ",end="")
-        sys.stdout.flush() 
-        time.sleep(1)
-        letterType(f"${profit:.2f}", 0.1)
-        input()
-    except:
+        init_database()
+
+        while True:
+            clear()
+            print("==== MENU ====")
+            print("1) List Users")
+            print("2) Begin Game")
+            print("3) Exit")
+            choice = input("\nSelect an option: ").strip()
+
+            if choice == "1":
+                clear()
+                listUsers()
+                continue
+
+            elif choice == "2":
+                clear()
+                conn = sqlite3.connect(databaseFile)
+                cursor = conn.cursor()
+
+                name = input("Enter your name: ").strip()
+                startingBalance, totalBets = getOrCreateUser(name)
+                balance, startingBalance, totalBets = main(startingBalance, totalBets)
+
+                clear()
+                profit = roundMoney(balance - startingBalance)
+                print("You made: ", end="")
+                sys.stdout.flush()
+                time.sleep(1)
+                letterType(f"${profit:.2f}", 0.1)
+                time.sleep(0.5)
+                print("\nPress Enter to save/exit...")
+
+                cursor.execute(
+                    "INSERT OR REPLACE INTO Users (username, money, bets) VALUES (?, ?, ?)",
+                    (name, balance, totalBets)
+                )
+
+                conn.commit()
+                conn.close()
+                input()
+                break
+
+            elif choice == "3":
+                print("Exiting...")
+                time.sleep(0.5)
+                sys.exit(0)
+
+            else:
+                print("Invalid choice. Please select 1, 2, or 3.")
+                time.sleep(1)
+
+    except Exception as e:
+        print(f"An error has occurred: {e}")
+        input("Awaiting...")
         sys.exit(0)
