@@ -287,7 +287,7 @@ def highLow(balance: float, totalBets: int) -> tuple[float, int]:
     totalBets += 1
     return balance, totalBets
 
-def slotMachine(balance, totalBets):
+def slotMachine(balance, totalBets) -> tuple[float, int]:
     print("Slot Machine — Match symbols to win!")
     print("Possible symbols: [7, $, *, @, #]")
     
@@ -316,7 +316,7 @@ def slotMachine(balance, totalBets):
     totalBets += 1
     return balance, totalBets
 
-def blackjack(balance: float, totalBets: int):
+def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
     print("Blackjack — Try to beat the dealer without going over 21.")
 
     bet = validateBet(balance)
@@ -1051,7 +1051,7 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
     playerBest = evaluateBestHand(playerHand + communityCards)
     oppBests = [evaluateBestHand(opp + communityCards) for opp in oppHands]
 
-    def getKeyCards(hand):
+    def getKeyCards(hand: list) -> list:
         values = [c[:-1] for c in hand]
         counts = {v: values.count(v) for v in set(values)}
         freqSorted = sorted(counts.items(), key=lambda x: (-x[1], -rankValues[x[0]]))
@@ -1067,7 +1067,7 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
             keyCards = hand
         return keyCards
 
-    def highlightHand(allCards, bestCombo, handRankLabel):
+    def highlightHand(allCards: list, bestCombo: list, handRankLabel: str) -> str:
         keyCards = getKeyCards(bestCombo) if handRankLabel not in ["Straight", "Flush", "Straight Flush", "Royal Flush", "High Card"] else bestCombo
         return " ".join(f"{YELLOW}{c}{RESET}" if c in keyCards else c for c in allCards)
 
