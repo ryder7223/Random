@@ -1305,7 +1305,7 @@ if __name__ == "__main__":
                 time.sleep(1)
                 letterType(f"${profit:.2f}", 0.1)
                 time.sleep(0.5)
-                print("\nPress Enter to save...")
+                input("\nPress Enter to save...")
 
                 cursor.execute(
                     "INSERT OR REPLACE INTO Users (username, money, bets) VALUES (?, ?, ?)",
@@ -1314,7 +1314,6 @@ if __name__ == "__main__":
 
                 conn.commit()
                 conn.close()
-                input()
 
             elif choice == "3":
                 clear()
@@ -1333,7 +1332,7 @@ if __name__ == "__main__":
                 print("Invalid choice. Please select 1–5.")
                 time.sleep(1)
     except KeyboardInterrupt:
-        print("Force Exiting, your progress will not be saved.")
+        print("\nForce Exiting, your progress will not be saved.")
         time.sleep(0.5)
         sys.exit(0)
     except Exception as e:
