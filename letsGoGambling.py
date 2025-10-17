@@ -15,6 +15,12 @@ YELLOW = "\033[93m"
 GREEN = "\033[92m"
 RESET = '\033[0m'
 
+def letterType(string: str, duration: float):
+    for char in string:
+        sys.stdout.write(char)
+        sys.stdout.flush()
+        time.sleep(duration)
+
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
 
@@ -127,7 +133,7 @@ def high_low(balance):
         pause()
         return balance
 
-    current_card = random.randint(1, 13)
+    current_card = random.randint(2, 12)
     print(f"\nCurrent card: {current_card}")
     choice = input("Will the next card be (h)igher or (l)ower? ").strip().lower()
     if choice not in ["h", "l"]:
@@ -170,7 +176,7 @@ def high_low(balance):
         payout = 1.0
 
     if win_condition:
-        winnings = bet * payout
+        winnings = bet * payout - bet
         balance += winnings   # net: +bet*(payout-1)
         print(f"You win! Payout multiplier: {payout:.2f}x (${winnings:.2f})")
     else:
@@ -552,7 +558,7 @@ def baccarat(balance):
         payout = 0
 
     if payout > 0:
-        winnings = bet * payout
+        winnings = bet * payout - bet
         balance += winnings
         print(f"You won! Payout: ${winnings:.2f}")
     else:
@@ -636,7 +642,7 @@ def lottery(balance):
         payout = 0
 
     if payout > 0:
-        winnings = bet * payout
+        winnings = bet * payout - bet
         balance += winnings
         print(f"You matched {matches} numbers! Payout: ${winnings:.2f}")
     else:
@@ -681,7 +687,7 @@ def pick_a_range(balance):
         payout = (50 / (high - low + 1)) * 0.99
         if payout < 1.0:
             payout = 1.0
-        winnings = bet * payout
+        winnings = bet * payout - bet
         balance += winnings
         print(f"You won! Payout multiplier: {payout:.2f} (${winnings:.2f})")
     else:
@@ -1147,63 +1153,75 @@ def main():
         "17": horse_racing,
     }
 
-    while True:
-        balance = round_money(balance)
-        print_header(balance)
-        print("1) Coin Flip")
-        print("2) Dice Duel")
-        print("3) High-Low Card Game")
-        print("4) Slot Machine")
-        print("5) Blackjack")
-        print("6) Roulette")
-        print("7) Craps")
-        print("8) Wheel of Fortune")
-        print("9) Baccarat")
-        print("10) Double or Nothing")
-        print("11) Lottery")
-        print("12) Pick-A-Range")
-        print("13) Scratchie Ticket")
-        print("14) Multiline Slots")
-        print("15) Lucky 7s")
-        print("16) Poker")
-        print("17) Horse Racing")
-        print("18) View Stats")
-        print("19) Quit")
-
-        choice = input("\nSelect an option: ").strip()
-        total_bets += 1
-
-        # Handle game selections 1–17
-        if choice in games:
-            clear()
+    try:
+        while True:
+            balance = round_money(balance)
             print_header(balance)
-            balance = games[choice](balance)
-
-        elif choice == "18":
-            profit = round_money(balance - starting_balance)
+            print("1) Coin Flip")
+            print("2) Dice Duel")
+            print("3) High-Low Card Game")
+            print("4) Slot Machine")
+            print("5) Blackjack")
+            print("6) Roulette")
+            print("7) Craps")
+            print("8) Wheel of Fortune")
+            print("9) Baccarat")
+            print("10) Double or Nothing")
+            print("11) Lottery")
+            print("12) Pick-A-Range")
+            print("13) Scratchie Ticket")
+            print("14) Multiline Slots")
+            print("15) Lucky 7s")
+            print("16) Poker")
+            print("17) Horse Racing")
+            print("18) View Stats")
+            print("19) Quit")
+    
+            choice = input("\nSelect an option: ").strip()
+            total_bets += 1
+    
+            # Handle game selections 1–17
+            if choice in games:
+                clear()
+                print_header(balance)
+                balance = games[choice](balance)
+    
+            elif choice == "18":
+                profit = round_money(balance - starting_balance)
+                clear()
+                print("=== GAME STATS ===")
+                print(f"Starting Balance: ${starting_balance:.2f}")
+                print(f"Current Balance:  ${balance:.2f}")
+                print(f"Profit/Loss:      ${profit:.2f}")
+                print(f"Total Bets Made:  {total_bets}")
+                print("=" * 24)
+                pause()
+    
+            elif choice == "19":
+                print(f"\nYou left with ${balance:.2f}. Thanks for playing.")
+                break
+    
+            else:
+                print("Invalid choice. Please enter a number between 1 and 20.")
+                pause()
+    
+            if balance <= 0:
+                print("You’ve lost all your money. Game over.")
+                break
+    
             clear()
-            print("=== GAME STATS ===")
-            print(f"Starting Balance: ${starting_balance:.2f}")
-            print(f"Current Balance:  ${balance:.2f}")
-            print(f"Profit/Loss:      ${profit:.2f}")
-            print(f"Total Bets Made:  {total_bets}")
-            print("=" * 24)
-            pause()
-
-        elif choice == "19":
-            print(f"\nYou left with ${balance:.2f}. Thanks for playing.")
-            break
-
-        else:
-            print("Invalid choice. Please enter a number between 1 and 20.")
-            pause()
-
-        if balance <= 0:
-            print("You’ve lost all your money. Game over.")
-            break
-
-        clear()
+    except KeyboardInterrupt:
+        return balance, starting_balance
 
 if __name__ == "__main__":
-    main()
-    input()
+    try:
+        balance, starting_balance = main()
+        clear()
+        profit = round_money(balance - starting_balance)
+        print(f"You made: ",end="")
+        sys.stdout.flush() 
+        time.sleep(1)
+        letterType(f"${profit:.2f}", 0.05)
+        input()
+    except:
+        sys.exit(0)
