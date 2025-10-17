@@ -27,36 +27,36 @@ def clear():
 def pause():
     input("\nPress Enter to continue...")
 
-def print_header(balance):
+def printHeader(balance):
     clear()
     print(f"Current Balance: ${balance:,.2f}")
     print("=" * 36)
     print()
 
-def round_money(value):
+def roundMoney(value):
     return round(value + 1e-8, 2)
 
-def validate_bet(balance):
-    bet_input = input("Enter your bet amount: ").strip()
-    if not bet_input.replace('.', '', 1).isdigit():
+def validateBet(balance):
+    betInput = input("Enter your bet amount: ").strip()
+    if not betInput.replace('.', '', 1).isdigit():
         print("Invalid bet format.")
         pause()
         return None
-    if '.' in bet_input and len(bet_input.split('.')[1]) > 2:
+    if '.' in betInput and len(betInput.split('.')[1]) > 2:
         print("No more than two decimal places allowed.")
         pause()
         return None
-    bet = float(bet_input)
+    bet = float(betInput)
     if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
         print("Invalid bet amount.")
         pause()
         return None
-    return round_money(bet)
+    return roundMoney(bet)
 
 # ---------------------- Games ----------------------
-def coin_flip(balance):
+def coinFlip(balance):
     print("Coin Flip — Double your bet")
-    bet = validate_bet(balance)
+    bet = validateBet(balance)
     if bet is None:
         return balance
 
@@ -84,13 +84,13 @@ def coin_flip(balance):
     pause()
     return balance
 
-def dice_duel(balance):
+def diceDuel(balance):
     print("Dice Duel — Roll against the dealer (tie = loss).")
     print("Player and dealer roll a 6-sided die each.")
 
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -118,12 +118,12 @@ def dice_duel(balance):
     pause()
     return balance
 
-def high_low(balance):
+def highLow(balance):
     print("High-Low — Guess if the next card is higher or lower (1–13).")
 
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -187,12 +187,12 @@ def high_low(balance):
     pause()
     return balance
 
-def slot_machine(balance):
+def slotMachine(balance):
     print("Slot Machine — Match symbols to win!")
     print("Possible symbols: [7, $, *, @, #]")
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -224,9 +224,9 @@ def slot_machine(balance):
 
 def blackjack(balance):
     print("Blackjack — Try to beat the dealer without going over 21.")
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -265,7 +265,7 @@ def blackjack(balance):
 
     # Player turn
     while hand_value(player) < 21:
-        print_header(balance)
+        printHeader(balance)
         print(f"Your cards: {show_hand(player)} (Total: {hand_value(player)})")
         print(f"Dealer shows: {show_hand(dealer, reveal_all=False)}")
         move = input("\nHit or Stand (h/s): ").strip().lower()
@@ -279,7 +279,7 @@ def blackjack(balance):
 
     player_total = hand_value(player)
     if player_total > 21:
-        print_header(balance)
+        printHeader(balance)
         print(f"You bust! Your total was {player_total}. Dealer wins.")
         balance -= bet
         pause()
@@ -289,7 +289,7 @@ def blackjack(balance):
     while hand_value(dealer) < 17:
         dealer.append(draw_card())
     dealer_total = hand_value(dealer)
-    print_header(balance)
+    printHeader(balance)
     print(f"Your cards: {show_hand(player)} (Total: {hand_value(player)})")
     print(f"Dealer's cards: {show_hand(dealer)} (Total: {dealer_total})")
 
@@ -319,9 +319,9 @@ def roulette(balance):
         pause()
         return balance
 
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -414,9 +414,9 @@ def roulette(balance):
 def craps(balance):
     print("Craps — Roll 2 dice. 7 or 11 to win, 2/3/12 to lose.")
     print("Roll any other starting number twice to win.")
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -460,13 +460,13 @@ def craps(balance):
     pause()
     return balance
 
-def wheel_of_fortune(balance):
+def wheelOfFortune(balance):
     print("Wheel of Fortune — Spin for random prizes!")
     print("Possible outcomes: Lose, 1.5x, 2x, 5x, 10x, 20x")
 
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -522,9 +522,9 @@ def wheel_of_fortune(balance):
 def baccarat(balance):
     print("Baccarat — Bet on Player, Banker, or Tie.")
     print("Player and Banker both choose a number from 0-9.")
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -569,11 +569,11 @@ def baccarat(balance):
     pause()
     return balance
 
-def double_or_nothing(balance):
+def doubleOrNothing(balance):
     print("Double or Nothing — Keep flipping to double your bet each time!")
-    bet_input = input("Enter your starting bet amount: ").strip()
+    betInput = input("Enter your starting bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -607,9 +607,9 @@ def double_or_nothing(balance):
 
 def lottery(balance):
     print("Lottery — Pick 3 numbers (0–9). Match any of them to win!")
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -653,13 +653,13 @@ def lottery(balance):
     pause()
     return balance
 
-def pick_a_range(balance):
+def pickARange(balance):
     print("Pick-A-Range — Pick a range of 1–50.")
     print("A random number will be generated from 1-50")
     print("Choose a smaller range for a bigger prize with lower odds.")
-    bet_input = input("Enter your bet amount: ").strip()
+    betInput = input("Enter your bet amount: ").strip()
     try:
-        bet = float(bet_input)
+        bet = float(betInput)
         if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
             print("Invalid bet amount.")
             pause()
@@ -669,9 +669,9 @@ def pick_a_range(balance):
         pause()
         return balance
 
-    range_input = input("Pick a range in the form low-high (e.g., 5-15): ").strip()
+    rangeInput = input("Pick a range in the form low-high (e.g., 5-15): ").strip()
     try:
-        low, high = map(int, range_input.split("-"))
+        low, high = map(int, rangeInput.split("-"))
         if not (1 <= low < high <= 50):
             raise ValueError
     except ValueError:
@@ -700,12 +700,12 @@ def pick_a_range(balance):
 
 def scratchie(balance):
     print("Lottery Scratchie — Each ticket costs $2.00.")
-    ticket_price = 2.00
-    if balance < ticket_price:
+    ticketPrice = 2.00
+    if balance < ticketPrice:
         print("Not enough funds.")
         pause()
         return balance
-    balance -= ticket_price
+    balance -= ticketPrice
     print("Scratching ticket...")
     time.sleep(1.5)
 
@@ -719,13 +719,13 @@ def scratchie(balance):
         balance += prize
     else:
         print("No win this time.")
-    balance = round_money(balance)
+    balance = roundMoney(balance)
     pause()
     return balance
 
-def multiline_slots(balance):
+def multilineSlots(balance):
     print("Multiline Slots — Match lines for combos!")
-    bet = validate_bet(balance)
+    bet = validateBet(balance)
     if bet is None:
         return balance
 
@@ -747,34 +747,34 @@ def multiline_slots(balance):
     ]
 
     winnings = 0
-    winning_positions = set()
+    winningPositions = set()
 
     for positions, line in lines:
         unique = set(line)
-        win_here = False
+        winHere = False
         if len(unique) == 1:
             winnings += bet * 5
-            win_here = True
+            winHere = True
         elif len(unique) == 2:
             winnings += bet * 1.5
-            win_here = True
+            winHere = True
         elif "7" in line and line.count("7") >= 3:
             winnings += bet * 3
-            win_here = True
+            winHere = True
 
-        if win_here:
-            winning_positions.update(positions)
+        if winHere:
+            winningPositions.update(positions)
 
     # Print grid with yellow-highlighted winning symbols
     for r in range(3):
-        row_display = []
+        rowDisplay = []
         for c in range(5):
             symbol = grid[r][c]
-            if (r, c) in winning_positions:
-                row_display.append(f"{YELLOW}{symbol}{RESET}")
+            if (r, c) in winningPositions:
+                rowDisplay.append(f"{YELLOW}{symbol}{RESET}")
             else:
-                row_display.append(symbol)
-        print(" | ".join(row_display))
+                rowDisplay.append(symbol)
+        print(" | ".join(rowDisplay))
     print("")
 
     if winnings > 0:
@@ -784,13 +784,13 @@ def multiline_slots(balance):
         print(f"No winning lines. You lost ${bet:.2f}.")
         balance -= bet
 
-    balance = round_money(balance)
+    balance = roundMoney(balance)
     pause()
     return balance
 
-def lucky_7s(balance):
+def lucky7s(balance):
     print("Lucky 7s — Roll 7s to win!")
-    bet = validate_bet(balance)
+    bet = validateBet(balance)
     if bet is None:
         return balance
 
@@ -813,7 +813,7 @@ def lucky_7s(balance):
         print(f"You lost ${bet:.2f}.")
         balance -= bet
 
-    balance = round_money(balance)
+    balance = roundMoney(balance)
     pause()
     return balance
 
@@ -826,7 +826,7 @@ def poker(balance):
     print("- Hands are ranked: Royal Flush > Straight Flush > Four of a Kind > Full House > Flush > Straight > Three of a Kind > Two Pair > One Pair > High Card.")
     print("- You can choose to fold, check/call, or raise in each round.\n")
 
-    bet = validate_bet(balance)
+    bet = validateBet(balance)
     if bet is None:
         return balance
 
@@ -835,49 +835,49 @@ def poker(balance):
     deck = [f"{r}{s}" for r in ranks for s in suits]
     random.shuffle(deck)
 
-    num_opp = 3
-    player_hand = [deck.pop() for _ in range(2)]
-    opp_hands = [[deck.pop() for _ in range(2)] for _ in range(num_opp)]
-    community_cards = []
+    numOpp = 3
+    playerHand = [deck.pop() for _ in range(2)]
+    oppHands = [[deck.pop() for _ in range(2)] for _ in range(numOpp)]
+    communityCards = []
 
-    rank_values = {r: i for i, r in enumerate(ranks, 2)}
+    rankValues = {r: i for i, r in enumerate(ranks, 2)}
 
-    def show_table(round_name):
+    def showTable(roundName):
         clear()
-        print_header(balance)
-        print(f"--- {round_name} ---")
-        print(f"Your hand: {' '.join(player_hand)}")
-        if community_cards:
-            print(f"Community Cards: {' '.join(community_cards)}")
+        printHeader(balance)
+        print(f"--- {roundName} ---")
+        print(f"Your hand: {' '.join(playerHand)}")
+        if communityCards:
+            print(f"Community Cards: {' '.join(communityCards)}")
         else:
             print("Community Cards: None yet")
         print(f"Current pot: ${pot:.2f}\n")
 
-    def evaluate_hand(hand):
-        values = sorted([rank_values[c[:-1]] for c in hand])
-        suits_in_hand = [c[-1] for c in hand]
+    def evaluateHand(hand):
+        values = sorted([rankValues[c[:-1]] for c in hand])
+        suitsInHand = [c[-1] for c in hand]
         counts = {v: values.count(v) for v in values}
         freq = sorted(counts.values(), reverse=True)
-        is_flush = len(set(suits_in_hand)) == 1
-        is_straight = all(values[i] + 1 == values[i + 1] for i in range(len(values) - 1))
+        isFlush = len(set(suitsInHand)) == 1
+        isStraight = all(values[i] + 1 == values[i + 1] for i in range(len(values) - 1))
         if values == [2, 3, 4, 5, 14]:
-            is_straight = True
+            isStraight = True
             values = [1, 2, 3, 4, 5]
-        return (is_straight, is_flush, freq, max(values), values)
+        return (isStraight, isFlush, freq, max(values), values)
 
-    def hand_score(hand):
-        is_straight, is_flush, freq, high, values = evaluate_hand(hand)
-        if is_straight and is_flush and max(values) == 14:
+    def handScore(hand):
+        isStraight, isFlush, freq, high, values = evaluateHand(hand)
+        if isStraight and isFlush and max(values) == 14:
             return (10, values[::-1], "Royal Flush")
-        elif is_straight and is_flush:
+        elif isStraight and isFlush:
             return (9, values[::-1], "Straight Flush")
         elif freq == [4, 1]:
             return (8, values[::-1], "Four of a Kind")
         elif freq == [3, 2]:
             return (7, values[::-1], "Full House")
-        elif is_flush:
+        elif isFlush:
             return (6, values[::-1], "Flush")
-        elif is_straight:
+        elif isStraight:
             return (5, values[::-1], "Straight")
         elif freq == [3, 1, 1]:
             return (4, values[::-1], "Three of a Kind")
@@ -888,7 +888,7 @@ def poker(balance):
         else:
             return (1, values[::-1], "High Card")
 
-    def generate_combinations(cards, n=5):
+    def generateCombinations(cards, n=5):
         combos = []
         def backtrack(start, path):
             if len(path) == n:
@@ -899,15 +899,15 @@ def poker(balance):
         backtrack(0, [])
         return combos
 
-    def evaluate_best_hand(cards):
+    def evaluateBestHand(cards):
         best = (-1, [], "", [])
-        for combo in generate_combinations(cards, 5):
-            cat, tiebreak, label = hand_score(combo)
+        for combo in generateCombinations(cards, 5):
+            cat, tiebreak, label = handScore(combo)
             if (cat, tiebreak) > (best[0], best[1]):
                 best = (cat, tiebreak, label, combo)
         return best
 
-    def player_action(round_name):
+    def playerAction(roundName):
         nonlocal pot, folded, bet
         while True:
             print(f"Your options: [C]heck/Call, [R]aise, [F]old")
@@ -918,11 +918,11 @@ def poker(balance):
                 return
             elif choice == "r":
                 try:
-                    raise_amt = float(input("Enter raise amount: $"))
-                    if 0 < raise_amt <= balance:
-                        pot += raise_amt
-                        bet += raise_amt  # Player's total at risk increases
-                        print(f"\nYou raised by ${raise_amt:.2f}.")
+                    raiseAmt = float(input("Enter raise amount: $"))
+                    if 0 < raiseAmt <= balance:
+                        pot += raiseAmt
+                        bet += raiseAmt  # Player's total at risk increases
+                        print(f"\nYou raised by ${raiseAmt:.2f}.")
                         return
                     else:
                         print("Invalid raise amount.")
@@ -934,104 +934,104 @@ def poker(balance):
             else:
                 print("Invalid input. Choose C, R, or F.")
 
-    def opponents_action():
+    def opponentsAction():
         nonlocal pot
-        for i, opp in enumerate(opp_hands):
+        for i, opp in enumerate(oppHands):
             # Evaluate opponent confidence
-            best = evaluate_best_hand(opp + community_cards)
+            best = evaluateBestHand(opp + communityCards)
             confidence = best[0]  # hand rank as confidence
             if random.random() < confidence / 10:
-                raise_amt = round(pot * (0.1 + confidence * 0.05), 2)
-                pot += raise_amt
-                print(f"Opponent {i+1} raises by ${raise_amt:.2f}.")
+                raiseAmt = round(pot * (0.1 + confidence * 0.05), 2)
+                pot += raiseAmt
+                print(f"Opponent {i+1} raises by ${raiseAmt:.2f}.")
             else:
                 print(f"Opponent {i+1} checks/calls.")
 
-    pot = bet * (num_opp + 1)
+    pot = bet * (numOpp + 1)
     folded = False
 
     # --- Pre-Flop ---
-    show_table("Pre-Flop")
-    player_action("Pre-Flop")
-    opponents_action()
+    showTable("Pre-Flop")
+    playerAction("Pre-Flop")
+    opponentsAction()
     if folded:
         balance -= bet
-        balance = round_money(balance)
+        balance = roundMoney(balance)
         print(f"You folded pre-flop and lost ${bet:.2f}.")
         pause()
         return balance
     input("\nEnter to continue...")
     # --- Flop ---
-    community_cards.extend([deck.pop() for _ in range(3)])
-    show_table("Flop")
-    player_action("Flop")
-    opponents_action()
+    communityCards.extend([deck.pop() for _ in range(3)])
+    showTable("Flop")
+    playerAction("Flop")
+    opponentsAction()
     if folded:
         balance -= bet
-        balance = round_money(balance)
+        balance = roundMoney(balance)
         print(f"You folded after the flop and lost ${bet:.2f}.")
         pause()
         return balance
     input("\nEnter to continue...")
     # --- Turn ---
-    community_cards.append(deck.pop())
-    show_table("Turn")
-    player_action("Turn")
-    opponents_action()
+    communityCards.append(deck.pop())
+    showTable("Turn")
+    playerAction("Turn")
+    opponentsAction()
     if folded:
         balance -= bet
-        balance = round_money(balance)
+        balance = roundMoney(balance)
         print(f"You folded after the turn and lost ${bet:.2f}.")
         pause()
         return balance
     input("\nEnter to continue...")
     # --- River ---
-    community_cards.append(deck.pop())
-    show_table("River")
-    player_action("River")
-    opponents_action()
+    communityCards.append(deck.pop())
+    showTable("River")
+    playerAction("River")
+    opponentsAction()
     if folded:
         balance -= bet
-        balance = round_money(balance)
+        balance = roundMoney(balance)
         print(f"You folded after the river and lost ${bet:.2f}.")
         pause()
         return balance
     input("\nEnter to continue...")
     # --- Showdown ---
-    player_best = evaluate_best_hand(player_hand + community_cards)
-    opp_bests = [evaluate_best_hand(opp + community_cards) for opp in opp_hands]
+    playerBest = evaluateBestHand(playerHand + communityCards)
+    oppBests = [evaluateBestHand(opp + communityCards) for opp in oppHands]
 
-    def get_key_cards(hand):
+    def getKeyCards(hand):
         values = [c[:-1] for c in hand]
         counts = {v: values.count(v) for v in set(values)}
-        freq_sorted = sorted(counts.items(), key=lambda x: (-x[1], -rank_values[x[0]]))
-        key_cards = []
-        if freq_sorted[0][1] >= 2:
-            max_count = freq_sorted[0][1]
-            for val, count in freq_sorted:
-                if count == max_count:
-                    key_cards.extend([c for c in hand if c[:-1] == val])
-                if len(key_cards) >= max_count * (2 if freq_sorted[1][1] == max_count else 1):
+        freqSorted = sorted(counts.items(), key=lambda x: (-x[1], -rankValues[x[0]]))
+        keyCards = []
+        if freqSorted[0][1] >= 2:
+            maxCount = freqSorted[0][1]
+            for val, count in freqSorted:
+                if count == maxCount:
+                    keyCards.extend([c for c in hand if c[:-1] == val])
+                if len(keyCards) >= maxCount * (2 if freqSorted[1][1] == maxCount else 1):
                     break
-        elif freq_sorted[0][1] == 1 and len(hand) == 5:
-            key_cards = hand
-        return key_cards
+        elif freqSorted[0][1] == 1 and len(hand) == 5:
+            keyCards = hand
+        return keyCards
 
-    def highlight_hand(all_cards, best_combo, hand_rank_label):
-        key_cards = get_key_cards(best_combo) if hand_rank_label not in ["Straight", "Flush", "Straight Flush", "Royal Flush", "High Card"] else best_combo
-        return " ".join(f"{YELLOW}{c}{RESET}" if c in key_cards else c for c in all_cards)
+    def highlightHand(allCards, bestCombo, handRankLabel):
+        keyCards = getKeyCards(bestCombo) if handRankLabel not in ["Straight", "Flush", "Straight Flush", "Royal Flush", "High Card"] else bestCombo
+        return " ".join(f"{YELLOW}{c}{RESET}" if c in keyCards else c for c in allCards)
 
     print("\n--- SHOWDOWN ---")
-    print(f"Your final hand: {highlight_hand(player_hand + community_cards, player_best[3], player_best[2])} -> {YELLOW}{player_best[2]}{RESET}")
-    for i, (h, s) in enumerate(zip(opp_hands, opp_bests), 1):
-        full_hand = h + community_cards
-        print(f"Opponent {i}: {highlight_hand(full_hand, s[3], s[2])} -> {YELLOW}{s[2]}{RESET}")
+    print(f"Your final hand: {highlightHand(playerHand + communityCards, playerBest[3], playerBest[2])} -> {YELLOW}{playerBest[2]}{RESET}")
+    for i, (h, s) in enumerate(zip(oppHands, oppBests), 1):
+        fullHand = h + communityCards
+        print(f"Opponent {i}: {highlightHand(fullHand, s[3], s[2])} -> {YELLOW}{s[2]}{RESET}")
     print("")
 
-    all_scores = [(player_best, "Player")] + list(zip(opp_bests, [f"Opponent {i}" for i in range(1, num_opp + 1)]))
-    all_scores.sort(key=lambda x: (x[0][0], x[0][1]), reverse=True)
-    best_score = all_scores[0][0]
-    winners = [name for score, name in all_scores if (score[0], score[1]) == (best_score[0], best_score[1])]
+    allScores = [(playerBest, "Player")] + list(zip(oppBests, [f"Opponent {i}" for i in range(1, numOpp + 1)]))
+    allScores.sort(key=lambda x: (x[0][0], x[0][1]), reverse=True)
+    bestScore = allScores[0][0]
+    winners = [name for score, name in allScores if (score[0], score[1]) == (bestScore[0], bestScore[1])]
 
     if "Player" in winners:
         if len(winners) == 1:
@@ -1046,13 +1046,13 @@ def poker(balance):
         print("You lost the hand.")
         balance -= bet
 
-    balance = round_money(balance)
+    balance = roundMoney(balance)
     pause()
     return balance
 
-def horse_racing(balance):
+def horseRacing(balance):
     print("Horse Racing — Bet on a horse (A–E)!")
-    bet = validate_bet(balance)
+    bet = validateBet(balance)
     if bet is None:
         return balance
 
@@ -1064,7 +1064,7 @@ def horse_racing(balance):
         return balance
 
     positions = {h: 0 for h in horses}
-    track_length = 20
+    trackLength = 20
     winner = None
 
     while not winner:
@@ -1072,14 +1072,14 @@ def horse_racing(balance):
         print("Horse Racing!\n")
 
         # Determine which horses are 1 space away from finishing
-        one_space_away = [h for h, pos in positions.items() if pos == track_length - 1]
+        oneSpaceAway = [h for h, pos in positions.items() if pos == trackLength - 1]
 
         for h in horses:
-            if positions[h] < track_length:
-                if h in one_space_away:
+            if positions[h] < trackLength:
+                if h in oneSpaceAway:
                     # Only one randomly chosen horse moves if multiple are 1 space away
-                    if len(one_space_away) > 1:
-                        chosen = random.choice(one_space_away)
+                    if len(oneSpaceAway) > 1:
+                        chosen = random.choice(oneSpaceAway)
                         if h == chosen:
                             positions[h] += 1
                     else:
@@ -1088,15 +1088,15 @@ def horse_racing(balance):
                     # Normal random movement for horses not 1 space away
                     positions[h] += random.choice([0, 1])
 
-                if positions[h] >= track_length:
-                    positions[h] = track_length
+                if positions[h] >= trackLength:
+                    positions[h] = trackLength
                     if not winner:
                         winner = h
 
             # Draw horse on track
-            pre_spaces = " " * positions[h]
-            post_spaces = " " * (track_length - positions[h])
-            print(f"{pre_spaces}{h}{post_spaces}|")
+            preSpaces = " " * positions[h]
+            postSpaces = " " * (trackLength - positions[h])
+            print(f"{preSpaces}{h}{postSpaces}|")
 
         time.sleep(0.1)
 
@@ -1109,20 +1109,20 @@ def horse_racing(balance):
         balance -= bet
         print(f"You lost ${bet:.2f}.")
 
-    balance = round_money(balance)
+    balance = roundMoney(balance)
     pause()
     return balance
 
 # ---------------------- Stats ----------------------
 
-def stats(balance, starting_balance, total_bets):
+def stats(balance, startingBalance, totalBets):
     clear()
-    profit = balance - starting_balance
+    profit = balance - startingBalance
     print("=== GAME STATS ===")
-    print(f"Starting Balance: ${starting_balance:.2f}")
+    print(f"Starting Balance: ${startingBalance:.2f}")
     print(f"Current Balance:  ${balance:.2f}")
     print(f"Profit/Loss:      ${profit:.2f}")
-    print(f"Total Bets Made:  {total_bets}")
+    print(f"Total Bets Made:  {totalBets}")
     print("=" * 24)
     pause()
 
@@ -1130,33 +1130,33 @@ def stats(balance, starting_balance, total_bets):
 
 def main():
     balance = 100.00
-    starting_balance = balance
-    total_bets = 0
+    startingBalance = balance
+    totalBets = 0
 
     games = {
-        "1": coin_flip,
-        "2": dice_duel,
-        "3": high_low,
-        "4": slot_machine,
+        "1": coinFlip,
+        "2": diceDuel,
+        "3": highLow,
+        "4": slotMachine,
         "5": blackjack,
         "6": roulette,
         "7": craps,
-        "8": wheel_of_fortune,
+        "8": wheelOfFortune,
         "9": baccarat,
-        "10": double_or_nothing,
+        "10": doubleOrNothing,
         "11": lottery,
-        "12": pick_a_range,
+        "12": pickARange,
         "13": scratchie,
-        "14": multiline_slots,
-        "15": lucky_7s,
+        "14": multilineSlots,
+        "15": lucky7s,
         "16": poker,
-        "17": horse_racing,
+        "17": horseRacing,
     }
 
     try:
         while True:
-            balance = round_money(balance)
-            print_header(balance)
+            balance = roundMoney(balance)
+            printHeader(balance)
             print("1) Coin Flip")
             print("2) Dice Duel")
             print("3) High-Low Card Game")
@@ -1178,22 +1178,22 @@ def main():
             print("19) Quit")
     
             choice = input("\nSelect an option: ").strip()
-            total_bets += 1
+            totalBets += 1
     
             # Handle game selections 1–17
             if choice in games:
                 clear()
-                print_header(balance)
+                printHeader(balance)
                 balance = games[choice](balance)
     
             elif choice == "18":
-                profit = round_money(balance - starting_balance)
+                profit = roundMoney(balance - startingBalance)
                 clear()
                 print("=== GAME STATS ===")
-                print(f"Starting Balance: ${starting_balance:.2f}")
+                print(f"Starting Balance: ${startingBalance:.2f}")
                 print(f"Current Balance:  ${balance:.2f}")
                 print(f"Profit/Loss:      ${profit:.2f}")
-                print(f"Total Bets Made:  {total_bets}")
+                print(f"Total Bets Made:  {totalBets}")
                 print("=" * 24)
                 pause()
     
@@ -1211,13 +1211,13 @@ def main():
     
             clear()
     except KeyboardInterrupt:
-        return balance, starting_balance
+        return balance, startingBalance
 
 if __name__ == "__main__":
     try:
-        balance, starting_balance = main()
+        balance, startingBalance = main()
         clear()
-        profit = round_money(balance - starting_balance)
+        profit = roundMoney(balance - startingBalance)
         print(f"You made: ",end="")
         sys.stdout.flush() 
         time.sleep(1)
