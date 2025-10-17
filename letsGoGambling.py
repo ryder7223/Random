@@ -56,6 +56,7 @@ def validateBet(balance):
 # ---------------------- Games ----------------------
 def coinFlip(balance):
     print("Coin Flip — Double your bet")
+
     bet = validateBet(balance)
     if bet is None:
         return balance
@@ -88,16 +89,8 @@ def diceDuel(balance):
     print("Dice Duel — Roll against the dealer (tie = loss).")
     print("Player and dealer roll a 6-sided die each.")
 
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     print("Rolling dice...")
@@ -121,16 +114,8 @@ def diceDuel(balance):
 def highLow(balance):
     print("High-Low — Guess if the next card is higher or lower (1–13).")
 
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     current_card = random.randint(2, 12)
@@ -190,16 +175,9 @@ def highLow(balance):
 def slotMachine(balance):
     print("Slot Machine — Match symbols to win!")
     print("Possible symbols: [7, $, *, @, #]")
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+    
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     symbols = ["7", "$", "*", "@", "#"]
@@ -224,16 +202,9 @@ def slotMachine(balance):
 
 def blackjack(balance):
     print("Blackjack — Try to beat the dealer without going over 21.")
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     suits = ['♠', '♥', '♦', '♣']
@@ -313,21 +284,13 @@ def roulette(balance):
     print("1) Red/Black/Green (pays 1.9x for red/black, 30x for green)")
     print("2) Single Number (pays 30x)")
 
+    bet = validateBet(balance)
+    if bet is None:
+        return balance
+
     choice = input("Choose bet type (1/2): ").strip()
     if choice not in ["1", "2"]:
         print("Invalid choice.")
-        pause()
-        return balance
-
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
         pause()
         return balance
 
@@ -414,16 +377,9 @@ def roulette(balance):
 def craps(balance):
     print("Craps — Roll 2 dice. 7 or 11 to win, 2/3/12 to lose.")
     print("Roll any other starting number twice to win.")
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+    
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     die1 = random.randint(1, 6)
@@ -464,16 +420,8 @@ def wheelOfFortune(balance):
     print("Wheel of Fortune — Spin for random prizes!")
     print("Possible outcomes: Lose, 1.5x, 2x, 5x, 10x, 20x")
 
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     outcomes = ["Lose", "Lose", "Lose", "1.5x", " 2x ", " 5x ", "10x ", "20x "]
@@ -522,16 +470,9 @@ def wheelOfFortune(balance):
 def baccarat(balance):
     print("Baccarat — Bet on Player, Banker, or Tie.")
     print("Player and Banker both choose a number from 0-9.")
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+    
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     print("Bet options: (p) Player, (b) Banker, (t) Tie")
@@ -571,16 +512,9 @@ def baccarat(balance):
 
 def doubleOrNothing(balance):
     print("Double or Nothing — Keep flipping to double your bet each time!")
-    betInput = input("Enter your starting bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+    
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     current_bet = bet
@@ -607,16 +541,9 @@ def doubleOrNothing(balance):
 
 def lottery(balance):
     print("Lottery — Pick 3 numbers (0–9). Match any of them to win!")
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+    
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     picks = []
@@ -657,16 +584,9 @@ def pickARange(balance):
     print("Pick-A-Range — Pick a range of 1–50.")
     print("A random number will be generated from 1-50")
     print("Choose a smaller range for a bigger prize with lower odds.")
-    betInput = input("Enter your bet amount: ").strip()
-    try:
-        bet = float(betInput)
-        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-            print("Invalid bet amount.")
-            pause()
-            return balance
-    except ValueError:
-        print("Invalid bet.")
-        pause()
+    
+    bet = validateBet(balance)
+    if bet is None:
         return balance
 
     rangeInput = input("Pick a range in the form low-high (e.g., 5-15): ").strip()
@@ -725,6 +645,7 @@ def scratchie(balance):
 
 def multilineSlots(balance):
     print("Multiline Slots — Match lines for combos!")
+
     bet = validateBet(balance)
     if bet is None:
         return balance
@@ -790,6 +711,7 @@ def multilineSlots(balance):
 
 def lucky7s(balance):
     print("Lucky 7s — Roll 7s to win!")
+
     bet = validateBet(balance)
     if bet is None:
         return balance
@@ -1052,6 +974,7 @@ def poker(balance):
 
 def horseRacing(balance):
     print("Horse Racing — Bet on a horse (A–E)!")
+
     bet = validateBet(balance)
     if bet is None:
         return balance
@@ -1221,7 +1144,7 @@ if __name__ == "__main__":
         print(f"You made: ",end="")
         sys.stdout.flush() 
         time.sleep(1)
-        letterType(f"${profit:.2f}", 0.05)
+        letterType(f"${profit:.2f}", 0.1)
         input()
     except:
         sys.exit(0)
