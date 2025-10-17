@@ -69,6 +69,66 @@ def listUsers():
         print("=" * 24)
     pause()
 
+def resetUser():
+    conn = sqlite3.connect(databaseFile)
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM Users")
+    users = [u[0] for u in cursor.fetchall()]
+
+    if not users:
+        print("No users found.")
+        conn.close()
+        input("Press Enter to continue...")
+        return
+
+    print("=== RESET USER ===")
+    for i, user in enumerate(users, 1):
+        print(f"{i}) {user}")
+
+    choice = input("\nEnter the number of the user to reset (or leave blank to cancel): ").strip()
+    if not choice.isdigit() or int(choice) < 1 or int(choice) > len(users):
+        print("Cancelled.")
+    else:
+        username = users[int(choice) - 1]
+        cursor.execute("UPDATE Users SET money = ?, bets = ? WHERE username = ?", (100.00, 0, username))
+        conn.commit()
+        print(f"User '{username}' has been reset to default values (money=100.00, bets=0).")
+
+    conn.close()
+    input("Press Enter to continue...")
+
+def deleteUser():
+    conn = sqlite3.connect(databaseFile)
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM Users")
+    users = [u[0] for u in cursor.fetchall()]
+
+    if not users:
+        print("No users found.")
+        conn.close()
+        input("Press Enter to continue...")
+        return
+
+    print("=== DELETE USER ===")
+    for i, user in enumerate(users, 1):
+        print(f"{i}) {user}")
+
+    choice = input("\nEnter the number of the user to delete (or leave blank to cancel): ").strip()
+    if not choice.isdigit() or int(choice) < 1 or int(choice) > len(users):
+        print("Cancelled.")
+    else:
+        username = users[int(choice) - 1]
+        confirm = input(f"Are you sure you want to permanently delete '{username}'? (y/n): ").strip().lower()
+        if confirm == "y":
+            cursor.execute("DELETE FROM Users WHERE username = ?", (username,))
+            conn.commit()
+            print(f"User '{username}' has been deleted.")
+        else:
+            print("Cancelled.")
+
+    conn.close()
+    input("Press Enter to continue...")
+
 def letterType(string: str, duration: float):
     for char in string:
         sys.stdout.write(char)
@@ -1218,7 +1278,10 @@ if __name__ == "__main__":
             print("==== MENU ====")
             print("1) List Users")
             print("2) Begin Game")
-            print("3) Exit")
+            print("3) Reset User")
+            print("4) Delete User")
+            print("5) Exit")
+
             choice = input("\nSelect an option: ").strip()
 
             if choice == "1":
@@ -1255,12 +1318,20 @@ if __name__ == "__main__":
                 break
 
             elif choice == "3":
+                clear()
+                resetUser()
+
+            elif choice == "4":
+                clear()
+                deleteUser()
+
+            elif choice == "5":
                 print("Exiting...")
                 time.sleep(0.5)
                 sys.exit(0)
 
             else:
-                print("Invalid choice. Please select 1, 2, or 3.")
+                print("Invalid choice. Please select 1–5.")
                 time.sleep(1)
 
     except Exception as e:
