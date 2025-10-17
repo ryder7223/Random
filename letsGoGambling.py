@@ -51,6 +51,9 @@ def getOrCreateUser(username: str) -> tuple[float, int]:
     conn.close()
     return balance, totalBets
 
+def pause():
+    input("\nPress Enter to continue...")
+
 def listUsers():
     conn = sqlite3.connect(databaseFile)
     cursor = conn.cursor()
@@ -61,10 +64,10 @@ def listUsers():
         print("No users found.")
     else:
         print("=== Registered Users ===")
-        for username in rows:
+        for (username,) in rows:
             print(username)
         print("=" * 24)
-    input("\nPress Enter to continue...")
+    pause()
 
 def letterType(string: str, duration: float):
     for char in string:
@@ -74,9 +77,6 @@ def letterType(string: str, duration: float):
 
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
-
-def pause():
-    input("\nPress Enter to continue...")
 
 def printHeader(balance: float):
     clear()
@@ -1201,6 +1201,7 @@ def main(startingBalance: float, totalBets: int) -> tuple[float, float, int]:
                 break
     
             clear()
+        return balance, startingBalance, totalBets
     except KeyboardInterrupt:
         return balance, startingBalance, totalBets
     except Exception as e:
