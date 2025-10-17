@@ -1332,7 +1332,10 @@ if __name__ == "__main__":
             else:
                 print("Invalid choice. Please select 1–5.")
                 time.sleep(1)
-
+    except KeyboardInterrupt:
+        print("Force Exiting, your progress will not be saved.")
+        time.sleep(0.5)
+        sys.exit(0)
     except Exception as e:
         print(f"An error has occurred: {e}")
         input("Awaiting...")
