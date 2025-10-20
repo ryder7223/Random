@@ -1,4 +1,10 @@
-# 1.4
+# 1.5
+
+
+'''
+TO-DO:
+    Ability to easily go all-in
+'''
 
 import subprocess
 import importlib
@@ -113,6 +119,8 @@ def resetUser():
     choice = input("\nEnter the number of the user to reset (or leave blank to cancel): ").strip()
     if not choice.isdigit() or int(choice) < 1 or int(choice) > len(users):
         print("Cancelled.")
+        time.sleep(1)
+        return
     else:
         username = users[int(choice) - 1]
         cursor.execute("UPDATE Users SET money = ?, bets = ? WHERE username = ?", (100.00, 0, username))
@@ -139,9 +147,16 @@ def setUserMoney():
         print(f"{i}) {user}")
 
     choice = input("\nEnter the number of the user to edit (or leave blank to cancel): ").strip()
-    moneySet = float(input("Enter the ammount of money to set: "))
+    
     if not choice.isdigit() or int(choice) < 1 or int(choice) > len(users):
         print("Cancelled.")
+        time.sleep(1)
+        return
+    moneySet = float(input("Enter the ammount of money to set: "))
+    if not moneySet:
+        print("Cancelled.")
+        time.sleep(1)
+        return
     else:
         username = users[int(choice) - 1]
         cursor.execute("UPDATE Users SET money = ? WHERE username = ?", (moneySet, username))
@@ -170,6 +185,8 @@ def deleteUser():
     choice = input("\nEnter the number of the user to delete (or leave blank to cancel): ").strip()
     if not choice.isdigit() or int(choice) < 1 or int(choice) > len(users):
         print("Cancelled.")
+        time.sleep(1)
+        return
     else:
         username = users[int(choice) - 1]
         confirm = input(f"Are you sure you want to permanently delete '{username}'? (y/n): ").strip().lower()
@@ -179,12 +196,18 @@ def deleteUser():
             print(f"User '{username}' has been deleted.")
         else:
             print("Cancelled.")
+            time.sleep(1)
+            return
 
     conn.close()
-    input("Press Enter to continue...")
+    pause()
 
 def changelog():
     changelogStr = '''
+1.5:
+    Fixed issue where invalid input on main menu closed the program.
+    Fixed Blackjack so when the player and the dealer tie, it counts as a loss.
+
 1.4:
     Fixed incorrect character in main menu.
     Added auto package installer.
@@ -462,8 +485,6 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
         winnings = bet * 2
         balance += bet
         print(f"You win! Payout: ${winnings:,.2f}")
-    elif dealerTotal == playerTotal:
-        print("Push — It's a tie.")
     else:
         print("Dealer wins.")
         balance -= bet
