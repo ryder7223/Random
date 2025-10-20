@@ -1189,7 +1189,7 @@ def check_for_update():
     local_file = os.path.abspath(__file__)
     repo_url = "https://raw.githubusercontent.com/ryder7223/Random/refs/heads/main/letsGoGambling.py"
 
-    # Step 1: Read local version (assumed on first line, format "# X.Y")
+    # Read local version
     try:
         with open(local_file, "r", encoding="utf-8") as f:
             first_line = f.readline().strip()
@@ -1202,7 +1202,7 @@ def check_for_update():
         print(f"Error reading local version: {e}")
         return
 
-    # Step 2: Get remote version from GitHub
+    # Get version from GitHub
     try:
         response = requests.get(repo_url, timeout=10)
         if response.status_code != 200:
@@ -1219,12 +1219,12 @@ def check_for_update():
         print(f"Error fetching remote version: {e}")
         return
 
-    # Step 3: Compare versions numerically
+    # Compare versions
     def version_tuple(v): return tuple(map(int, v.split('.')))
     if version_tuple(remote_version) > version_tuple(local_version):
         print(f"New version available ({local_version} → {remote_version}). Updating...")
 
-        # Step 4: Write updated file
+        # Write updated file
         try:
             normalized_text = re.sub(r'\n{3,}', '\n\n', remote_text.replace('\r\n', '\n'))
             with open(local_file, "w", encoding="utf-8") as f:
@@ -1234,7 +1234,7 @@ def check_for_update():
             print(f"Failed to write updated file: {e}")
             return
 
-        # Step 5: Restart the script
+        # Restart script
         os.execv(sys.executable, [sys.executable] + sys.argv)
     else:
         print(f"Version {local_version} is up to date.")
@@ -1336,7 +1336,7 @@ if __name__ == "__main__":
 
         while True:
             clear()
-            print("==== M ENU ====")
+            print("==== MENU ====")
             print("1) List Users")
             print("2) Begin Game")
             print("3) Reset User")
