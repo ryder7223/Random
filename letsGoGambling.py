@@ -1,4 +1,4 @@
-# 1.1
+# 1.2
 
 import os
 import random
@@ -1188,7 +1188,8 @@ def stats(balance: float, startingBalanc: float, totalBets: int):
 def check_for_update():
     local_file = os.path.abspath(__file__)
     repo_url = "https://raw.githubusercontent.com/ryder7223/Random/refs/heads/main/letsGoGambling.py"
-
+    print("Checking for updates...")
+    time.sleep(1)
     # Read local version
     try:
         with open(local_file, "r", encoding="utf-8") as f:
@@ -1196,33 +1197,39 @@ def check_for_update():
             local_version_match = re.match(r"#\s*([\d.]+)", first_line)
             if not local_version_match:
                 print("Unable to read local version number.")
+                time.sleep(1)
                 return
             local_version = local_version_match.group(1)
     except Exception as e:
         print(f"Error reading local version: {e}")
+        time.sleep(1)
         return
 
     # Get version from GitHub
     try:
         response = requests.get(repo_url, timeout=10)
         if response.status_code != 200:
-            print(f"Failed to fetch remote version (HTTP {response.status_code}).")
+            print(f"Failed to fetch version (HTTP {response.status_code}).")
+            time.sleep(1)
             return
         remote_text = response.text
         remote_first_line = remote_text.splitlines()[0].strip()
         remote_version_match = re.match(r"#\s*([\d.]+)", remote_first_line)
         if not remote_version_match:
-            print("Unable to read remote version number.")
+            print("Unable to read version number.")
+            time.sleep(1)
             return
         remote_version = remote_version_match.group(1)
-    except Exception as e:
-        print(f"Error fetching remote version: {e}")
+    except Exception:
+        print(f"Unable to fetch newest version, proceeding offline.")
+        time.sleep(1)
         return
 
     # Compare versions
-    def version_tuple(v): return tuple(map(int, v.split('.')))
+    def version_tuple(v: str): return tuple(map(int, v.split('.')))
     if version_tuple(remote_version) > version_tuple(local_version):
         print(f"New version available ({local_version} → {remote_version}). Updating...")
+        time.sleep(1)
 
         # Write updated file
         try:
@@ -1230,14 +1237,17 @@ def check_for_update():
             with open(local_file, "w", encoding="utf-8") as f:
                 f.write(normalized_text)
             print("Update complete. Restarting...")
+            time.sleep(1)
         except Exception as e:
             print(f"Failed to write updated file: {e}")
+            time.sleep(1)
             return
 
         # Restart script
         os.execv(sys.executable, [sys.executable] + sys.argv)
     else:
         print(f"Version {local_version} is up to date.")
+        time.sleep(1)
 
 # ---------------------- Main Loop ----------------------
 
@@ -1330,6 +1340,7 @@ def main(startingBalance: float, totalBets: int) -> tuple[float, float, int]:
 
 if __name__ == "__main__":
     try:
+        clear()
         check_for_update()
         clear()
         init_database()
