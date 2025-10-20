@@ -1,5 +1,4 @@
-# 1.5
-
+# 1.6
 
 '''
 TO-DO:
@@ -123,9 +122,15 @@ def resetUser():
         return
     else:
         username = users[int(choice) - 1]
-        cursor.execute("UPDATE Users SET money = ?, bets = ? WHERE username = ?", (100.00, 0, username))
-        conn.commit()
-        print(f"User '{username}' has been reset to default values (money=100.00, bets=0).")
+        confirm = input(f"Are you sure you want to reset '{username}'? (y/n): ").strip().lower()
+        if confirm == "y":
+            cursor.execute("UPDATE Users SET money = ?, bets = ? WHERE username = ?", (100.00, 0, username))
+            conn.commit()
+            print(f"User '{username}' has been reset to default values (money=100.00, bets=0).")
+        else:
+            print("Cancelled.")
+            time.sleep(1)
+            return
 
     conn.close()
     input("Press Enter to continue...")
@@ -159,9 +164,15 @@ def setUserMoney():
         return
     else:
         username = users[int(choice) - 1]
-        cursor.execute("UPDATE Users SET money = ? WHERE username = ?", (moneySet, username))
-        conn.commit()
-        print(f"User '{username}' now has ${moneySet:,.2f}.")
+        confirm = input(f"Are you sure you want to cheat for '{username}'? (y/n): ").strip().lower()
+        if confirm == "y":
+            cursor.execute("UPDATE Users SET money = ? WHERE username = ?", (moneySet, username))
+            conn.commit()
+            print(f"User '{username}' now has ${moneySet:,.2f}.")
+        else:
+            print("Cancelled.")
+            time.sleep(1)
+            return
 
     conn.close()
     input("Press Enter to continue...")
@@ -204,6 +215,9 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+1.6:
+    Added a confirmation message for resetting users and setting money.
+
 1.5:
     Fixed issue where invalid input on main menu closed the program.
     Fixed Blackjack so when the player and the dealer tie, it counts as a loss.
