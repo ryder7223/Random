@@ -1,4 +1,4 @@
-# 1.7
+# 1.8
 
 '''
 TO-DO:
@@ -215,6 +215,9 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+1.8:
+    Modified Blackjack to make it show yours and the dealer's hand when you lose.
+
 1.7:
     Added a quick game replay feature.
     Fixed incorrect input on main menu resetting on a timer instead of pausing.
@@ -477,7 +480,9 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
     playerTotal = handValue(player)
     if playerTotal > 21:
         printHeader(balance)
-        print(f"You bust! Your total was {playerTotal}. Dealer wins.")
+        print(f"Your cards: {showHand(player)} (Total: {handValue(player)})")
+        print(f"Dealer's cards: {showHand(dealer)} (Total: {dealerTotal})")
+        print(f"You bust! Dealer wins.")
         balance -= bet
         totalBets += 1
         return balance, totalBets
