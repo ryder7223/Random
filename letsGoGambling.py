@@ -1,3 +1,5 @@
+# 0.9
+
 import os
 import random
 import sys
@@ -1339,3 +1341,4 @@ if __name__ == "__main__":
         print(f"An error has occurred: {e}")
         input("Awaiting...")
         sys.exit(0)
+
