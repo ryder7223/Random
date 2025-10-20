@@ -1,4 +1,4 @@
-# 1.0
+# 1.1
 
 import os
 import random
@@ -140,8 +140,7 @@ def letterType(string: str, duration: float):
         time.sleep(duration)
 
 def clear():
-    #os.system('cls' if os.name == 'nt' else 'clear')
-    pass
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 def printHeader(balance: float):
     clear()
@@ -1227,8 +1226,9 @@ def check_for_update():
 
         # Step 4: Write updated file
         try:
+            normalized_text = re.sub(r'\n{3,}', '\n\n', remote_text.replace('\r\n', '\n'))
             with open(local_file, "w", encoding="utf-8") as f:
-                f.write(remote_text)
+                f.write(normalized_text)
             print("Update complete. Restarting...")
         except Exception as e:
             print(f"Failed to write updated file: {e}")
@@ -1336,7 +1336,7 @@ if __name__ == "__main__":
 
         while True:
             clear()
-            print("==== MENU ====")
+            print("==== M ENU ====")
             print("1) List Users")
             print("2) Begin Game")
             print("3) Reset User")
