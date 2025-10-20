@@ -1,4 +1,4 @@
-# 1.6
+# 1.7
 
 '''
 TO-DO:
@@ -215,6 +215,11 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+1.7:
+    Added a quick game replay feature.
+    Fixed incorrect input on main menu resetting on a timer instead of pausing.
+    Removed excess pauses that can be replaced by the replay dialogue.
+
 1.6:
     Added a confirmation message for resetting users and setting money.
 
@@ -265,20 +270,18 @@ def validateBet(balance: float) -> float:
     betInput = input("Enter your bet amount: ").strip()
     if not betInput.replace('.', '', 1).isdigit():
         print("Invalid bet format.")
-        pause()
         return None
     if '.' in betInput and len(betInput.split('.')[1]) > 2:
         print("No more than two decimal places allowed.")
-        pause()
         return None
     bet = float(betInput)
     if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
         print("Invalid bet amount.")
-        pause()
         return None
     return roundMoney(bet)
 
 # ---------------------- Games ----------------------
+
 def coinFlip(balance: float, totalBets: int) -> tuple[float, int]:
     print("Coin Flip — Double your bet")
 
@@ -289,7 +292,6 @@ def coinFlip(balance: float, totalBets: int) -> tuple[float, int]:
     choice = input("Heads or Tails (h/t): ").strip().lower()
     if choice not in ["h", "t"]:
         print("Invalid choice.")
-        pause()
         return balance, totalBets
 
     print("Flipping coin...")
@@ -307,7 +309,6 @@ def coinFlip(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
         print(f"It's a loss. You now have ${balance:,.2f}")
 
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -334,7 +335,6 @@ def diceDuel(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
         print(f"You lost. You now have ${balance:,.2f}")
 
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -350,7 +350,6 @@ def highLow(balance: float, totalBets: int) -> tuple[float, int]:
     choice = input("Will the next card be (h)igher or (l)ower? ").strip().lower()
     if choice not in ["h", "l"]:
         print("Invalid choice.")
-        pause()
         return balance, totalBets
 
     nextCard = random.randint(1, 13)
@@ -377,7 +376,6 @@ def highLow(balance: float, totalBets: int) -> tuple[float, int]:
         print("That guess is impossible given the current card — automatic loss.")
         balance -= bet
         print(f"You lost ${bet:,.2f}. New balance: ${balance:,.2f}")
-        pause()
         totalBets += 1
         return balance, totalBets
 
@@ -397,7 +395,6 @@ def highLow(balance: float, totalBets: int) -> tuple[float, int]:
         print(f"You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -426,7 +423,6 @@ def slotMachine(balance, totalBets) -> tuple[float, int]:
         balance -= bet
         print(f"No match. You lost ${bet:,.2f}")
 
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -483,7 +479,6 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
         printHeader(balance)
         print(f"You bust! Your total was {playerTotal}. Dealer wins.")
         balance -= bet
-        pause()
         totalBets += 1
         return balance, totalBets
 
@@ -504,7 +499,6 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
 
     print(f"New balance: ${balance:,.2f}")
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -521,7 +515,6 @@ def roulette(balance: float, totalBets: int) -> tuple[float, int]:
     choice = input("Choose bet type (1/2): ").strip()
     if choice not in ["1", "2"]:
         print("Invalid choice.")
-        pause()
         return balance, totalBets
 
     redNumbers = {1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
@@ -531,18 +524,15 @@ def roulette(balance: float, totalBets: int) -> tuple[float, int]:
         guess = input("Bet on red, black, or green: ").strip().lower()
         if guess not in ["red", "black", "green"]:
             print("Invalid color.")
-            pause()
             return balance, totalBets
     else:
         guessInput = input("Enter your number (0–36): ").strip()
         if not guessInput.isdigit():
             print("Invalid number.")
-            pause()
             return balance, totalBets
         guess = int(guessInput)
         if not (0 <= guess <= 36):
             print("Number must be between 0–36.")
-            pause()
             return balance, totalBets
 
     # --- Animation setup ---
@@ -601,7 +591,6 @@ def roulette(balance: float, totalBets: int) -> tuple[float, int]:
             print(f"You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -644,7 +633,6 @@ def craps(balance: float, totalBets: int) -> tuple[float, int]:
                 break
 
     print(f"New balance: ${balance:,.2f}")
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -696,7 +684,6 @@ def wheelOfFortune(balance: float, totalBets: int) -> tuple[float, int]:
         print(f"You won! Payout multiplier: {multiplier:,.2f}x  (${winnings:,.2f})")
 
     print(f"New balance: ${balance:,.2f}")
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -712,7 +699,6 @@ def baccarat(balance: float, totalBets: int) -> tuple[float, int]:
     choice = input("Place your bet: ").strip().lower()
     if choice not in ["p", "b", "t"]:
         print("Invalid choice.")
-        pause()
         return balance, totalBets
 
     def drawHand():
@@ -740,7 +726,6 @@ def baccarat(balance: float, totalBets: int) -> tuple[float, int]:
         print(f"You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -770,7 +755,6 @@ def doubleOrNothing(balance: float, totalBets: int) -> tuple[float, int]:
             break
 
     print(f"New balance: ${balance:,.2f}")
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -786,7 +770,6 @@ def lottery(balance: float, totalBets: int) -> tuple[float, int]:
         pickInput = input(f"Pick number {i+1} (0–9): ").strip()
         if not pickInput.isdigit() or not (0 <= int(pickInput) <= 9):
             print("Invalid choice.")
-            pause()
             return balance, totalBets
         picks.append(int(pickInput))
 
@@ -812,7 +795,6 @@ def lottery(balance: float, totalBets: int) -> tuple[float, int]:
         print(f"No matches. You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -832,7 +814,6 @@ def pickARange(balance: float, totalBets: int) -> tuple[float, int]:
             raise ValueError
     except ValueError:
         print("Invalid range.")
-        pause()
         return balance, totalBets
 
     drawn = random.randint(1, 50)
@@ -851,7 +832,6 @@ def pickARange(balance: float, totalBets: int) -> tuple[float, int]:
         print(f"You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -859,8 +839,7 @@ def scratchie(balance: float, totalBets: int) -> tuple[float, int]:
     print("Lottery Scratchie — Each ticket costs $2.00.")
     ticketPrice = 2.00
     if balance < ticketPrice:
-        print("Not enough funds.")
-        pause()
+        print("Not enough money.")
         return balance, totalBets
     balance -= ticketPrice
     print("Scratching ticket...")
@@ -877,7 +856,6 @@ def scratchie(balance: float, totalBets: int) -> tuple[float, int]:
     else:
         print("No win this time.")
     balance = roundMoney(balance)
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -944,7 +922,6 @@ def multilineSlots(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
 
     balance = roundMoney(balance)
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -975,7 +952,6 @@ def lucky7s(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
 
     balance = roundMoney(balance)
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -1120,7 +1096,6 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
         balance = roundMoney(balance)
         print(f"You folded pre-flop and lost ${bet:,.2f}.")
-        pause()
         return balance, totalBets
     input("\nEnter to continue...")
     # --- Flop ---
@@ -1132,7 +1107,6 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
         balance = roundMoney(balance)
         print(f"You folded after the flop and lost ${bet:,.2f}.")
-        pause()
         return balance, totalBets
     input("\nEnter to continue...")
     # --- Turn ---
@@ -1144,7 +1118,6 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
         balance = roundMoney(balance)
         print(f"You folded after the turn and lost ${bet:,.2f}.")
-        pause()
         return balance, totalBets
     input("\nEnter to continue...")
     # --- River ---
@@ -1156,7 +1129,6 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
         balance = roundMoney(balance)
         print(f"You folded after the river and lost ${bet:,.2f}.")
-        pause()
         return balance, totalBets
     input("\nEnter to continue...")
     # --- Showdown ---
@@ -1209,7 +1181,6 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
         balance -= bet
 
     balance = roundMoney(balance)
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -1224,7 +1195,6 @@ def horseRacing(balance: float, totalBets: int) -> tuple[float, int]:
     choice = input("Choose your horse (A–E): ").strip().upper()
     if choice not in horses:
         print("Invalid choice.")
-        pause()
         return balance, totalBets
 
     positions = {h: 0 for h in horses}
@@ -1274,7 +1244,6 @@ def horseRacing(balance: float, totalBets: int) -> tuple[float, int]:
         print(f"You lost ${bet:,.2f}.")
 
     balance = roundMoney(balance)
-    pause()
     totalBets += 1
     return balance, totalBets
 
@@ -1411,9 +1380,15 @@ def main(startingBalance: float, totalBets: int) -> tuple[float, float, int]:
     
             # Handle game selections 1–17
             if choice in games:
-                clear()
-                printHeader(balance)
-                balance, totalBets = games[choice](balance, totalBets)
+                while True:
+                    clear()
+                    printHeader(balance)
+                    balance, totalBets = games[choice](balance, totalBets)
+                    replay = input("\nPlay again? (y)es/(n)o: ")
+                    if replay == "y":
+                        pass
+                    else:
+                        break
     
             elif choice == "18":
                 profit = roundMoney(balance - startingBalance)
@@ -1520,7 +1495,7 @@ if __name__ == "__main__":
 
             else:
                 print("Invalid choice. Please select 1–5.")
-                time.sleep(1)
+                pause()
     except KeyboardInterrupt:
         print("\nForce Exiting, your progress will not be saved.")
         time.sleep(0.5)
