@@ -1,8 +1,29 @@
-# 1.3
+# 1.4
+
+import subprocess
+import importlib
+import sys
+
+required_modules = ['requests']
+
+def install_missing_modules(modules):
+    try:
+        pip = 'pip'
+        importlib.import_module(pip)
+    except ImportError:
+        print(f"{pip} is not installed. Installing...")
+        subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
+    for module in modules:
+        try:
+            importlib.import_module(module)
+        except ImportError:
+            print(f"{module} is not installed. Installing...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", module])
+
+install_missing_modules(required_modules)
 
 import os
 import random
-import sys
 import time
 import math
 import sqlite3
@@ -164,6 +185,10 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+1.4:
+    Fixed incorrect character in main menu.
+    Added auto package installer.
+
 1.3:
     Added changelog viewer.
     Added ability to directly set money.
@@ -1399,7 +1424,7 @@ if __name__ == "__main__":
             print("1) List Users")
             print("2) Begin Game")
             print("3) Reset User")
-            print("4. Set User Money")
+            print("4) Set User Money")
             print("5) Delete User")
             print("6) Changelog")
             print("7) Exit")
