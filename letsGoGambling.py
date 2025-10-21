@@ -1,4 +1,4 @@
-# 2.1
+# 2.2
 
 '''
 TO-DO:
@@ -217,6 +217,10 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.2:
+    Fixed an erorr with Blackjack that prevented the dealer's hand from being shown.
+    Modified Blackjack to be more consistent with variable usage.
+
 2.1:
     Fixed an error in the Higher or Lower game where the next card was able to be the same as the current card, making it impossible sometimes.
 
@@ -493,11 +497,10 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
         else:
             print("Invalid choice.")
 
-    playerTotal = handValue(player)
-    if playerTotal > 21:
+    if handValue(player) > 21:
         printHeader(balance)
         print(f"Your cards: {showHand(player)} (Total: {handValue(player)})")
-        print(f"Dealer's cards: {showHand(dealer)} (Total: {dealerTotal})")
+        print(f"Dealer's cards: {showHand(dealer)} (Total: {handValue(dealer)})")
         print(f"You bust! Dealer wins.")
         balance -= bet
         totalBets += 1
@@ -506,12 +509,11 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
     # Dealer turn
     while handValue(dealer) < 17:
         dealer.append(drawCard())
-    dealerTotal = handValue(dealer)
     printHeader(balance)
     print(f"Your cards: {showHand(player)} (Total: {handValue(player)})")
-    print(f"Dealer's cards: {showHand(dealer)} (Total: {dealerTotal})")
+    print(f"Dealer's cards: {showHand(dealer)} (Total: {handValue(dealer)})")
 
-    if dealerTotal > 21 or playerTotal > dealerTotal:
+    if handValue(dealer) > 21 or handValue(player) > handValue(dealer):
         winnings = bet * 2
         balance += bet
         print(f"You win! Payout: ${winnings:,.2f}")
