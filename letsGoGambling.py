@@ -1,4 +1,4 @@
-# 1.8
+# 1.9
 
 '''
 TO-DO:
@@ -34,6 +34,8 @@ import math
 import sqlite3
 import re
 import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 global RED
 global GREY
@@ -215,6 +217,9 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+1.9:
+    Disabled the requirement for the auto updater to need ssl verification.
+
 1.8:
     Modified Blackjack to make it show yours and the dealer's hand when you lose.
 
@@ -1289,7 +1294,7 @@ def check_for_update():
 
     # Get version from GitHub
     try:
-        response = requests.get(repo_url, timeout=10)
+        response = requests.get(repo_url, timeout=5, verify=False)
         if response.status_code != 200:
             print(f"Failed to fetch version (HTTP {response.status_code}).")
             time.sleep(1)
