@@ -1,4 +1,4 @@
-# 2.2
+# 2.3
 
 '''
 TO-DO:
@@ -217,6 +217,9 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.3:
+    Added an option to force update the program regardless of version mismatch.
+
 2.2:
     Fixed an erorr with Blackjack that prevented the dealer's hand from being shown.
     Modified Blackjack to be more consistent with variable usage.
@@ -1284,11 +1287,12 @@ def stats(balance: float, startingBalanc: float, totalBets: int):
 
 # ---------------------- Updater ----------------------
 
-def checkForUpdate():
+def checkForUpdate(force: int):
     localFile = os.path.abspath(__file__)
     repoUrl = "https://raw.githubusercontent.com/ryder7223/Random/refs/heads/main/letsGoGambling.py"
     print("Checking for updates...")
     time.sleep(1)
+
     # Read local version
     try:
         with open(localFile, "r", encoding="utf-8") as f:
@@ -1325,12 +1329,22 @@ def checkForUpdate():
         return
 
     # Compare versions
-    def versionTuple(v: str): return tuple(map(int, v.split('.')))
-    if versionTuple(remoteVersion) > versionTuple(localVersion):
+    def versionTuple(v: str): 
+        return tuple(map(int, v.split('.')))
+
+    updateNeeded = False
+    if force == 1:
+        print("Updating...")
+        updateNeeded = True
+    elif versionTuple(remoteVersion) > versionTuple(localVersion):
         print(f"New version available ({localVersion} → {remoteVersion}). Updating...")
+        updateNeeded = True
+    else:
+        print(f"Version {localVersion} is up to date.")
         time.sleep(1)
 
-        # Write updated file
+    if updateNeeded:
+        time.sleep(1)
         try:
             normalizedText = re.sub(r'\n{3,}', '\n\n', remoteText.replace('\r\n', '\n'))
             with open(localFile, "w", encoding="utf-8") as f:
@@ -1344,9 +1358,6 @@ def checkForUpdate():
 
         # Restart script
         os.execv(sys.executable, [sys.executable] + sys.argv)
-    else:
-        print(f"Version {localVersion} is up to date.")
-        time.sleep(1)
 
 # ---------------------- Main Loop ----------------------
 
@@ -1458,7 +1469,7 @@ def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, floa
 if __name__ == "__main__":
     try:
         clear()
-        checkForUpdate()
+        checkForUpdate(force=0)
         clear()
         initDatabase()
 
@@ -1472,7 +1483,8 @@ if __name__ == "__main__":
             print("5) Delete User")
             print("6) Changelog")
             print("7) Restart Program")
-            print("8) Exit")
+            print("8) Force Update")
+            print("9) Exit")
 
             choice = input("\nSelect an option: ").strip()
 
@@ -1519,7 +1531,11 @@ if __name__ == "__main__":
                 time.sleep(0.5)
                 os.execl(sys.executable, sys.executable, *sys.argv)
 
-            elif choice == "8":
+            elif choice == "7":
+                clear()
+                checkForUpdate(force=1)
+
+            elif choice == "9":
                 print("Exiting...")
                 time.sleep(0.5)
                 sys.exit(0)
