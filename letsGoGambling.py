@@ -9,9 +9,9 @@ import subprocess
 import importlib
 import sys
 
-required_modules = ['requests']
+requiredModules = ['requests']
 
-def install_missing_modules(modules):
+def installMissingModules(modules):
     try:
         pip = 'pip'
         importlib.import_module(pip)
@@ -25,7 +25,7 @@ def install_missing_modules(modules):
             print(f"{module} is not installed. Installing...")
             subprocess.check_call([sys.executable, "-m", "pip", "install", module])
 
-install_missing_modules(required_modules)
+installMissingModules(requiredModules)
 
 import os
 import random
@@ -51,7 +51,7 @@ RESET = '\033[0m'
 global databaseFile
 databaseFile = 'progress.db'
 
-def init_database():
+def initDatabase():
     conn = sqlite3.connect(databaseFile)
     cursor = conn.cursor()    
     cursor.execute('''
@@ -219,6 +219,7 @@ def changelog():
     changelogStr = '''
 1.9:
     Disabled the requirement for the auto updater to need ssl verification.
+    Changed some snake_case naming to cammelCase
 
 1.8:
     Modified Blackjack to make it show yours and the dealer's hand when you lose.
@@ -1272,21 +1273,21 @@ def stats(balance: float, startingBalanc: float, totalBets: int):
 
 # ---------------------- Updater ----------------------
 
-def check_for_update():
-    local_file = os.path.abspath(__file__)
-    repo_url = "https://raw.githubusercontent.com/ryder7223/Random/refs/heads/main/letsGoGambling.py"
+def checkForUpdate():
+    localFile = os.path.abspath(__file__)
+    repoUrl = "https://raw.githubusercontent.com/ryder7223/Random/refs/heads/main/letsGoGambling.py"
     print("Checking for updates...")
     time.sleep(1)
     # Read local version
     try:
-        with open(local_file, "r", encoding="utf-8") as f:
-            first_line = f.readline().strip()
-            local_version_match = re.match(r"#\s*([\d.]+)", first_line)
-            if not local_version_match:
+        with open(localFile, "r", encoding="utf-8") as f:
+            firstLine = f.readline().strip()
+            localVersionMatch = re.match(r"#\s*([\d.]+)", firstLine)
+            if not localVersionMatch:
                 print("Unable to read local version number.")
                 time.sleep(1)
                 return
-            local_version = local_version_match.group(1)
+            localVersion = localVersionMatch.group(1)
     except Exception as e:
         print(f"Error reading local version: {e}")
         time.sleep(1)
@@ -1294,35 +1295,35 @@ def check_for_update():
 
     # Get version from GitHub
     try:
-        response = requests.get(repo_url, timeout=5, verify=False)
+        response = requests.get(repoUrl, timeout=5, verify=False)
         if response.status_code != 200:
             print(f"Failed to fetch version (HTTP {response.status_code}).")
             time.sleep(1)
             return
-        remote_text = response.text
-        remote_first_line = remote_text.splitlines()[0].strip()
-        remote_version_match = re.match(r"#\s*([\d.]+)", remote_first_line)
-        if not remote_version_match:
+        remoteText = response.text
+        remoteFirstLine = remoteText.splitlines()[0].strip()
+        remoteVersionMatch = re.match(r"#\s*([\d.]+)", remoteFirstLine)
+        if not remoteVersionMatch:
             print("Unable to read version number.")
             time.sleep(1)
             return
-        remote_version = remote_version_match.group(1)
+        remoteVersion = remoteVersionMatch.group(1)
     except Exception:
         print(f"Unable to fetch newest version, proceeding offline.")
         time.sleep(1)
         return
 
     # Compare versions
-    def version_tuple(v: str): return tuple(map(int, v.split('.')))
-    if version_tuple(remote_version) > version_tuple(local_version):
-        print(f"New version available ({local_version} → {remote_version}). Updating...")
+    def versionTuple(v: str): return tuple(map(int, v.split('.')))
+    if versionTuple(remoteVersion) > versionTuple(localVersion):
+        print(f"New version available ({localVersion} → {remoteVersion}). Updating...")
         time.sleep(1)
 
         # Write updated file
         try:
-            normalized_text = re.sub(r'\n{3,}', '\n\n', remote_text.replace('\r\n', '\n'))
-            with open(local_file, "w", encoding="utf-8") as f:
-                f.write(normalized_text)
+            normalizedText = re.sub(r'\n{3,}', '\n\n', remoteText.replace('\r\n', '\n'))
+            with open(localFile, "w", encoding="utf-8") as f:
+                f.write(normalizedText)
             print("Update complete. Restarting...")
             time.sleep(1)
         except Exception as e:
@@ -1333,7 +1334,7 @@ def check_for_update():
         # Restart script
         os.execv(sys.executable, [sys.executable] + sys.argv)
     else:
-        print(f"Version {local_version} is up to date.")
+        print(f"Version {localVersion} is up to date.")
         time.sleep(1)
 
 # ---------------------- Main Loop ----------------------
@@ -1434,9 +1435,9 @@ def main(startingBalance: float, totalBets: int) -> tuple[float, float, int]:
 if __name__ == "__main__":
     try:
         clear()
-        check_for_update()
+        checkForUpdate()
         clear()
-        init_database()
+        initDatabase()
 
         while True:
             clear()
