@@ -1,4 +1,4 @@
-# 1.9
+# 2.0
 
 '''
 TO-DO:
@@ -217,6 +217,11 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.0:
+    Changed database save timing to save progress immediately after every bet.
+    Modified `You made: $x.xx` to be calculated using the current session starting balance, instead of the base starting balance.
+    Added an option to easily restart the script to make updating easier.
+
 1.9:
     Disabled the requirement for the auto updater to need ssl verification.
     Changed some snake_case naming to cammelCase
@@ -514,7 +519,6 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def roulette(balance: float, totalBets: int) -> tuple[float, int]:
-    """European Roulette — Animated spin with red/black/green betting and single number option."""
     print("Roulette — Bet on a color or a number (0–36).")
     print("1) Red/Black/Green (pays 1.9x for red/black, 30x for green)")
     print("2) Single Number (pays 30x)")
@@ -1295,7 +1299,7 @@ def checkForUpdate():
 
     # Get version from GitHub
     try:
-        response = requests.get(repoUrl, timeout=5, verify=False)
+        response = requests.get(repoUrl, timeout=10, verify=False)
         if response.status_code != 200:
             print(f"Failed to fetch version (HTTP {response.status_code}).")
             time.sleep(1)
@@ -1339,8 +1343,9 @@ def checkForUpdate():
 
 # ---------------------- Main Loop ----------------------
 
-def main(startingBalance: float, totalBets: int) -> tuple[float, float, int]:
+def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, float, int]:
     balance = startingBalance
+    sessionStart = startingBalance
     startingBalance = 100.00
 
     games = {
@@ -1365,6 +1370,7 @@ def main(startingBalance: float, totalBets: int) -> tuple[float, float, int]:
 
     try:
         while True:
+
             balance = roundMoney(balance)
             printHeader(balance)
             print("1) Coin Flip")
@@ -1395,6 +1401,16 @@ def main(startingBalance: float, totalBets: int) -> tuple[float, float, int]:
                     clear()
                     printHeader(balance)
                     balance, totalBets = games[choice](balance, totalBets)
+
+                    conn = sqlite3.connect(databaseFile)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                    "INSERT OR REPLACE INTO Users (username, money, bets) VALUES (?, ?, ?)",
+                    (name, balance, totalBets)
+                    )
+                    conn.commit()
+                    conn.close()
+
                     replay = input("\nPlay again? (y)es/(n)o: ")
                     if replay == "y":
                         pass
@@ -1425,9 +1441,9 @@ def main(startingBalance: float, totalBets: int) -> tuple[float, float, int]:
                 break
     
             clear()
-        return balance, startingBalance, totalBets
+        return balance, startingBalance, totalBets, sessionStart
     except KeyboardInterrupt:
-        return balance, startingBalance, totalBets
+        return balance, startingBalance, totalBets, sessionStart
     except Exception as e:
         print(e)
         input("Awaiting...")
@@ -1448,7 +1464,8 @@ if __name__ == "__main__":
             print("4) Set User Money")
             print("5) Delete User")
             print("6) Changelog")
-            print("7) Exit")
+            print("7) Restart Program")
+            print("8) Exit")
 
             choice = input("\nSelect an option: ").strip()
 
@@ -1459,29 +1476,19 @@ if __name__ == "__main__":
 
             elif choice == "2":
                 clear()
-                conn = sqlite3.connect(databaseFile)
-                cursor = conn.cursor()
 
                 name = input("Enter your name: ").strip()
                 startingBalance, totalBets = getOrCreateUser(name)
-                balance, startingBalance, totalBets = main(startingBalance, totalBets)
+                balance, startingBalance, totalBets, sessionStart = main(startingBalance, totalBets, name)
 
                 clear()
-                profit = roundMoney(balance - startingBalance)
+                profit = roundMoney(balance - sessionStart)
                 print("You made: ", end="")
                 sys.stdout.flush()
                 time.sleep(1)
                 letterType(f"${profit:,.2f}", 0.1)
                 time.sleep(0.5)
-                input("\nPress Enter to save...")
-
-                cursor.execute(
-                    "INSERT OR REPLACE INTO Users (username, money, bets) VALUES (?, ?, ?)",
-                    (name, balance, totalBets)
-                )
-
-                conn.commit()
-                conn.close()
+                input("\nPress Enter to exit...")
 
             elif choice == "3":
                 clear()
@@ -1500,6 +1507,12 @@ if __name__ == "__main__":
                 changelog()
 
             elif choice == "7":
+                clear()
+                print("Restarting program...")
+                time.sleep(0.5)
+                os.execl(sys.executable, sys.executable, *sys.argv)
+
+            elif choice == "8":
                 print("Exiting...")
                 time.sleep(0.5)
                 sys.exit(0)
@@ -1508,7 +1521,7 @@ if __name__ == "__main__":
                 print("Invalid choice. Please select 1–5.")
                 pause()
     except KeyboardInterrupt:
-        print("\nForce Exiting, your progress will not be saved.")
+        print("\nForce Exiting, your progress will be saved.")
         time.sleep(0.5)
         sys.exit(0)
     except Exception as e:
