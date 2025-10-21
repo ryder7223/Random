@@ -1,4 +1,4 @@
-# 2.0
+# 2.1
 
 '''
 TO-DO:
@@ -217,6 +217,9 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.1:
+    Fixed an error in the Higher or Lower game where the next card was able to be the same as the current card, making it impossible sometimes.
+
 2.0:
     Changed database save timing to save progress immediately after every bet.
     Modified `You made: $x.xx` to be calculated using the current session starting balance, instead of the base starting balance.
@@ -367,6 +370,8 @@ def highLow(balance: float, totalBets: int) -> tuple[float, int]:
         return balance, totalBets
 
     nextCard = random.randint(1, 13)
+    while nextCard == currentCard:
+        nextCard = random.randint(1, 13)
     print(f"Next card: {nextCard}")
 
     higherCount = 13 - currentCard   # numbers strictly greater than currentCard
@@ -1446,7 +1451,7 @@ def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, floa
         return balance, startingBalance, totalBets, sessionStart
     except Exception as e:
         print(e)
-        input("Awaiting...")
+        input("Please copy and save this error somewhere so the developer can fix it.\n\nAwaiting input...")
 
 if __name__ == "__main__":
     try:
