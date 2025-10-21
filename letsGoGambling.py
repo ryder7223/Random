@@ -1,4 +1,4 @@
-# 2.3
+# 2.4
 
 '''
 TO-DO:
@@ -217,6 +217,10 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.4:
+    Modified scratchie odds to make it not guarantee profit for users with enough money.
+    Added a temporary disclaimer to poker.
+
 2.3:
     Added an option to force update the program regardless of version mismatch.
 
@@ -871,8 +875,9 @@ def scratchie(balance: float, totalBets: int) -> tuple[float, int]:
     time.sleep(1.5)
 
     # Weighted outcomes
-    outcomes = [0, 1, 2, 5, 10, 20, 50, 1000, 10000, 100000]
-    weights = [0.60, 0.20, 0.10, 0.06, 0.05, 0.02, 0.01, 0.001, 0.0001, 0.00001]
+    outcomes = [0, 1, 2, 5, 10, 20, 50, 500, 5000, 100000]
+    weights  = [0.65, 0.20, 0.08, 0.04, 0.02, 0.007, 0.002, 0.0003, 0.00005, 0.000001]
+
     prize = random.choices(outcomes, weights)[0]
 
     if prize > 0:
@@ -981,6 +986,7 @@ def lucky7s(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def poker(balance: float, totalBets: int) -> tuple[float, int]:
+    print("(This game is a work in progress and hard to program\nso it will either be a while before it works well or I'll just remove the game later)")
     print("Welcome to Texas Hold'em Poker!")
     print("Rules:")
     print("- You will play against 3 opponents.")
