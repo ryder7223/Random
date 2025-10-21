@@ -220,6 +220,7 @@ def changelog():
 2.4:
     Modified scratchie odds to make it not guarantee profit for users with enough money.
     Added a temporary disclaimer to poker.
+    Fixed an error that made it impossible to use Force Update.
 
 2.3:
     Added an option to force update the program regardless of version mismatch.
@@ -1537,7 +1538,7 @@ if __name__ == "__main__":
                 time.sleep(0.5)
                 os.execl(sys.executable, sys.executable, *sys.argv)
 
-            elif choice == "7":
+            elif choice == "8":
                 clear()
                 checkForUpdate(force=1)
 
