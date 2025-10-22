@@ -1653,7 +1653,7 @@ if __name__ == "__main__":
                 sys.exit(0)
 
             else:
-                print("Invalid choice. Please select 1–5.")
+                print("Invalid choice. Please select 1–9.")
                 pause()
     except KeyboardInterrupt:
         print("\nForce Exiting, your progress will be saved.")
