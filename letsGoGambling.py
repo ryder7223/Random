@@ -1,4 +1,4 @@
-# 2.5
+# 2.6
 
 import subprocess
 import importlib
@@ -28,6 +28,7 @@ import time
 import math
 import sqlite3
 import re
+import traceback
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -212,6 +213,11 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.6:
+    Modified Craps to be harder to win.
+    Made improvements to Poker.
+    Made error printing more verbose.
+
 2.5:
     Added the ability to type `all` to go all in on a bet.
     Modified Lucky 7s to make it not profitable for the player on average.
@@ -636,6 +642,9 @@ def craps(balance: float, totalBets: int) -> tuple[float, int]:
 
     die1 = random.randint(1, 6)
     die2 = random.randint(1, 6)
+    if die1 + die2 == 7 or die1 + die2 == 11:
+        die1 = random.randint(1, 6)
+        die2 = random.randint(1, 6)
     roll = die1 + die2
     print(f"You rolled: {die1} + {die2} = {roll}")
 
@@ -652,6 +661,9 @@ def craps(balance: float, totalBets: int) -> tuple[float, int]:
             time.sleep(1)
             die1 = random.randint(1, 6)
             die2 = random.randint(1, 6)
+            if die1 + die2 != 7:
+                die1 = random.randint(1, 6)
+                die2 = random.randint(1, 6)
             total = die1 + die2
             print(f"Rolled {die1} + {die2} = {total}")
             if total == roll:
@@ -989,13 +1001,13 @@ def lucky7s(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def poker(balance: float, totalBets: int) -> tuple[float, int]:
-    print("(This game is a work in progress and hard to program\nso it will either be a while before it works well or I'll just remove the game later)")
     print("Welcome to Texas Hold'em Poker!")
     print("Rules:")
-    print("- You will play against 3 opponents.")
+    print("- You will play against 7 opponents.")
     print("- Each player gets 2 private cards.")
     print("- Five community cards are revealed over multiple rounds (Flop, Turn, River).")
     print("- Hands are ranked: Royal Flush > Straight Flush > Four of a Kind > Full House > Flush > Straight > Three of a Kind > Two Pair > One Pair > High Card.")
+    print("- If multiple players have the same hand rank, the player with the higher value cards wins.")
     print("- You can choose to fold, check/call, or raise in each round.\n")
 
     bet = validateBet(balance)
@@ -1007,9 +1019,25 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
     deck = [f"{r}{s}" for r in ranks for s in suits]
     random.shuffle(deck)
 
-    numOpp = 3
+    numOpp = 7
+
+    def generateOpponentHand(deck):
+        # 50% chance to give a pair
+        if random.random() < 0.5 and len(deck) >= 2:
+            card1 = deck.pop()
+            rank, suit = card1[:-1], card1[-1]
+            # Ensure different suit for pair
+            suits_remaining = [s for s in suits if s != suit]
+            card2 = rank + random.choice(suits_remaining)
+            # Remove card2 if still in deck
+            if card2 in deck:
+                deck.remove(card2)
+            return [card1, card2]
+        # Otherwise return two normal cards
+        return [deck.pop(), deck.pop()]
+
     playerHand = [deck.pop() for _ in range(2)]
-    oppHands = [[deck.pop() for _ in range(2)] for _ in range(numOpp)]
+    oppHands = [generateOpponentHand(deck) for _ in range(numOpp)]
     communityCards = []
 
     rankValues = {r: i for i, r in enumerate(ranks, 2)}
@@ -1025,6 +1053,7 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
             print("Community Cards: None yet")
         print(f"Current pot: ${pot:,.2f}\n")
 
+    # --- Evaluation functions ---
     def evaluateHand(hand: list) -> tuple[bool, bool, list[int], int, list[int]]:
         values = sorted([rankValues[c[:-1]] for c in hand])
         suitsInHand = [c[-1] for c in hand]
@@ -1039,27 +1068,40 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
 
     def handScore(hand: list) -> tuple[int, list[int], str]:
         isStraight, isFlush, freq, high, values = evaluateHand(hand)
+        counts = {v: values.count(v) for v in set(values)}
+
         if isStraight and isFlush and max(values) == 14:
             return (10, values[::-1], "Royal Flush")
         elif isStraight and isFlush:
             return (9, values[::-1], "Straight Flush")
         elif freq == [4, 1]:
-            return (8, values[::-1], "Four of a Kind")
+            four_val = [v for v, c in counts.items() if c == 4][0]
+            kicker = [v for v, c in counts.items() if c == 1][0]
+            return (8, [four_val, kicker], "Four of a Kind")
         elif freq == [3, 2]:
-            return (7, values[::-1], "Full House")
+            three_val = [v for v, c in counts.items() if c == 3][0]
+            pair_val = [v for v, c in counts.items() if c == 2][0]
+            return (7, [three_val, pair_val], "Full House")
         elif isFlush:
-            return (6, values[::-1], "Flush")
+            return (6, sorted(values, reverse=True), "Flush")
         elif isStraight:
-            return (5, values[::-1], "Straight")
+            return (5, sorted(values, reverse=True), "Straight")
         elif freq == [3, 1, 1]:
-            return (4, values[::-1], "Three of a Kind")
+            three_val = [v for v, c in counts.items() if c == 3][0]
+            kickers = sorted([v for v, c in counts.items() if c == 1], reverse=True)
+            return (4, [three_val] + kickers, "Three of a Kind")
         elif freq == [2, 2, 1]:
-            return (3, values[::-1], "Two Pair")
+            pair_vals = sorted([v for v, c in counts.items() if c == 2], reverse=True)
+            kicker = [v for v, c in counts.items() if c == 1][0]
+            return (3, pair_vals + [kicker], "Two Pair")
         elif freq == [2, 1, 1, 1]:
-            return (2, values[::-1], "One Pair")
+            pair_val = [v for v, c in counts.items() if c == 2][0]
+            kickers = sorted([v for v, c in counts.items() if c == 1], reverse=True)
+            return (2, [pair_val] + kickers, "One Pair")
         else:
-            return (1, values[::-1], "High Card")
+            return (1, sorted(values, reverse=True), "High Card")
 
+    # --- Combinations and best hand ---
     def generateCombinations(cards: list, n=5) -> list:
         combos = []
         def backtrack(start, path):
@@ -1079,6 +1121,7 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
                 best = (cat, tiebreak, label, combo)
         return best
 
+    # --- Player and opponent actions ---
     def playerAction(roundName: str):
         nonlocal pot, folded, bet
         while True:
@@ -1093,7 +1136,7 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
                     raiseAmt = float(input("Enter raise amount: $"))
                     if 0 < raiseAmt <= balance:
                         pot += raiseAmt
-                        bet += raiseAmt  # Player's total at risk increases
+                        bet += raiseAmt
                         print(f"\nYou raised by ${raiseAmt:,.2f}.")
                         return
                     else:
@@ -1106,106 +1149,149 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
             else:
                 print("Invalid input. Choose C, R, or F.")
 
+    opp_folded = [False] * numOpp
+
     def opponentsAction():
         nonlocal pot
+        full_deck = [f"{r}{s}" for r in ranks for s in suits]
+        known = set(playerHand + communityCards)
+        for h in oppHands:
+            known.update(h)
+        unseen = [c for c in full_deck if c not in known]
+
+        player_best = evaluateBestHand(playerHand + communityCards)
+
         for i, opp in enumerate(oppHands):
-            # Evaluate opponent confidence
-            best = evaluateBestHand(opp + communityCards)
-            confidence = best[0]  # hand rank as confidence
-            if random.random() < confidence / 10:
-                raiseAmt = round(pot * (0.1 + confidence * 0.05), 2)
+            if opp_folded[i]:
+                print(f"Opponent {i+1} has folded.")
+                continue
+
+            own_best = evaluateBestHand(opp + communityCards)
+            own_rank = own_best[0]
+
+            sample_pool = [c for c in unseen if c not in opp]
+            wins = 0
+            for _ in range(20):
+                if len(sample_pool) < 2:
+                    break
+                a, b = random.sample(sample_pool, 2)
+                simulated_player_best = evaluateBestHand([a, b] + communityCards)
+                if (own_best[0], own_best[1]) > (simulated_player_best[0], simulated_player_best[1]):
+                    wins += 1
+            prob_opp_beats_player = wins / 20 if sample_pool else 0.5 + (own_rank - 5) * 0.05
+
+            # Reduce folding if strong or comparable
+            fold_strength_factor = max(0.01, (1.0 - (own_rank / 10)) ** 2)
+            if (own_best[0], own_best[1]) >= (player_best[0], player_best[1]):
+                fold_strength_factor *= 0.05  # much less likely to fold
+
+            bluff_chance = 0.01  # reduce bluffing
+            base_aggression = 0.10 + (own_rank / 10) * 0.25  # more aggressive
+
+            if prob_opp_beats_player >= 0.6:
+                raise_prob = min(0.90, base_aggression + 0.50)
+                fold_prob = 0.01 * fold_strength_factor
+            elif prob_opp_beats_player >= 0.4:
+                raise_prob = min(0.40, base_aggression + 0.15)
+                fold_prob = 0.05 * fold_strength_factor
+            else:
+                raise_prob = min(0.20, base_aggression + 0.08)
+                fold_prob = 0.10 * fold_strength_factor
+
+            call_prob = 1 - raise_prob - fold_prob
+
+            # Normalize
+            total_prob = raise_prob + call_prob + fold_prob
+            raise_prob /= total_prob
+            call_prob /= total_prob
+            fold_prob /= total_prob
+
+            roll = random.random()
+            if roll < raise_prob:
+                raiseAmt = round(max(1.0, pot * (0.02 + random.random() * 0.1)), 2)
                 pot += raiseAmt
                 print(f"Opponent {i+1} raises by ${raiseAmt:,.2f}.")
-            else:
+            elif roll < raise_prob + call_prob:
                 print(f"Opponent {i+1} checks/calls.")
+            else:
+                opp_folded[i] = True
+                print(f"Opponent {i+1} folds.")
 
-    pot = bet * (numOpp + 1)
+    # --- Main Game Flow ---
+    pot = bet * (numOpp + 1) / 2
     folded = False
 
-    # --- Pre-Flop ---
-    showTable("Pre-Flop")
-    playerAction("Pre-Flop")
-    opponentsAction()
-    if folded:
-        balance -= bet
-        balance = roundMoney(balance)
-        print(f"You folded pre-flop and lost ${bet:,.2f}.")
-        return balance, totalBets
-    input("\nEnter to continue...")
-    # --- Flop ---
-    communityCards.extend([deck.pop() for _ in range(3)])
-    showTable("Flop")
-    playerAction("Flop")
-    opponentsAction()
-    if folded:
-        balance -= bet
-        balance = roundMoney(balance)
-        print(f"You folded after the flop and lost ${bet:,.2f}.")
-        return balance, totalBets
-    input("\nEnter to continue...")
-    # --- Turn ---
-    communityCards.append(deck.pop())
-    showTable("Turn")
-    playerAction("Turn")
-    opponentsAction()
-    if folded:
-        balance -= bet
-        balance = roundMoney(balance)
-        print(f"You folded after the turn and lost ${bet:,.2f}.")
-        return balance, totalBets
-    input("\nEnter to continue...")
-    # --- River ---
-    communityCards.append(deck.pop())
-    showTable("River")
-    playerAction("River")
-    opponentsAction()
-    if folded:
-        balance -= bet
-        balance = roundMoney(balance)
-        print(f"You folded after the river and lost ${bet:,.2f}.")
-        return balance, totalBets
-    input("\nEnter to continue...")
+    for roundName, numCards in [("Pre-Flop", 0), ("Flop", 3), ("Turn", 1), ("River", 1)]:
+        if numCards:
+            communityCards.extend([deck.pop() for _ in range(numCards)])
+        showTable(roundName)
+        playerAction(roundName)
+        opponentsAction()
+        if folded:
+            balance -= bet
+            balance = roundMoney(balance)
+            print(f"You folded during {roundName} and lost ${bet:,.2f}.")
+            return balance, totalBets
+        if roundName != "River":
+            input("\nEnter to continue...")
+
     # --- Showdown ---
     playerBest = evaluateBestHand(playerHand + communityCards)
-    oppBests = [evaluateBestHand(opp + communityCards) for opp in oppHands]
+    oppBests = [evaluateBestHand(opp + communityCards) if not opp_folded[i] else None for i, opp in enumerate(oppHands)]
 
     def getKeyCards(hand: list) -> list:
+        if not hand:
+            return []
         values = [c[:-1] for c in hand]
         counts = {v: values.count(v) for v in set(values)}
         freqSorted = sorted(counts.items(), key=lambda x: (-x[1], -rankValues[x[0]]))
         keyCards = []
-        if freqSorted[0][1] >= 2:
-            maxCount = freqSorted[0][1]
-            for val, count in freqSorted:
-                if count == maxCount:
-                    keyCards.extend([c for c in hand if c[:-1] == val])
-                if len(keyCards) >= maxCount * (2 if freqSorted[1][1] == maxCount else 1):
-                    break
-        elif freqSorted[0][1] == 1 and len(hand) == 5:
+        if not freqSorted:
+            return []
+        if freqSorted[0][1] >= 3:
+            keyCards.extend([c for c in hand if c[:-1] == freqSorted[0][0]])
+            if len(freqSorted) > 1 and freqSorted[1][1] >= 2:
+                keyCards.extend([c for c in hand if c[:-1] == freqSorted[1][0]])
+        elif freqSorted[0][1] == 2 and len(freqSorted) > 1 and freqSorted[1][1] == 2:
+            keyCards.extend([c for c in hand if c[:-1] in (freqSorted[0][0], freqSorted[1][0])])
+        elif freqSorted[0][1] == 2:
+            keyCards.extend([c for c in hand if c[:-1] == freqSorted[0][0]])
+        else:
             keyCards = hand
         return keyCards
 
     def highlightHand(allCards: list, bestCombo: list, handRankLabel: str) -> str:
+        if not bestCombo:
+            return " ".join(allCards)
         keyCards = getKeyCards(bestCombo) if handRankLabel not in ["Straight", "Flush", "Straight Flush", "Royal Flush", "High Card"] else bestCombo
         return " ".join(f"{YELLOW}{c}{RESET}" if c in keyCards else c for c in allCards)
 
     print("\n--- SHOWDOWN ---")
-    print(f"Your final hand: {highlightHand(playerHand + communityCards, playerBest[3], playerBest[2])} -> {YELLOW}{playerBest[2]}{RESET}")
-    for i, (h, s) in enumerate(zip(oppHands, oppBests), 1):
-        fullHand = h + communityCards
-        print(f"Opponent {i}: {highlightHand(fullHand, s[3], s[2])} -> {YELLOW}{s[2]}{RESET}")
-    print("")
-
-    allScores = [(playerBest, "Player")] + list(zip(oppBests, [f"Opponent {i}" for i in range(1, numOpp + 1)]))
+    allScores = [(playerBest, "Player")]
+    for i, s in enumerate(oppBests, 1):
+        if s is not None:
+            allScores.append((s, f"Opponent {i}"))
     allScores.sort(key=lambda x: (x[0][0], x[0][1]), reverse=True)
     bestScore = allScores[0][0]
     winners = [name for score, name in allScores if (score[0], score[1]) == (bestScore[0], bestScore[1])]
+    player_is_winner = "Player" in winners
 
-    if "Player" in winners:
+    player_label_color = GREEN if player_is_winner else YELLOW
+    print(f"Your final hand: {highlightHand(playerHand + communityCards, playerBest[3], playerBest[2])} -> {player_label_color}{playerBest[2]}{RESET}")
+
+    for i, s in enumerate(oppBests, 1):
+        fullHand = oppHands[i-1] + communityCards
+        if s is None:
+            print(f"Opponent {i}: {highlightHand(fullHand, [], 'Folded')} -> {YELLOW}Folded{RESET}")
+        else:
+            color = GREEN if f'Opponent {i}' in winners else YELLOW
+            print(f"Opponent {i}: {highlightHand(fullHand, s[3], s[2])} -> {color}{s[2]}{RESET}")
+
+    print("")
+    if player_is_winner:
         if len(winners) == 1:
-            winnings = pot
-            balance += winnings
-            print(f"You won the pot of ${winnings:,.2f}!")
+            balance += pot
+            print(f"You won the pot of ${pot:,.2f}!")
         else:
             winnings = pot / len(winners)
             balance += winnings
@@ -1472,8 +1558,8 @@ def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, floa
     except KeyboardInterrupt:
         return balance, startingBalance, totalBets, sessionStart
     except Exception as e:
-        print(e)
-        input("Please copy and save this error somewhere so the developer can fix it.\n\nAwaiting input...")
+        traceback.print_exc()
+        input("\nPlease copy and save this error somewhere so the developer can fix it.\n\nAwaiting input...")
 
 if __name__ == "__main__":
     try:
@@ -1558,6 +1644,6 @@ if __name__ == "__main__":
         time.sleep(0.5)
         sys.exit(0)
     except Exception as e:
-        print(f"An error has occurred: {e}")
+        print(f"An error has occurred: {traceback.print_exc()}")
         input("Awaiting...")
         sys.exit(0)
