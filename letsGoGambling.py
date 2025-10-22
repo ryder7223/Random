@@ -1,9 +1,4 @@
-# 2.4
-
-'''
-TO-DO:
-    Ability to easily go all-in
-'''
+# 2.5
 
 import subprocess
 import importlib
@@ -217,6 +212,11 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.5:
+    Added the ability to type `all` to go all in on a bet.
+    Modified Lucky 7s to make it not profitable for the player on average.
+    Modified `You made: $x.xx` to make it always take 1 second to type.
+
 2.4:
     Modified scratchie odds to make it not guarantee profit for users with enough money.
     Added a temporary disclaimer to poker.
@@ -297,6 +297,8 @@ def roundMoney(value: float) -> float:
 
 def validateBet(balance: float) -> float:
     betInput = input("Enter your bet amount: ").strip()
+    if betInput.lower() == "all":
+        return roundMoney(balance)
     if not betInput.replace('.', '', 1).isdigit():
         print("Invalid bet format.")
         return None
@@ -967,11 +969,11 @@ def lucky7s(balance: float, totalBets: int) -> tuple[float, int]:
     print(f"Rolled: {reels[0]} | {reels[1]} | {reels[2]}")
 
     if all(r == 7 for r in reels):
-        winnings = bet * 50
+        winnings = bet * 30
     elif len(set(reels)) == 1:
-        winnings = bet * 10
+        winnings = bet * 5
     elif 7 in reels:
-        winnings = bet * 2
+        winnings = bet * 1.3
     else:
         winnings = 0
 
@@ -1502,7 +1504,6 @@ if __name__ == "__main__":
 
             elif choice == "2":
                 clear()
-
                 name = input("Enter your name: ").strip()
                 startingBalance, totalBets = getOrCreateUser(name)
                 balance, startingBalance, totalBets, sessionStart = main(startingBalance, totalBets, name)
@@ -1512,7 +1513,9 @@ if __name__ == "__main__":
                 print("You made: ", end="")
                 sys.stdout.flush()
                 time.sleep(1)
-                letterType(f"${profit:,.2f}", 0.1)
+                text = f"${profit:,.2f}"
+                typeDelay = 1.0 / len(text)
+                letterType(f"${profit:,.2f}", typeDelay)
                 time.sleep(0.5)
                 input("\nPress Enter to exit...")
 
