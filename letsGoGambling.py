@@ -1,4 +1,4 @@
-# 2.7
+# 2.8
 
 import subprocess
 import importlib
@@ -213,6 +213,10 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.8:
+    Attempted to fix a TypeError in the money rounding function.
+    Added a check to prevent users with no money from playing.
+
 2.7:
     Modified Blackjack dealer logic to play better.
     Fixed an error in Blackjack where an incorrect amount of money was returned when winning.
@@ -303,6 +307,8 @@ def printHeader(balance: float):
     print()
 
 def roundMoney(value: float) -> float:
+    if value is None:
+        return 0.0
     return round(value + 1e-8, 2)
 
 def validateBet(balance: float) -> float:
@@ -1460,7 +1466,7 @@ def checkForUpdate(force: int):
 
 # ---------------------- Main Loop ----------------------
 
-def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, float, int]:
+def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, float, int, float]:
     balance = startingBalance
     sessionStart = startingBalance
     startingBalance = 100.00
@@ -1564,6 +1570,7 @@ def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, floa
     except Exception as e:
         traceback.print_exc()
         input("\nPlease copy and save this error somewhere so the developer can fix it.\n\nAwaiting input...")
+        return balance, startingBalance, totalBets, sessionStart
 
 if __name__ == "__main__":
     try:
@@ -1596,6 +1603,11 @@ if __name__ == "__main__":
                 clear()
                 name = input("Enter your name: ").strip()
                 startingBalance, totalBets = getOrCreateUser(name)
+                if roundMoney(startingBalance) <= 0.0:
+                    clear()
+                    print(f"{name} has no money and cannot play.\nEither reset the user, or change the user's money.")
+                    pause()
+                    continue
                 balance, startingBalance, totalBets, sessionStart = main(startingBalance, totalBets, name)
 
                 clear()
