@@ -1,4 +1,4 @@
-# 2.6
+# 2.7
 
 import subprocess
 import importlib
@@ -213,6 +213,10 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.7:
+    Modified Blackjack dealer logic to play better.
+    Fixed an error in Blackjack where an incorrect amount of money was returned when winning.
+
 2.6:
     Modified Craps to be harder to win.
     Made improvements to Poker.
@@ -523,7 +527,7 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
         return balance, totalBets
 
     # Dealer turn
-    while handValue(dealer) < 17:
+    while handValue(dealer) < 17 or handValue(dealer) < handValue(player):
         dealer.append(drawCard())
     printHeader(balance)
     print(f"Your cards: {showHand(player)} (Total: {handValue(player)})")
@@ -531,7 +535,7 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
 
     if handValue(dealer) > 21 or handValue(player) > handValue(dealer):
         winnings = bet * 2
-        balance += bet
+        balance += winnings
         print(f"You win! Payout: ${winnings:,.2f}")
     else:
         print("Dealer wins.")
