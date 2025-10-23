@@ -1,4 +1,4 @@
-# 2.9
+# 3.0
 
 import subprocess
 import importlib
@@ -7,8 +7,8 @@ import sys
 requiredModules = ['requests']
 
 def installMissingModules(modules):
+    pip = 'pip'
     try:
-        pip = 'pip'
         importlib.import_module(pip)
     except ImportError:
         print(f"{pip} is not installed. Installing...")
@@ -30,8 +30,9 @@ import sqlite3
 import re
 import traceback
 import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+import urllib3
+from urllib3.exceptions import InsecureRequestWarning
+urllib3.disable_warnings(InsecureRequestWarning)
 
 global RED
 global GREY
@@ -46,6 +47,11 @@ RESET = '\033[0m'
 
 global databaseFile
 databaseFile = 'progress.db'
+
+global MAX_MONEY
+global MIN_MONEY
+MAX_MONEY = sys.float_info.max
+MIN_MONEY = sys.float_info.min
 
 def initDatabase():
     conn = sqlite3.connect(databaseFile)
@@ -155,32 +161,41 @@ def setUserMoney():
         print("Cancelled.")
         time.sleep(1)
         return
-    moneySet = float(input("Enter the ammount of money to set: "))
-    if not moneySet:
+
+    # Input validation for money
+    money_input = input("Enter the amount of money to set: ").strip()
+
+    try:
+        moneySet = float(money_input)
+        # Reject NaN, Inf, and absurdly large values
+        if math.isinf(moneySet) or math.isnan(moneySet):
+            raise ValueError("Value cannot be infinite or NaN.")
+        if moneySet < 0:
+            raise ValueError("Money cannot be negative.")
+    except ValueError as e:
+        print(f"Invalid input: {e}")
+        pause()
+        return
+
+    username = users[int(choice) - 1]
+    confirm = input(f"Are you sure you want to cheat for '{username}'? (y/n): ").strip().lower()
+    if confirm == "y":
+        cursor.execute("UPDATE Users SET money = ? WHERE username = ?", (moneySet, username))
+        conn.commit()
+        print(f"User '{username}' now has ${moneySet:,.2f}.")
+    else:
         print("Cancelled.")
         time.sleep(1)
         return
-    else:
-        username = users[int(choice) - 1]
-        confirm = input(f"Are you sure you want to cheat for '{username}'? (y/n): ").strip().lower()
-        if confirm == "y":
-            cursor.execute("UPDATE Users SET money = ? WHERE username = ?", (moneySet, username))
-            conn.commit()
-            print(f"User '{username}' now has ${moneySet:,.2f}.")
-        else:
-            print("Cancelled.")
-            time.sleep(1)
-            return
 
     conn.close()
-    input("Press Enter to continue...")
+    pause()
 
 def deleteUser():
     conn = sqlite3.connect(databaseFile)
     cursor = conn.cursor()
     cursor.execute("SELECT username FROM Users")
     users = [u[0] for u in cursor.fetchall()]
-
     if not users:
         print("No users found.")
         conn.close()
@@ -213,6 +228,15 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+3.0:
+    Fixed possible error with sub-packages in the requests module by importing the sub-package as its own package.
+    Prevented users from setting invalid amounts of money.
+    Fixed ambiguity in the datatype returned by the bet validation function.
+    Modified main flow to allow exiting any game at any time by pressing `Ctrl+C`.
+    Fixed an erorr in the Slot Machine where it rewarded too much money.
+    Moved balance modification to its own function to try and prevent winning an invalid amount of money.
+
+
 2.9:
     Prevented the `Play again?` dialogue from appearing when you loose all your money.
     Fixed a dialogue error where it said there were 20 options instead of 19.
@@ -315,31 +339,53 @@ def roundMoney(value: float) -> float:
         return 0.0
     return round(value + 1e-8, 2)
 
-def validateBet(balance: float) -> float:
-    betInput = input("Enter your bet amount: ").strip()
-    if betInput.lower() == "all":
-        return roundMoney(balance)
-    if not betInput.replace('.', '', 1).isdigit():
-        print("Invalid bet format.")
-        return None
-    if '.' in betInput and len(betInput.split('.')[1]) > 2:
-        print("No more than two decimal places allowed.")
-        return None
-    bet = float(betInput)
-    if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
-        print("Invalid bet amount.")
-        return None
-    return roundMoney(bet)
+def validateBet(balance: float, gameTitle: str) -> float:
+    while True:
+        printHeader(balance)
+        print(gameTitle)
+        betInput = input("Enter your bet amount: ").strip()
+        if betInput.lower() == "all":
+            return roundMoney(balance)
+        if not betInput.replace('.', '', 1).isdigit():
+            print("Invalid bet format. Try again.")
+            pause()
+            continue
+        if '.' in betInput and len(betInput.split('.')[1]) > 2:
+            print("No more than two decimal places allowed. Try again.")
+            pause()
+            continue
+        try:
+            bet = float(betInput)
+        except ValueError:
+            print("Invalid number. Try again.")
+            pause()
+            continue
+        if bet <= 0 or (bet > balance and not math.isclose(bet, balance, rel_tol=1e-9, abs_tol=1e-9)):
+            print("Invalid bet amount. Try again.")
+            input("Press Enter to continue...")
+            continue
+        return roundMoney(bet)
+
+def UpdateBalance(balance: float, bet: float, mode: bool) -> float:
+    if mode:
+        if balance + bet > MAX_MONEY:
+            balance = MAX_MONEY
+        else:
+            balance += bet
+    else:
+        if balance - bet < MIN_MONEY:
+             balance = 0.0
+        else:
+            balance -= bet
+    return roundMoney(balance)
 
 # ---------------------- Games ----------------------
 
 def coinFlip(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Coin Flip — Double your bet")
+    gameTitle = "Coin Flip — Double your bet"
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     choice = input("Heads or Tails (h/t): ").strip().lower()
     if choice not in ["h", "t"]:
         print("Invalid choice.")
@@ -354,23 +400,21 @@ def coinFlip(balance: float, totalBets: int) -> tuple[float, int]:
 
     print(f"Coin lands on {outcome}")
     if choice == outcome:
-        balance += bet
+        balance = UpdateBalance(balance, bet, True)
         print(f"It's a win! You now have ${balance:,.2f}")
     else:
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         print(f"It's a loss. You now have ${balance:,.2f}")
 
     totalBets += 1
     return balance, totalBets
 
 def diceDuel(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Dice Duel — Roll against the dealer (tie = loss).")
-    print("Player and dealer roll a 6-sided die each.")
+    gameTitle = """Dice Duel — Roll against the dealer (tie = loss).
+    Player and dealer roll a 6-sided die each."""
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     print("Rolling dice...")
     time.sleep(1.2)
     playerRoll = random.randint(1, 6)
@@ -380,22 +424,20 @@ def diceDuel(balance: float, totalBets: int) -> tuple[float, int]:
     print(f"Dealer rolled: {dealerRoll}")
 
     if playerRoll > dealerRoll:
-        balance += bet
+        balance = UpdateBalance(balance, bet, True)
         print(f"You win! You now have ${balance:,.2f}")
     else:
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         print(f"You lost. You now have ${balance:,.2f}")
 
     totalBets += 1
     return balance, totalBets
 
 def highLow(balance: float, totalBets: int) -> tuple[float, int]:
-    print("High-Low — Guess if the next card is higher or lower (1–13).")
+    gameTitle = "High-Low — Guess if the next card is higher or lower (1–13)."
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     currentCard = random.randint(2, 12)
     print(f"\nCurrent card: {currentCard}")
     choice = input("Will the next card be (h)igher or (l)ower? ").strip().lower()
@@ -424,14 +466,6 @@ def highLow(balance: float, totalBets: int) -> tuple[float, int]:
         winProb = lowerProb
         winCondition = nextCard < currentCard
 
-    # If winProb is zero (impossible guess), it's automatically a loss
-    if winProb == 0:
-        print("That guess is impossible given the current card — automatic loss.")
-        balance -= bet
-        print(f"You lost ${bet:,.2f}. New balance: ${balance:,.2f}")
-        totalBets += 1
-        return balance, totalBets
-
     # Payout multiplier inverse to chance, reduced by house edge
     payout = (1.0 / winProb) * (1.0 - houseEdge)
 
@@ -441,10 +475,10 @@ def highLow(balance: float, totalBets: int) -> tuple[float, int]:
 
     if winCondition:
         winnings = bet * payout - bet
-        balance += winnings   # net: +bet*(payout-1)
+        balance = UpdateBalance(balance, winnings, True)
         print(f"You win! Payout multiplier: {payout:,.2f}x (${winnings:,.2f})")
     else:
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         print(f"You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
@@ -452,13 +486,11 @@ def highLow(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def slotMachine(balance, totalBets) -> tuple[float, int]:
-    print("Slot Machine — Match symbols to win!")
-    print("Possible symbols: [7, $, *, @, #]")
+    gameTitle = """Slot Machine — Match symbols to win!
+    Possible symbols: [7, $, *, @, #]"""
     
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     symbols = ["7", "$", "*", "@", "#"]
     print("\nSpinning reels...")
     time.sleep(1.5)
@@ -467,25 +499,23 @@ def slotMachine(balance, totalBets) -> tuple[float, int]:
 
     if result.count(result[0]) == 3:
         # Jackpot
-        balance += bet * 10
+        balance = UpdateBalance(balance, bet * 10, True)
         print(f"Jackpot! You won ${bet * 10:,.2f}")
     elif len(set(result)) == 2:
-        balance += bet * 1.5
+        balance = UpdateBalance(balance, bet * 1.5, True)
         print(f"Two matched! You won ${bet * 1.5:,.2f}")
     else:
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         print(f"No match. You lost ${bet:,.2f}")
 
     totalBets += 1
     return balance, totalBets
 
 def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Blackjack — Try to beat the dealer without going over 21.")
+    gameTitle = "Blackjack — Try to beat the dealer without going over 21."
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     suits = ['♠', '♥', '♦', '♣']
     ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 
@@ -532,7 +562,7 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
         print(f"Your cards: {showHand(player)} (Total: {handValue(player)})")
         print(f"Dealer's cards: {showHand(dealer)} (Total: {handValue(dealer)})")
         print(f"You bust! Dealer wins.")
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         totalBets += 1
         return balance, totalBets
 
@@ -545,25 +575,23 @@ def blackjack(balance: float, totalBets: int) -> tuple[float, int]:
 
     if handValue(dealer) > 21 or handValue(player) > handValue(dealer):
         winnings = bet * 2
-        balance += winnings
+        balance = UpdateBalance(balance, winnings, True)
         print(f"You win! Payout: ${winnings:,.2f}")
     else:
         print("Dealer wins.")
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
 
     print(f"New balance: ${balance:,.2f}")
     totalBets += 1
     return balance, totalBets
 
 def roulette(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Roulette — Bet on a color or a number (0–36).")
-    print("1) Red/Black/Green (pays 1.9x for red/black, 30x for green)")
-    print("2) Single Number (pays 30x)")
+    gameTitle = """Roulette — Bet on a color or a number (0–36).
+    1) Red/Black/Green (pays 1.9x for red/black, 30x for green)
+    2) Single Number (pays 30x)"""
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     choice = input("Choose bet type (1/2): ").strip()
     if choice not in ["1", "2"]:
         print("Invalid choice.")
@@ -624,22 +652,22 @@ def roulette(balance: float, totalBets: int) -> tuple[float, int]:
         if guess == resultColor:
             if resultColor == "green":
                 winnings = bet * 30
-                balance += winnings
+                balance = UpdateBalance(balance, winnings, True)
                 print(f"Jackpot! You won ${winnings:,.2f}")
             else:
                 winnings = bet * 1.9
-                balance += winnings
+                balance = UpdateBalance(balance, winnings, True)
                 print(f"You win! Payout: ${winnings:,.2f}")
         else:
-            balance -= bet
+            balance = UpdateBalance(balance, bet, False)
             print(f"You lost ${bet:,.2f}.")
     else:
         if guess == resultNumber:
             winnings = bet * 30
-            balance += winnings
+            balance = UpdateBalance(balance, winnings, True)
             print(f"Jackpot! You won ${winnings:,.2f}")
         else:
-            balance -= bet
+            balance = UpdateBalance(balance, bet, False)
             print(f"You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
@@ -647,13 +675,11 @@ def roulette(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def craps(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Craps — Roll 2 dice. 7 or 11 to win, 2/3/12 to lose.")
-    print("Roll any other starting number twice to win.")
+    gameTitle = """Craps — Roll 2 dice. 7 or 11 to win, 2/3/12 to lose.
+    Roll any other starting number twice to win."""
     
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     die1 = random.randint(1, 6)
     die2 = random.randint(1, 6)
     if die1 + die2 == 7 or die1 + die2 == 11:
@@ -664,11 +690,11 @@ def craps(balance: float, totalBets: int) -> tuple[float, int]:
 
     if roll in [7, 11]:
         winnings = bet * 2
-        balance += bet
+        balance = UpdateBalance(balance, bet, True)
         print(f"You win! Payout: ${winnings:,.2f}")
     elif roll in [2, 3, 12]:
         print("Craps! You lose.")
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
     else:
         print(f"Point is {roll}. Roll again until you hit {roll} to win or 7 to lose.")
         while True:
@@ -682,12 +708,12 @@ def craps(balance: float, totalBets: int) -> tuple[float, int]:
             print(f"Rolled {die1} + {die2} = {total}")
             if total == roll:
                 winnings = bet * 2
-                balance += bet
+                balance = UpdateBalance(balance, winnings, True)
                 print(f"You hit your point! You win ${winnings:,.2f}")
                 break
             elif total == 7:
                 print("Seven out! You lose.")
-                balance -= bet
+                balance = UpdateBalance(balance, bet, False)
                 break
 
     print(f"New balance: ${balance:,.2f}")
@@ -695,13 +721,11 @@ def craps(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def wheelOfFortune(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Wheel of Fortune — Spin for random prizes!")
-    print("Possible outcomes: Lose, 1.5x, 2x, 5x, 10x, 20x")
+    gameTitle = """Wheel of Fortune — Spin for random prizes!
+    Possible outcomes: Lose, 1.5x, 2x, 5x, 10x, 20x"""
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     outcomes = ["Lose", "Lose", "Lose", "1.5x", " 2x ", " 5x ", "10x ", "20x "]
     weights  = [0.35, 0.25, 0.15, 0.15, 0.06, 0.03, 0.009, 0.001]
 
@@ -733,12 +757,12 @@ def wheelOfFortune(balance: float, totalBets: int) -> tuple[float, int]:
     print("           ^      ")
 
     if result == "Lose":
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         print(f"You lost ${bet:,.2f}.")
     else:
         multiplier = float(result.replace("x", ""))
         winnings = bet * multiplier
-        balance += winnings
+        balance = UpdateBalance(balance, winnings, True)
         print(f"You won! Payout multiplier: {multiplier:,.2f}x  (${winnings:,.2f})")
 
     print(f"New balance: ${balance:,.2f}")
@@ -746,13 +770,11 @@ def wheelOfFortune(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def baccarat(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Baccarat — Bet on Player, Banker, or Tie.")
-    print("Player and Banker both choose a number from 0-9.")
+    gameTitle = """Baccarat — Bet on Player, Banker, or Tie.
+    Player and Banker both choose a number from 0-9."""
     
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     print("Bet options: (p) Player, (b) Banker, (t) Tie")
     choice = input("Place your bet: ").strip().lower()
     if choice not in ["p", "b", "t"]:
@@ -777,10 +799,10 @@ def baccarat(balance: float, totalBets: int) -> tuple[float, int]:
 
     if payout > 0:
         winnings = bet * payout - bet
-        balance += winnings
+        balance = UpdateBalance(balance, winnings, True)
         print(f"You won! Payout: ${winnings:,.2f}")
     else:
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         print(f"You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
@@ -788,18 +810,16 @@ def baccarat(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def doubleOrNothing(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Double or Nothing — Keep flipping to double your bet each time!")
+    gameTitle = "Double or Nothing — Keep flipping to double your bet each time!"
     
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     currentBet = bet
     while True:
         print(f"\nCurrent bet: ${currentBet:,.2f}, Balance: ${balance:,.2f}")
         choice = input("Flip coin? (y/n to stop and cash out): ").strip().lower()
         if choice != "y":
-            balance += currentBet - bet  # Add winnings so far
+            balance = UpdateBalance(balance, currentBet - bet, True)
             print(f"You cash out with ${currentBet:,.2f}")
             break
 
@@ -807,7 +827,7 @@ def doubleOrNothing(balance: float, totalBets: int) -> tuple[float, int]:
             currentBet *= 2
             print("You won this flip! Bet doubled.")
         else:
-            balance -= currentBet
+            balance = UpdateBalance(balance, currentBet, False)
             print(f"You lost! Lost ${currentBet:,.2f}")
             currentBet = 0
             break
@@ -817,12 +837,10 @@ def doubleOrNothing(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def lottery(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Lottery — Pick 3 numbers (0–9). Match any of them to win!")
+    gameTitle = "Lottery — Pick 3 numbers (0–9). Match any of them to win!"
     
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     picks = []
     for i in range(3):
         pickInput = input(f"Pick number {i+1} (0–9): ").strip()
@@ -846,10 +864,10 @@ def lottery(balance: float, totalBets: int) -> tuple[float, int]:
 
     if payout > 0:
         winnings = bet * payout - bet
-        balance += winnings
+        balance = UpdateBalance(balance, winnings, True)
         print(f"You matched {matches} numbers! Payout: ${winnings:,.2f}")
     else:
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         print(f"No matches. You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
@@ -857,14 +875,12 @@ def lottery(balance: float, totalBets: int) -> tuple[float, int]:
     return balance, totalBets
 
 def pickARange(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Pick-A-Range — Pick a range of 1–50.")
-    print("A random number will be generated from 1-50")
-    print("Choose a smaller range for a bigger prize with lower odds.")
+    gameTitle = """Pick-A-Range — Pick a range of 1–50.
+    A random number will be generated from 1-50
+    Choose a smaller range for a bigger prize with lower odds."""
     
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     rangeInput = input("Pick a range in the form low-high (e.g., 5-15): ").strip()
     try:
         low, high = map(int, rangeInput.split("-"))
@@ -883,10 +899,10 @@ def pickARange(balance: float, totalBets: int) -> tuple[float, int]:
         if payout < 1.0:
             payout = 1.0
         winnings = bet * payout - bet
-        balance += winnings
+        balance = UpdateBalance(balance, winnings, True)
         print(f"You won! Payout multiplier: {payout:,.2f} (${winnings:,.2f})")
     else:
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         print(f"You lost ${bet:,.2f}.")
 
     print(f"New balance: ${balance:,.2f}")
@@ -899,7 +915,7 @@ def scratchie(balance: float, totalBets: int) -> tuple[float, int]:
     if balance < ticketPrice:
         print("Not enough money.")
         return balance, totalBets
-    balance -= ticketPrice
+    balance = UpdateBalance(balance, ticketPrice, False)
     print("Scratching ticket...")
     time.sleep(1.5)
 
@@ -911,20 +927,17 @@ def scratchie(balance: float, totalBets: int) -> tuple[float, int]:
 
     if prize > 0:
         print(f"You won ${prize:,.2f}!")
-        balance += prize
+        balance = UpdateBalance(balance, prize, True)
     else:
         print("No win this time.")
-    balance = roundMoney(balance)
     totalBets += 1
     return balance, totalBets
 
 def multilineSlots(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Multiline Slots — Match lines for combos!")
+    gameTitle = "Multiline Slots — Match lines for combos!"
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     symbols = ["7", "$", "*", "@", "#", "&", "%"]
     grid = [[random.choice(symbols) for _ in range(5)] for _ in range(3)]
 
@@ -975,22 +988,19 @@ def multilineSlots(balance: float, totalBets: int) -> tuple[float, int]:
 
     if winnings > 0:
         print(f"You won ${winnings:,.2f} across lines!")
-        balance += winnings
+        balance = UpdateBalance(balance, winnings, True)
     else:
         print(f"No winning lines. You lost ${bet:,.2f}.")
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
 
-    balance = roundMoney(balance)
     totalBets += 1
     return balance, totalBets
 
 def lucky7s(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Lucky 7s — Roll 7s to win!")
+    gameTitle = "Lucky 7s — Roll 7s to win!"
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     reels = [random.randint(1, 7) for _ in range(3)]
     print(f"Rolled: {reels[0]} | {reels[1]} | {reels[2]}")
 
@@ -1005,29 +1015,26 @@ def lucky7s(balance: float, totalBets: int) -> tuple[float, int]:
 
     if winnings > 0:
         print(f"You won ${winnings:,.2f}!")
-        balance += winnings
+        balance = UpdateBalance(balance, winnings, True)
     else:
         print(f"You lost ${bet:,.2f}.")
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
 
-    balance = roundMoney(balance)
     totalBets += 1
     return balance, totalBets
 
 def poker(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Welcome to Texas Hold'em Poker!")
-    print("Rules:")
-    print("- You will play against 7 opponents.")
-    print("- Each player gets 2 private cards.")
-    print("- Five community cards are revealed over multiple rounds (Flop, Turn, River).")
-    print("- Hands are ranked: Royal Flush > Straight Flush > Four of a Kind > Full House > Flush > Straight > Three of a Kind > Two Pair > One Pair > High Card.")
-    print("- If multiple players have the same hand rank, the player with the higher value cards wins.")
-    print("- You can choose to fold, check/call, or raise in each round.\n")
+    gameTitle = """Welcome to Texas Hold'em Poker!
+    Rules:
+    - You will play against 7 opponents.
+    - Each player gets 2 private cards.
+    - Five community cards are revealed over multiple rounds (Flop, Turn, River).
+    - Hands are ranked: Royal Flush > Straight Flush > Four of a Kind > Full House > Flush > Straight > Three of a Kind > Two Pair > One Pair > High Card.
+    - If multiple players have the same hand rank, the player with the higher value cards wins.
+    - You can choose to fold, check/call, or raise in each round.\n"""
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
     suits = ['♠', '♥', '♦', '♣']
     deck = [f"{r}{s}" for r in ranks for s in suits]
@@ -1232,7 +1239,7 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
                 print(f"Opponent {i+1} folds.")
 
     # --- Main Game Flow ---
-    pot = bet * (numOpp + 1) / 2
+    pot: float = bet * (numOpp + 1) / 2
     folded = False
 
     for roundName, numCards in [("Pre-Flop", 0), ("Flop", 3), ("Turn", 1), ("River", 1)]:
@@ -1242,8 +1249,7 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
         playerAction(roundName)
         opponentsAction()
         if folded:
-            balance -= bet
-            balance = roundMoney(balance)
+            balance = UpdateBalance(balance, bet, False)
             print(f"You folded during {roundName} and lost ${bet:,.2f}.")
             return balance, totalBets
         if roundName != "River":
@@ -1304,27 +1310,24 @@ def poker(balance: float, totalBets: int) -> tuple[float, int]:
     print("")
     if player_is_winner:
         if len(winners) == 1:
-            balance += pot
+            balance = UpdateBalance(balance, pot, True)
             print(f"You won the pot of ${pot:,.2f}!")
         else:
             winnings = pot / len(winners)
-            balance += winnings
+            balance = UpdateBalance(balance, winnings, True)
             print(f"You tied and split the pot! You win ${winnings:,.2f}.")
     else:
         print("You lost the hand.")
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
 
-    balance = roundMoney(balance)
     totalBets += 1
     return balance, totalBets
 
 def horseRacing(balance: float, totalBets: int) -> tuple[float, int]:
-    print("Horse Racing — Bet on a horse (A–E)!")
+    gameTitle = "Horse Racing — Bet on a horse (A–E)!"
 
-    bet = validateBet(balance)
-    if bet is None:
-        return balance, totalBets
-
+    bet = validateBet(balance, gameTitle)
+    
     horses = ['A', 'B', 'C', 'D', 'E']
     choice = input("Choose your horse (A–E): ").strip().upper()
     if choice not in horses:
@@ -1371,13 +1374,12 @@ def horseRacing(balance: float, totalBets: int) -> tuple[float, int]:
     print(f"\nHorse {winner} wins!")
     if winner == choice:
         winnings = bet * 4
-        balance += winnings
+        balance = UpdateBalance(balance, winnings, True)
         print(f"You won ${winnings:,.2f}!")
     else:
-        balance -= bet
+        balance = UpdateBalance(balance, bet, False)
         print(f"You lost ${bet:,.2f}.")
 
-    balance = roundMoney(balance)
     totalBets += 1
     return balance, totalBets
 
@@ -1527,7 +1529,10 @@ def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, floa
                 while True:
                     clear()
                     printHeader(balance)
-                    balance, totalBets = games[choice](balance, totalBets)
+                    try:
+                        balance, totalBets = games[choice](balance, totalBets)
+                    except KeyboardInterrupt:
+                        pass
 
                     conn = sqlite3.connect(databaseFile)
                     cursor = conn.cursor()
