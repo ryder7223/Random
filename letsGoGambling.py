@@ -1,4 +1,4 @@
-# 2.8
+# 2.9
 
 import subprocess
 import importlib
@@ -213,6 +213,10 @@ def deleteUser():
 
 def changelog():
     changelogStr = '''
+2.9:
+    Prevented the `Play again?` dialogue from appearing when you loose all your money.
+    Fixed a dialogue error where it said there were 20 options instead of 19.
+
 2.8:
     Attempted to fix a TypeError in the money rounding function.
     Added a check to prevent users with no money from playing.
@@ -1533,13 +1537,14 @@ def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, floa
                     )
                     conn.commit()
                     conn.close()
-
-                    replay = input("\nPlay again? (y)es/(n)o: ")
-                    if replay == "y":
-                        pass
+                    if roundMoney(balance) > 0.0:
+                        replay = input("\nPlay again? (y)es/(n)o: ")
+                        if replay == "y":
+                            pass
+                        else:
+                            break
                     else:
                         break
-    
             elif choice == "18":
                 profit = roundMoney(balance - startingBalance)
                 clear()
@@ -1552,15 +1557,14 @@ def main(startingBalance: float, totalBets: int, name: str) -> tuple[float, floa
                 pause()
     
             elif choice == "19":
-                print(f"\nYou left with ${balance:,.2f}. Thanks for playing.")
                 break
     
             else:
-                print("Invalid choice. Please enter a number between 1 and 20.")
+                print("\nInvalid choice. Please enter a number between 1 and 19.")
                 pause()
     
             if balance <= 0:
-                print("You’ve lost all your money. Game over.")
+                input("\nYou’ve lost all your money. Game over.")
                 break
     
             clear()
@@ -1609,7 +1613,6 @@ if __name__ == "__main__":
                     pause()
                     continue
                 balance, startingBalance, totalBets, sessionStart = main(startingBalance, totalBets, name)
-
                 clear()
                 profit = roundMoney(balance - sessionStart)
                 print("You made: ", end="")
