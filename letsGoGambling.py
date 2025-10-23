@@ -236,6 +236,7 @@ def changelog():
     Modified main flow to allow exiting any game at any time by pressing `Ctrl+C`.
     Fixed an erorr in the Slot Machine where it rewarded too much money.
     Moved balance modification to its own function to try and prevent winning an invalid amount of money.
+    Disabled the ability to register an empty username.
 
 2.9:
     Prevented the `Play again?` dialogue from appearing when you loose all your money.
@@ -1609,8 +1610,14 @@ if __name__ == "__main__":
                 continue
 
             elif choice == "2":
-                clear()
-                name = input("Enter your name: ").strip()
+                while True:
+                    clear()
+                    name = input("Enter your name: ").strip()
+                    if name != "":
+                        break
+                    else:
+                        print("Name cannot be empty.")
+                        pause()
                 startingBalance, totalBets = getOrCreateUser(name)
                 if roundMoney(startingBalance) <= 0.0:
                     clear()
