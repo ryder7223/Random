@@ -232,10 +232,10 @@ def changelog():
     Fixed possible error with sub-packages in the requests module by importing the sub-package as its own package.
     Prevented users from setting invalid amounts of money.
     Fixed ambiguity in the datatype returned by the bet validation function.
+    Modified bet validation function to not allow invalid amounts of money.
     Modified main flow to allow exiting any game at any time by pressing `Ctrl+C`.
     Fixed an erorr in the Slot Machine where it rewarded too much money.
     Moved balance modification to its own function to try and prevent winning an invalid amount of money.
-
 
 2.9:
     Prevented the `Play again?` dialogue from appearing when you loose all your money.
