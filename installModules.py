@@ -5,8 +5,8 @@ import sys
 requiredModules = ['requests']
 
 def installMissingModules(modules):
+    pip = 'pip'
     try:
-        pip = 'pip'
         importlib.import_module(pip)
     except ImportError:
         print(f"{pip} is not installed. Installing...")
@@ -17,5 +17,6 @@ def installMissingModules(modules):
         except ImportError:
             print(f"{module} is not installed. Installing...")
             subprocess.check_call([sys.executable, "-m", "pip", "install", module])
+
 
 installMissingModules(requiredModules)
