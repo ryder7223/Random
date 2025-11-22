@@ -5,8 +5,9 @@ import requests
 import os
 import time
 import re
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+import urllib3
+from urllib3.exceptions import InsecureRequestWarning
+urllib3.disable_warnings(InsecureRequestWarning)
 
 def checkForUpdate(force: int):
     localFile = os.path.abspath(__file__)
@@ -82,3 +83,4 @@ def checkForUpdate(force: int):
 
 
 checkForUpdate()
+
