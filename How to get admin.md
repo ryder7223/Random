@@ -1,7 +1,5 @@
 # How to Get Into an Admin Account
 
-## Step-by-Step Instructions
-
 1. **On the login screen**, press **Restart** on the bottom right of the screen **while holding Shift**.
 
 2. When **Startup Repair** appears, go to:
@@ -78,4 +76,5 @@ Since your password isn't saved acorss restarts, to log in as admin in the futur
 * Press `F8` at the next menu
 * Open command prompt by clicking **Shift** quickly 5 times
 * Run `net user Administrator *` and enter any password twice
+
 * Proceed with admin login at the lock screen
