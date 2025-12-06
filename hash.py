@@ -1,5 +1,5 @@
 '''
-This script is designed to be used in it's executable form, not source. This is because it requires you drag and drop a file onto it.
+This script is designed to be used in it's executable form, not source. This is because it requires you drag and drop a file on to it.
 '''
 import sys
 import os
@@ -92,4 +92,5 @@ if __name__ == "__main__":
                     break
                 except Exception:
                     continue
+
     show_results(path)
