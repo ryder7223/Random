@@ -16,7 +16,7 @@
 
 4. In **Notepad**, go to `File > Open`.
 
-5. Navigate to the target drive (likely `D:\`), or the drive that contains users in `\Windows\Users`.
+5. Navigate to the target drive (likely `D:\`), or the drive that contains familiar users in `\Windows\Users`.
 
 6. Go to the directory:
 
@@ -78,3 +78,4 @@ Since your password isn't saved acorss restarts, to log in as admin in the futur
 * Run `net user Administrator *` and enter any password twice
 
 * Proceed with admin login at the lock screen
+
