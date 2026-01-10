@@ -262,6 +262,8 @@
     // Key repeat timings
     const KEY_REPEAT_DELAY = 75;
     const KEY_REPEAT_INTERVAL = 50;  // Approximately 3x slower than the continuous rate
+    // Lock delay: time before piece locks after hitting floor during soft drop (in milliseconds)
+    const LOCK_DELAY_TIME = 500;  // 500ms delay for soft drop lock
 
     /***** Canvas and DOM elements *****/
     const canvas = document.getElementById('game-canvas');
@@ -300,6 +302,8 @@
     let gameOver = false;
     let animFrameId = null; // For cancelling the animation frame during restart
     let paused = false;
+    let lockDelayCounter = 0; // Counter for lock delay when soft dropping
+    let isSoftDropping = false; // Track if we're currently soft dropping
 
     // Stats
     let pieceStats = { 'I': 0, 'J': 0, 'L': 0, 'O': 0, 'S': 0, 'T': 0, 'Z': 0 };
@@ -684,13 +688,20 @@
     }
     // Manual soft drop awards 1 point per cell.
     function manualSoftDrop() {
+      isSoftDropping = true;
       currentPiece.pos.y += 1;
       if (collides(currentPiece, board)) {
         currentPiece.pos.y -= 1;
-        lockPiece();
+        // Start lock delay only if not already started (prevents resetting while holding down)
+        if (lockDelayCounter === 0) {
+          lockDelayCounter = LOCK_DELAY_TIME;
+        }
       } else {
         currentScore += 1;
         updateStats();
+        playMoveSFX();
+        // Reset lock delay if we successfully moved down
+        lockDelayCounter = 0;
       }
       dropCounter = 0; // Reset gravity drop counter to prevent extra falling while soft dropping.
     }
@@ -700,7 +711,9 @@
       if (collides(currentPiece, board)) {
           currentPiece.pos.x += 1;
       } else {
-      playMoveSFX();
+        playMoveSFX();
+        // Reset lock delay when piece moves
+        lockDelayCounter = 0;
       }
     }
     function moveRight() {
@@ -709,6 +722,8 @@
             currentPiece.pos.x -= 1;
         } else {
             playMoveSFX();
+            // Reset lock delay when piece moves
+            lockDelayCounter = 0;
         }
     }
 
@@ -735,6 +750,10 @@
       currentPiece.matrix = newMatrix;
       if (collides(currentPiece, board)) {
         currentPiece.matrix = oldMatrix;
+      } else {
+        playMoveSFX();
+        // Reset lock delay when piece rotates
+        lockDelayCounter = 0;
       }
     }
     function hardDrop() {
@@ -773,6 +792,17 @@
       if (paused || gameOver) return;
       const deltaTime = time - lastTime;
       lastTime = time;
+      
+      // Handle lock delay for soft drop
+      if (lockDelayCounter > 0) {
+        lockDelayCounter -= deltaTime;
+        if (lockDelayCounter <= 0) {
+          // Lock delay expired, lock the piece
+          lockPiece();
+          lockDelayCounter = 0;
+          isSoftDropping = false;
+        }
+      }
       
       if (!downRepeatTimer) { // Only accumulate drop time when not soft dropping.
         dropCounter += deltaTime;
@@ -912,6 +942,20 @@
         clearTimeout(downRepeatTimer);
         clearInterval(downRepeatTimer);
         downRepeatTimer = null;
+        isSoftDropping = false;
+        // If we release soft drop and lock delay is active, check if we should lock
+        if (lockDelayCounter > 0) {
+          // Check if piece can still move down
+          currentPiece.pos.y += 1;
+          if (collides(currentPiece, board)) {
+            currentPiece.pos.y -= 1;
+            // Still on floor, keep lock delay running
+          } else {
+            // Can move down, reset lock delay
+            currentPiece.pos.y -= 1;
+            lockDelayCounter = 0;
+          }
+        }
       }
     });
 
@@ -926,6 +970,8 @@
       lastTime = 0;
       gameOver = false;
       paused = false;
+      lockDelayCounter = 0;
+      isSoftDropping = false;
       pieceStats = { 'I': 0, 'J': 0, 'L': 0, 'O': 0, 'S': 0, 'T': 0, 'Z': 0 };
       totalLines = 0;
       currentScore = 0;
