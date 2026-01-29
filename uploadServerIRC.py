@@ -16,7 +16,7 @@ os.makedirs(uploadDir, exist_ok=True)
 # Limits & hardening
 # ======================
 
-maxFileSize = 1024 * 1024 * 1024 # 1GB
+maxFileSize = 1024 * 1024 * 1024 # 1 GiB
 app.config["MAX_CONTENT_LENGTH"] = maxFileSize
 
 Image.MAX_IMAGE_PIXELS = 40_000_000
@@ -137,31 +137,75 @@ def enforceLimitsAndCleanup():
 def favicon():
     return "", 204
 
-@app.route("/", methods=["GET"])
-def index():
+@app.route("/", methods=["GET", "POST"])
+def indexOrUpload():
+    if request.method == "POST":
+        return handleUpload()
     return render_template_string("""
 <!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>Upload</title>
+<title>File Upload</title>
 <style>
-body { font-family: sans-serif; padding: 40px; }
+body {
+    font-family: sans-serif;
+    padding: 40px;
+    max-width: 900px;
+    margin: auto;
+    line-height: 1.5;
+}
+h2, h3 {
+    margin-top: 1.5em;
+}
+pre {
+    background: #f5f5f5;
+    padding: 12px;
+    overflow-x: auto;
+}
 #drop {
     border: 2px dashed #888;
     padding: 40px;
     text-align: center;
     cursor: pointer;
+    margin-top: 30px;
 }
 #drop.hover {
     background: #eee;
 }
-a { text-decoration: none; }
+a {
+    text-decoration: none;
+}
+small {
+    color: #555;
+}
 </style>
 </head>
 <body>
 
-<h2>IRC File Upload</h2>
+<h2>File Upload</h2>
+
+<p>
+This service allows you to upload files and receive a short, shareable URL.
+No account is required. Files are stored temporarily and are deleted automatically
+after their retention period expires.
+</p>
+
+<h3>How To Upload</h3>
+
+<p>You can upload files in several ways:</p>
+
+<pre>
+curl -F "file=@/path/to/your/file.bin" {{ host }}
+</pre>
+
+<p>Piping data into curl with a file extension:</p>
+
+<pre>
+echo "hello" | curl -F "file=@-;filename=.txt" {{ host }}
+</pre>
+
+<p>Or simply choose a file and upload it using the web interface below.</p>
 
 <div id="drop">
 Drag & drop files here<br><br>
@@ -170,8 +214,57 @@ Drag & drop files here<br><br>
 
 <ul id="out"></ul>
 
+<h3>File Size Limits</h3>
+
+<p>
+The maximum allowed file size is <strong>1&nbsp;GiB</strong>.
+Uploads exceeding this limit will be rejected.
+</p>
+
+<h3>File Retention</h3>
+
+<p>
+Files are stored for a <strong>minimum of 3 hours</strong> and a
+<strong>maximum of 10 days</strong>.
+</p>
+
+<p>
+How long a file is kept depends on its size. Smaller files are retained longer,
+while larger files expire sooner. This relationship is intentionally biased in
+favor of small files.
+</p>
+
+<p>The lifetime is calculated using the following formula:</p>
+
+<pre>
+expiry = now + ( maxAge - (maxAge - minAge) * f(size / maxSize))
+</pre>
+
+<p>
+Where:
+</p>
+
+<ul>
+<li><code>minAge</code> = 3 hours</li>
+<li><code>maxAge</code> = 10 days</li>
+<li><code>maxSize</code> = 1 GiB</li>
+<li><code>f()</code> is a non-linear, logarithmically biased function</li>
+</ul>
+
+<p>
+In practice this means very small files stay close to the maximum lifetime,
+while medium and large files expire progressively faster.
+</p>
+
+<h3>Privacy</h3>
+
+<p>
+Files are accessible only to anyone who knows the generated URL.
+There is no indexing or directory listing.
+</p>
+
 <script>
-const maxFileSize = {{ maxFileSize }}; // 1GB
+const maxFileSize = {{ maxFileSize }};
 const drop = document.getElementById("drop");
 const input = document.getElementById("fileInput");
 const out = document.getElementById("out");
@@ -203,7 +296,7 @@ function upload(file) {
             li.appendChild(a);
             out.appendChild(li);
         })
-        .catch(err => {
+        .catch(() => {
             const li = document.createElement("li");
             li.textContent = `${file.name} failed`;
             out.appendChild(li);
@@ -235,18 +328,19 @@ input.addEventListener("change", () => {
 
 </body>
 </html>
-""", maxFileSize=maxFileSize)
+""", maxFileSize=maxFileSize, host=request.host_url.rstrip("/"))
+
 
 @app.route("/upload", methods=["POST"])
-def upload():
+def handleUpload():
     if "file" not in request.files:
         abort(400)
 
     fileObj = request.files["file"]
     if fileObj.content_length and fileObj.content_length > maxFileSize:
         abort(413)
-    ext = os.path.splitext(fileObj.filename)[1].lower()
 
+    ext = os.path.splitext(fileObj.filename)[1].lower()
     fileId = generateFileId()
     finalName = f"{fileId}{ext}"
     outputPath = os.path.join(uploadDir, finalName)
@@ -259,64 +353,68 @@ def upload():
     with open(os.path.join(uploadDir, f".{finalName}.meta"), "w") as f:
         f.write(str(expiry))
 
-    url = f"{request.host_url.rstrip('/')}/{fileId}"
+    url = f"{request.host_url.rstrip('/')}/{finalName}"
     return url + "\n", 200, {"Content-Type": "text/plain"}
 
-@app.route("/<fileId>")
-def serveFile(fileId):
+@app.route("/<path:filename>")
+def serveFile(filename):
     cleanupExpiredFiles()
 
-    for name in os.listdir(uploadDir):
-        if os.path.splitext(name)[0] != fileId:
-            continue
+    filePath = os.path.join(uploadDir, filename)
+    metaPath = os.path.join(uploadDir, f".{filename}.meta")
 
-        filePath = os.path.join(uploadDir, name)
-        fileSize = os.path.getsize(filePath)
+    if not os.path.isfile(filePath) or not os.path.isfile(metaPath):
+        abort(404)
 
-        mimeType, _ = mimetypes.guess_type(filePath)
-        mimeType = mimeType or "application/octet-stream"
+    fileSize = os.path.getsize(filePath)
 
-        rangeHeader = request.headers.get("Range")
+    mimeType, _ = mimetypes.guess_type(filePath)
+    mimeType = mimeType or "application/octet-stream"
 
-        if rangeHeader:
-            try:
-                unit, value = rangeHeader.split("=")
-                if unit != "bytes":
-                    abort(416)
+    downloadRequested = request.args.get("download") == "true"
 
-                startStr, endStr = value.split("-")
-                start = int(startStr) if startStr else 0
-                end = int(endStr) if endStr else fileSize - 1
+    rangeHeader = request.headers.get("Range")
 
-                if start >= fileSize or start > end:
-                    abort(416)
-
-                status = 206
-            except Exception:
+    if rangeHeader:
+        try:
+            unit, value = rangeHeader.split("=")
+            if unit != "bytes":
                 abort(416)
-        else:
-            start = 0
-            end = fileSize - 1
-            status = 200
 
-        length = end - start + 1
+            startStr, endStr = value.split("-")
+            start = int(startStr) if startStr else 0
+            end = int(endStr) if endStr else fileSize - 1
 
-        response = Response(
-            stream_with_context(iterFileRange(filePath, start, end)),
-            status=status,
-            mimetype=mimeType,
-            direct_passthrough=True
-        )
+            if start >= fileSize or start > end:
+                abort(416)
 
-        response.headers["Accept-Ranges"] = "bytes"
-        response.headers["Content-Length"] = str(length)
+            status = 206
+        except Exception:
+            abort(416)
+    else:
+        start = 0
+        end = fileSize - 1
+        status = 200
 
-        if status == 206:
-            response.headers["Content-Range"] = f"bytes {start}-{end}/{fileSize}"
+    length = end - start + 1
 
-        return response
+    response = Response(
+        stream_with_context(iterFileRange(filePath, start, end)),
+        status=status,
+        mimetype=mimeType,
+        direct_passthrough=True
+    )
 
-    abort(404)
+    response.headers["Accept-Ranges"] = "bytes"
+    response.headers["Content-Length"] = str(length)
+
+    if status == 206:
+        response.headers["Content-Range"] = f"bytes {start}-{end}/{fileSize}"
+
+    if downloadRequested:
+        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    return response
 
 # ======================
 # Entrypoint
