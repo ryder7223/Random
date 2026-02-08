@@ -32,6 +32,37 @@ lastCleanup = 0
 # Helpers
 # ======================
 
+def formatBytes(num):
+    units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
+    for unit in units:
+        if num < 1024:
+            return f"{num:.0f} {unit}"
+        num /= 1024
+    return f"{num:.0f} PiB"
+
+def formatDuration(seconds):
+    units = [
+        ("day", 24 * 60 * 60),
+        ("hour", 60 * 60),
+        ("minute", 60),
+        ("second", 1),
+    ]
+
+    parts = []
+    for name, unitSeconds in units:
+        value = seconds // unitSeconds
+        if value:
+            parts.append(f"{int(value)} {name}{'' if value == 1 else 's'}")
+            seconds -= value * unitSeconds
+
+    if not parts:
+        return "0 seconds"
+
+    if len(parts) == 1:
+        return parts[0]
+
+    return " ".join(parts[:-1]) + " and " + parts[-1]
+
 def generateFileId():
     return secrets.token_urlsafe(6)
 
@@ -141,6 +172,9 @@ def favicon():
 def indexOrUpload():
     if request.method == "POST":
         return handleUpload()
+    maxFileSizeHuman = formatBytes(maxFileSize)
+    minAgeHuman = formatDuration(minAge)
+    maxAgeHuman = formatDuration(maxAge)
     return render_template_string("""
 <!doctype html>
 <html>
@@ -193,13 +227,13 @@ after their retention period expires.
 
 <h3>How To Upload</h3>
 
-<p>You can upload files in several ways:</p>
+<p>You can upload files in several ways, e.g. using curl::</p>
 
 <pre>
 curl -F "file=@/path/to/your/file.bin" {{ host }}
 </pre>
 
-<p>Piping data into curl with a file extension:</p>
+<p>Or piping data into curl with a file extension:</p>
 
 <pre>
 echo "hello" | curl -F "file=@-;filename=.txt" {{ host }}
@@ -217,20 +251,20 @@ Drag & drop files here<br><br>
 <h3>File Size Limits</h3>
 
 <p>
-The maximum allowed file size is <strong>1&nbsp;GiB</strong>.
+The maximum allowed file size is <strong>{{ maxFileSizeHuman }}</strong>.
 Uploads exceeding this limit will be rejected.
 </p>
 
 <h3>File Retention</h3>
 
 <p>
-Files are stored for a <strong>minimum of 3 hours</strong> and a
-<strong>maximum of 10 days</strong>.
+Files are stored for a <strong>minimum of {{ minAgeHuman }}</strong> and a
+<strong>maximum of {{ maxAgeHuman }}</strong>.
 </p>
 
 <p>
 How long a file is kept depends on its size. Smaller files are retained longer,
-while larger files expire sooner. This relationship is intentionally biased in
+while larger files expire sooner. This relationship is biased in
 favor of small files.
 </p>
 
@@ -245,9 +279,9 @@ Where:
 </p>
 
 <ul>
-<li><code>minAge</code> = 3 hours</li>
-<li><code>maxAge</code> = 10 days</li>
-<li><code>maxSize</code> = 1 GiB</li>
+<li><code>minAge</code> = {{ minAgeHuman }}</li>
+<li><code>maxAge</code> = {{ maxAgeHuman }}</li>
+<li><code>maxSize</code> = {{ maxFileSizeHuman }}</li>
 <li><code>f()</code> is a non-linear, logarithmically biased function</li>
 </ul>
 
@@ -260,7 +294,7 @@ while medium and large files expire progressively faster.
 
 <p>
 Files are accessible only to anyone who knows the generated URL.
-There is no indexing or directory listing.
+There is no directory listing.
 </p>
 
 <script>
@@ -328,7 +362,7 @@ input.addEventListener("change", () => {
 
 </body>
 </html>
-""", maxFileSize=maxFileSize, host=request.host_url.rstrip("/"))
+""", maxFileSize=maxFileSize, maxFileSizeHuman=maxFileSizeHuman, minAgeHuman=minAgeHuman, maxAgeHuman=maxAgeHuman, host=request.host_url.rstrip("/"))
 
 
 @app.route("/upload", methods=["POST"])
