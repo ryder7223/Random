@@ -227,7 +227,7 @@ after their retention period expires.
 
 <h3>How To Upload</h3>
 
-<p>You can upload files in several ways, e.g. using curl::</p>
+<p>You can upload files in several ways, e.g. using curl:</p>
 
 <pre>
 curl -F "file=@/path/to/your/file.bin" {{ host }}
@@ -239,7 +239,10 @@ curl -F "file=@/path/to/your/file.bin" {{ host }}
 echo "hello" | curl -F "file=@-;filename=.txt" {{ host }}
 </pre>
 
-<p>Or simply choose a file and upload it using the web interface below.</p>
+<p>
+You can also paste a file directly from your clipboard.<br>
+Or, simply choose a file and upload it using the web interface below.
+</p>
 
 <div id="drop">
 Drag & drop files here<br><br>
@@ -357,6 +360,39 @@ drop.addEventListener("click", () => input.click());
 input.addEventListener("change", () => {
     [...input.files].forEach(upload);
     input.value = "";
+});
+
+document.addEventListener("paste", e => {
+    if (!e.clipboardData) {
+        return;
+    }
+
+    const items = e.clipboardData.items;
+    if (!items) {
+        return;
+    }
+
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+
+        if (item.kind === "file") {
+            const file = item.getAsFile();
+            if (!file) {
+                continue;
+            }
+
+            // Some clipboard images have empty names
+            if (!file.name) {
+                const ext = file.type ? file.type.split("/")[1] : "bin";
+                const timestamp = Date.now();
+                Object.defineProperty(file, "name", {
+                    value: `pasted-${timestamp}.${ext}`,
+                });
+            }
+
+            upload(file);
+        }
+    }
 });
 </script>
 
