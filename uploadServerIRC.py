@@ -409,8 +409,8 @@ def handleUpload():
     fileObj = request.files["file"]
     if fileObj.content_length and fileObj.content_length > maxFileSize:
         abort(413)
-
-    ext = os.path.splitext(fileObj.filename)[1].lower()
+    # splitext accepts str|bytes whilst fileObj.filename is str|none
+    ext = os.path.splitext(fileObj.filename or "")[1].lower()
     fileId = generateFileId()
     finalName = f"{fileId}{ext}"
     outputPath = os.path.join(uploadDir, finalName)
