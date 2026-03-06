@@ -3,16 +3,18 @@ import requests
 import os
 import platform
 import ctypes
+from datetime import datetime, timedelta
+import json
 from typing import List, Tuple, Dict
+import urllib3
+urllib3.disable_warnings()
 
-# ANSI color codes for terminal output
 GREEN = '\033[92m'
 YELLOW = '\033[93m'
 GRAY = '\033[90m'
 RESET = '\033[0m'
 NO_COLOR = ''
 
-# QWERTY keyboard layout
 KEYBOARD_ROWS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
 
 def set_hidden_file(filepath: str):
@@ -24,7 +26,7 @@ def set_hidden_file(filepath: str):
             ctypes.windll.kernel32.SetFileAttributesW(str(filepath), FILE_ATTRIBUTE_HIDDEN)
         except Exception as e:
             print(f"Failed to hide file on Windows: {e}")
-    elif system in ("Linux", "Darwin"):  # Darwin is macOS
+    elif system in ("Linux", "Darwin"):
         dirname, basename = os.path.split(filepath)
         if not basename.startswith("."):
             hidden_path = os.path.join(dirname, "." + basename)
@@ -45,7 +47,7 @@ def download_wordlist(filename: str, url: str) -> List[str]:
             return []
 
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=5, verify=False)
         response.raise_for_status()
         words = [line.strip().upper() for line in response.text.splitlines() if len(line.strip()) == 5 and line.isalpha()]
 
@@ -138,8 +140,23 @@ def display_board(guesses: List[str], target: str, key_colors: Dict[str, str]):
 def is_valid_word(word: str) -> bool:
     return len(word) == 5 and word.upper() in WORDS
 
-def play_wordle(show_intro: bool) -> None:
-    target_word = random.choice(POSSIBLE_WORDS)
+def getWordleAnswer():  
+    dates = []
+    dates.append(datetime.today().strftime("%Y-%m-%d"))
+    dates.append((datetime.today() + timedelta(days=1)).strftime("%Y-%m-%d"))
+    dataArray = []
+    for i in dates:
+        response = requests.post(f"https://nytimes.com/svc/wordle/v2/{i}.json", verify=False)
+        data = json.loads(response.text)
+        word = data["solution"]
+        dataArray.append(word)
+    return dataArray[0], dataArray[1]
+
+def play_wordle(show_intro: bool, mirror: bool) -> None:
+    if mirror:
+        target_word = getWordleAnswer()[0].upper()
+    else:
+        target_word = random.choice(POSSIBLE_WORDS)
     guesses = []
     key_colors = {char: NO_COLOR for char in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"}
 
@@ -176,8 +193,9 @@ def play_wordle(show_intro: bool) -> None:
 
 if __name__ == "__main__":
     first_time = True
+    mirrorActualGame = False
     while True:
-        play_wordle(show_intro=first_time)
+        play_wordle(show_intro=first_time, mirror=mirrorActualGame)
         first_time = False
         choice = input("\nType 'restart' to play again or 'exit' to quit: ").strip().lower()
         if choice == 'exit':
