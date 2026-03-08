@@ -1,3 +1,30 @@
+import subprocess
+import importlib
+import sys
+
+requiredModules = {
+    "requests": "requests",
+    "keyboard": "keyboard",
+    "win32api": "pywin32"
+}
+
+def installMissingModules(modules):
+    installedSomething = False
+
+    for importName, pipName in modules.items():
+        try:
+            importlib.import_module(importName)
+        except ImportError:
+            print(f"{pipName} is not installed. Installing...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pipName])
+            installedSomething = True
+
+    if installedSomething:
+        subprocess.check_call([sys.executable] + sys.argv)
+        sys.exit()
+
+installMissingModules(requiredModules)
+
 import random
 import requests
 import keyboard
@@ -10,7 +37,6 @@ import pywintypes
 from typing import List, Tuple, Dict
 from shutil import rmtree
 from os import system
-import subprocess
 import getpass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import win32gui
@@ -390,4 +416,5 @@ if __name__ == "__main__":
     time.sleep(9)
     play_wordle()
     #unblock_non_letters()
+
     #keyboard.press_and_release("f11")
