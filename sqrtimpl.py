@@ -67,31 +67,35 @@ def ieee754Sqrt(x):
 
     s = setHighWord(x, (k & 0x001fffff) | 0x3fe00000)
 
-    index = (k & 0x001fffff) >> 14
-    t = inroot[index]
-
+    t = inroot[(k & 0x001fffff) >> 14]
+    # ----------------- 2^-1022  <= | x |< 2^1024  -----------------
     if 0x000fffff < k < 0x7ff00000:
 
         y = 1.0 - t * (t * s)
 
+        # Polynomial refinement
         t = t * (rt0 + y * (rt1 + y * (rt2 + y * rt3)))
 
+        # Multiply by 2^(exponent/2) to get final magnitude
         cBits = (0x20000000 + ((k & 0x7fe00000) >> 1)) << 32
         c = bitsToDouble(cBits)
 
         y = t * s
 
+        # High part isolation for extended precision (Dekker splitting)
         hy = (y + big) - big
 
+        # Corrective term to reduce floating-point error
         delta = 0.5 * t * ((s - hy * hy) - (y - hy) * (y + hy))
 
         res = y + delta
 
+        # Determine if res is already correctly rounded
         if res == (res + 1.002 * ((y - res) + delta)):
             ret = res * c
         else:
             res1 = res + 1.5 * ((y - res) + delta)
-
+            # (z+zz)=res*res1
             z = res * res1
 
             if (z - s) < 0:
@@ -100,19 +104,19 @@ def ieee754Sqrt(x):
                 res = min(res, res1)
 
             ret = res * c
-
-        return ret
+         # Otherwise (x / ret == ret), either the square root was exact or
+         # the division was inexact. 
+        return ret 
 
     else:
 
         if (k & 0x7ff00000) == 0x7ff00000:
-            return x * x + x
+            return x * x + x # sqrt(NaN)=NaN, sqrt(+inf)=+inf, sqrt(-inf)=sNaN
 
         if x == 0:
-            return x
+            return x # sqrt(+0)=+0, sqrt(-0)=-0
 
         if k < 0:
-            return float("nan")
+            return float("nan") # sqrt(-ve)=sNaN
 
         return (2**-256) * ieee754Sqrt(x * (2**512))
-
