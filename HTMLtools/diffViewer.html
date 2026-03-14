@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Text Diff Viewer</title>
+    <!-- diff2html CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 32px 24px 24px 24px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .inputs {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            resize: vertical;
+            font-size: 1rem;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+        .compare-btn {
+            display: block;
+            margin: 0 auto 32px auto;
+            padding: 12px 32px;
+            font-size: 1.1rem;
+            background: #0078d7;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .compare-btn:hover {
+            background: #005fa3;
+        }
+        #diff {
+            margin-top: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Advanced Text Diff Viewer</h1>
+        <div class="inputs">
+            <div style="flex:1;">
+                <label for="text1"><strong>Text 1 (Original)</strong></label>
+                <textarea id="text1" placeholder="Enter first text here..."></textarea>
+            </div>
+            <div style="flex:1;">
+                <label for="text2"><strong>Text 2 (Modified)</strong></label>
+                <textarea id="text2" placeholder="Enter second text here..."></textarea>
+            </div>
+        </div>
+        <button class="compare-btn" onclick="showDiff()">Compare</button>
+        <div id="diff"></div>
+    </div>
+
+    <!-- jsdiff and diff2html -->
+    <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html.min.js"></script>
+    <script>
+    function showDiff() {
+        const text1 = document.getElementById('text1').value;
+        const text2 = document.getElementById('text2').value;
+        // Generate a unified diff string
+        const diff = Diff.createTwoFilesPatch('Text 1', 'Text 2', text1, text2, '', '', {context: 3});
+        // Render diff2html
+        const diffHtml = Diff2Html.html(diff, {
+            drawFileList: false,
+            matching: 'lines',
+            outputFormat: 'side-by-side',
+            highlight: true,
+        });
+        document.getElementById('diff').innerHTML = diffHtml;
+    }
+    </script>
+</body>
+</html> 
