@@ -1,6 +1,5 @@
 import requests
 import json
-import pprint
 
 user = "werwolv"
 repo = "imhex"
@@ -17,9 +16,9 @@ for i in jsonurl:
 	releaseName = i["name"]
 	for j in i["assets"]:
 		if extendedPrint:
-			print(f"Release Name: {i["name"]}")
-			print(f"Filename: {j["name"]}")
-			print(f"Downloads: {j["download_count"]}\n")
+			print(f"Release Name: {i['name']}")
+			print(f"Filename: {j['name']}")
+			print(f"Downloads: {j['download_count']}\n")
 
 		if j["name"] not in downloadDict:
 			downloadDict[j["name"]] = {
@@ -27,14 +26,29 @@ for i in jsonurl:
 				"total": 0
 			}
 
-		downloadDict[j["name"]]["releases"][i["name"]] = int(j["download_count"])
+		downloadDict[j["name"]]["releases"][releaseName] = int(j["download_count"])
 		downloadDict[j["name"]]["total"] += int(j["download_count"])
 		totalDownloads += int(j["download_count"])
 
+sortOrder = None	 # options: "most", "least", None
+mostDownloads = max(downloadDict, key=lambda i: downloadDict[i]['total'])
+leastDownloads = min(downloadDict, key=lambda i: downloadDict[i]['total'])
+maxLen = int(max(len(i) for i in downloadDict) + len(" "*max([len(mostDownloads), len(leastDownloads)])))
+mdString = "Most Downloaded: " + mostDownloads
+ldString = "Least Downloaded: " + leastDownloads
+
 print("Downloads:")
-maxLen = max(len(i) for i in downloadDict)
-for i in downloadDict:
-	print(f"{i.ljust(maxLen)}  {downloadDict[i]['total']:>10}")
+
+items = list(downloadDict.items())
+if sortOrder == "most":
+	items.sort(key=lambda x: x[1]['total'], reverse=True)
+elif sortOrder == "least":
+	items.sort(key=lambda x: x[1]['total'])
+
+for name, data in items:
+	print(f"{name.ljust(maxLen)}  {data['total']:>10}")
 
 print(f"\nTotal Downloads: {totalDownloads}")
+print(f"{mdString.ljust(maxLen)}  {downloadDict[mostDownloads]['total']:>10}")
+print(f"{ldString.ljust(maxLen)}  {downloadDict[leastDownloads]['total']:>10}")
 input()
