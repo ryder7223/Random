@@ -101,7 +101,7 @@ def checkForUpdate(force: int):
 
 import shlex, zipfile, shutil, tempfile, time, threading
 
-serverUrl = "https://simple-tunes-singer-consultancy.trycloudflare.com"
+serverUrl = "http://172.20.10.2:5003"
 
 cancelFlag = False
 runHeartbeat = False
