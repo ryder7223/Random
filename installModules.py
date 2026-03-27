@@ -2,21 +2,23 @@ import subprocess
 import importlib
 import sys
 
-requiredModules = ['requests']
+requiredModules = {
+    "requests": "requests"
+}
 
 def installMissingModules(modules):
-    pip = 'pip'
-    try:
-        importlib.import_module(pip)
-    except ImportError:
-        print(f"{pip} is not installed. Installing...")
-        subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
-    for module in modules:
-        try:
-            importlib.import_module(module)
-        except ImportError:
-            print(f"{module} is not installed. Installing...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", module])
+    installedSomething = False
 
+    for importName, pipName in modules.items():
+        try:
+            importlib.import_module(importName)
+        except ImportError:
+            print(f"{pipName} is not installed. Installing...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pipName])
+            installedSomething = True
+
+    if installedSomething:
+        subprocess.check_call([sys.executable] + sys.argv)
+        sys.exit()
 
 installMissingModules(requiredModules)
