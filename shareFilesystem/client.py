@@ -55,7 +55,7 @@ urllib3.disable_warnings(InsecureRequestWarning)
 
 def checkForUpdate(force: int):
     localFile = os.path.abspath(__file__)
-    repoUrl = "https://ryder7223.hrsn.dev/client.py"
+    repoUrl = "https://ryder7223.hrsn.dev/raw/client.py"
     print("Checking for updates...")
     time.sleep(1)
 
