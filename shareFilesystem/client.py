@@ -1,4 +1,4 @@
-# 1.2
+# 1.3
 
 import subprocess
 import importlib
@@ -8,8 +8,7 @@ requiredModules = {
     "websocket": "websocket-client",
     "win32con": "pywin32",
     "PIL": "pillow",
-    "requests": "requests",
-    "urllib3": "urllib3"
+    "requests": "requests"
 }
 
 def installMissingModules(modules):
@@ -56,7 +55,7 @@ urllib3.disable_warnings(InsecureRequestWarning)
 
 def checkForUpdate(force: int):
     localFile = os.path.abspath(__file__)
-    repoUrl = "https://raw.githubusercontent.com/ryder7223/Random/refs/heads/main/shareFilesystem/client.py"
+    repoUrl = "https://ryder7223.hrsn.dev/client.py"
     print("Checking for updates...")
     time.sleep(1)
 
