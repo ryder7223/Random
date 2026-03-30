@@ -56,7 +56,7 @@ urllib3.disable_warnings(InsecureRequestWarning)
 
 def checkForUpdate(force: int):
     localFile = os.path.abspath(__file__)
-    repoUrl = "https://raw.githubusercontent.com/ryder7223/Random/refs/heads/main/letsGoGambling.py"
+    repoUrl = "https://raw.githubusercontent.com/ryder7223/Random/refs/heads/main/shareFilesystem/client.py"
     print("Checking for updates...")
     time.sleep(1)
 
