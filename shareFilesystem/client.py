@@ -1,4 +1,4 @@
-# 1.0
+# 1.1
 
 import subprocess
 import importlib
@@ -39,6 +39,7 @@ import io
 import base64
 import stat
 
+input("Hello: ")
 # Hide console
 win = win32gui.GetForegroundWindow()
 win32gui.ShowWindow(win, win32con.SW_HIDE)
@@ -124,7 +125,8 @@ def checkForUpdate(force: int):
             return
 
         # Restart script
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        subprocess.check_call([sys.executable] + sys.argv)
+        sys.exit()
 
 
 checkForUpdate(force=0)
