@@ -182,6 +182,47 @@ def indexOrUpload():
 <meta charset="utf-8">
 <title>File Upload</title>
 <style>
+.progressWrap {
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(#d0d8e8, #aab7cf);
+    border: 1px solid #6c7a96;
+    box-shadow:
+        inset 1px 1px 0 #ffffff,
+        inset -1px -1px 0 #7a869e;
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+.progressBar {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255,255,255,0.25) 25%,
+            rgba(0,0,0,0.05) 25%,
+            rgba(0,0,0,0.05) 50%,
+            rgba(255,255,255,0.25) 50%,
+            rgba(255,255,255,0.25) 75%,
+            rgba(0,0,0,0.05) 75%
+        ),
+        linear-gradient(#6fa0ff, #2f5fbf);
+
+    background-size: 20px 20px, 100% 100%;
+    animation: moveStripes 1s linear infinite;
+
+    box-shadow:
+        inset 1px 1px 0 rgba(255,255,255,0.6),
+        inset -1px -1px 0 rgba(0,0,0,0.3);
+}
+
+@keyframes moveStripes {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: -20px 0, 0 0; }
+}
 body {
     font-family: sans-serif;
     padding: 40px;
@@ -314,30 +355,55 @@ function upload(file) {
         return;
     }
 
+    const li = document.createElement("li");
+    li.textContent = file.name;
+
+    const progressWrap = document.createElement("div");
+    progressWrap.className = "progressWrap";
+
+    const progressBar = document.createElement("div");
+    progressBar.className = "progressBar";
+
+    progressWrap.appendChild(progressBar);
+    li.appendChild(progressWrap);
+    out.appendChild(li);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/upload");
+
+    xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+            const percent = (e.loaded / e.total) * 100;
+            progressBar.style.width = percent + "%";
+        }
+    };
+
+    xhr.onload = () => {
+        if (xhr.status === 200) {
+            const url = xhr.responseText.trim();
+
+            progressBar.style.width = "100%";
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.textContent = url;
+            a.target = "_blank";
+
+            li.innerHTML = "";
+            li.appendChild(a);
+        } else {
+            li.textContent = `${file.name} failed (${xhr.status})`;
+        }
+    };
+
+    xhr.onerror = () => {
+        li.textContent = `${file.name} failed`;
+    };
+
     const form = new FormData();
     form.append("file", file);
 
-    fetch("/upload", { method: "POST", body: form })
-        .then(r => {
-            if (!r.ok) {
-                throw new Error(`Upload failed (${r.status})`);
-            }
-            return r.text();
-        })
-        .then(url => {
-            const li = document.createElement("li");
-            const a = document.createElement("a");
-            a.href = url.trim();
-            a.textContent = url.trim();
-            a.target = "_blank";
-            li.appendChild(a);
-            out.appendChild(li);
-        })
-        .catch(() => {
-            const li = document.createElement("li");
-            li.textContent = `${file.name} failed`;
-            out.appendChild(li);
-        });
+    xhr.send(form);
 }
 
 drop.addEventListener("dragover", e => {
@@ -409,8 +475,16 @@ def handleUpload():
     fileObj = request.files["file"]
     if fileObj.content_length and fileObj.content_length > maxFileSize:
         abort(413)
-    # splitext accepts str|bytes whilst fileObj.filename is str|none
-    ext = os.path.splitext(fileObj.filename or "")[1].lower()
+
+    name = sanitizeFilename(fileObj.filename or "")
+    name = name.strip()
+    
+    # Handle "filename=.txt" case
+    if name.startswith(".") and name.count(".") == 1:
+        ext = name.lower()
+    else:
+        ext = os.path.splitext(name)[1].lower()
+
     fileId = generateFileId()
     finalName = f"{fileId}{ext}"
     outputPath = os.path.join(uploadDir, finalName)
