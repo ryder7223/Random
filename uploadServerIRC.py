@@ -182,6 +182,8 @@ def indexOrUpload():
 <meta charset="utf-8">
 <title>File Upload</title>
 <style>
+/* ===== Progress Bar (Web 1.0 style) ===== */
+
 .progressWrap {
     width: 100%;
     height: 10px;
@@ -219,6 +221,7 @@ def indexOrUpload():
         inset -1px -1px 0 rgba(0,0,0,0.3);
 }
 
+/* Moving diagonal stripes */
 @keyframes moveStripes {
     from { background-position: 0 0, 0 0; }
     to   { background-position: -20px 0, 0 0; }
@@ -371,26 +374,68 @@ function upload(file) {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/upload");
 
+    // =========================
+    // Artificial progress state
+    // =========================
+    let realProgress = 0;
+    let displayProgress = 0;
+    let uploadDone = false;
+    let responseUrl = null;
+
+    const maxSpeed = 200 / 1000; // % per ms (200% in 1s)
+
+    let lastTime = performance.now();
+
+    function tick(now) {
+        const delta = now - lastTime;
+        lastTime = now;
+
+        // Max allowed movement this frame
+        const maxStep = maxSpeed * delta;
+
+        // Move toward real progress
+        const diff = realProgress - displayProgress;
+
+        if (diff > 0) {
+            displayProgress += Math.min(diff, maxStep);
+        }
+
+        // Clamp
+        if (displayProgress > 100) displayProgress = 100;
+
+        progressBar.style.width = displayProgress + "%";
+
+        // Completion condition
+        if (uploadDone && displayProgress >= 100) {
+            const a = document.createElement("a");
+            a.href = responseUrl;
+            a.textContent = responseUrl;
+            a.target = "_blank";
+
+            li.innerHTML = "";
+            li.appendChild(a);
+            return;
+        }
+
+        requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+
+    // =========================
+    // Real progress tracking
+    // =========================
     xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
-            const percent = (e.loaded / e.total) * 100;
-            progressBar.style.width = percent + "%";
+            realProgress = (e.loaded / e.total) * 100;
         }
     };
 
     xhr.onload = () => {
         if (xhr.status === 200) {
-            const url = xhr.responseText.trim();
-
-            progressBar.style.width = "100%";
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.textContent = url;
-            a.target = "_blank";
-
-            li.innerHTML = "";
-            li.appendChild(a);
+            responseUrl = xhr.responseText.trim();
+            realProgress = 100; // force target to 100
+            uploadDone = true;
         } else {
             li.textContent = `${file.name} failed (${xhr.status})`;
         }
@@ -475,16 +520,14 @@ def handleUpload():
     fileObj = request.files["file"]
     if fileObj.content_length and fileObj.content_length > maxFileSize:
         abort(413)
-
+    # splitext accepts str|bytes whilst fileObj.filename is str|none
     name = sanitizeFilename(fileObj.filename or "")
+    ext = os.path.splitext(name)[1].lower()
     name = name.strip()
     
     # Handle "filename=.txt" case
     if name.startswith(".") and name.count(".") == 1:
         ext = name.lower()
-    else:
-        ext = os.path.splitext(name)[1].lower()
-
     fileId = generateFileId()
     finalName = f"{fileId}{ext}"
     outputPath = os.path.join(uploadDir, finalName)
