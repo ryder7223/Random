@@ -210,7 +210,7 @@ body {
     line-height: 1.45;
 }
 
-/* A tiny dither-ish pattern to feel "old web" */
+/* A tiny dither-ish pattern to feel "old web"
 body:before {
     content: "";
     position: fixed;
@@ -223,6 +223,7 @@ body:before {
     mix-blend-mode: multiply;
     opacity: 0.35;
 }
+*/
 
 .window {
     width: min(960px, calc(100% - 16px));
