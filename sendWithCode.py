@@ -45,7 +45,7 @@ def sendFileStream(conn, filePath, relPath):
     conn.send(relEnc)
 
     fileSize = os.path.getsize(filePath)
-    conn.send(struct.pack("!I", fileSize))
+    conn.send(struct.pack("!Q", fileSize))
 
     with open(filePath, "rb") as f:
         while True:
@@ -75,10 +75,10 @@ def recvFileStream(conn, destFolder):
         return False
     relPath = relPathBytes.decode()
 
-    raw = recvExact(conn, 4)
+    raw = recvExact(conn, 8)
     if raw is None:
         return False
-    fileLen = struct.unpack("!I", raw)[0]
+    fileLen = struct.unpack("!Q", raw)[0]
 
     fullPath = os.path.join(destFolder, relPath)
     os.makedirs(os.path.dirname(fullPath), exist_ok=True)
@@ -138,7 +138,7 @@ def tcpServer():
                 conn.send(name)
 
                 fileSize = os.path.getsize(path)
-                conn.send(struct.pack("!I", fileSize))
+                conn.send(struct.pack("!Q", fileSize))
                 with open(path, "rb") as f:
                     while True:
                         chunk = f.read(bufferSize)
@@ -220,10 +220,10 @@ def receiveMode(code):
                     continue
                 name = nameBytes.decode()
 
-                raw = recvExact(sock, 4)
+                raw = recvExact(sock, 8)
                 if raw is None:
                     continue
-                fileLen = struct.unpack("!I", raw)[0]
+                fileLen = struct.unpack("!Q", raw)[0]
 
                 remaining = fileLen
                 with open(name, "wb") as f:
