@@ -3,8 +3,10 @@ import re
 import secrets
 import time
 import math
+import json
+import threading
 import mimetypes
-from flask import Flask, request, abort, render_template_string, Response, stream_with_context
+from flask import Flask, request, abort, render_template_string, Response, stream_with_context, send_file, jsonify
 from PIL import Image, ImageFile
 
 app = Flask(__name__)
@@ -27,6 +29,16 @@ maxAge = 10 * 24 * 60 * 60 # 10 Days
 
 cleanupInterval = 30
 lastCleanup = 0
+chunkSize = 1024 * 1024
+uploadRateGraceSeconds = 5
+minUploadRateBytesPerSecond = 16 * 1024
+uploadTimeoutSeconds = 20 * 60
+maxStorageBytes = 10 * maxFileSize
+tokenLength = 6
+fileIdPattern = re.compile(
+    rf"[A-Za-z0-9_-]{{{len(secrets.token_urlsafe(tokenLength))}}}\.[a-z0-9]{{1,20}}"
+)
+
 
 # ======================
 # Helpers
@@ -64,7 +76,14 @@ def formatDuration(seconds):
     return " ".join(parts[:-1]) + " and " + parts[-1]
 
 def generateFileId():
-    return secrets.token_urlsafe(6)
+    global tokenLength
+    return secrets.token_urlsafe(tokenLength)
+
+def safeJoin(base, path):
+    fullPath = os.path.abspath(os.path.join(base, path))
+    if not fullPath.startswith(os.path.abspath(base) + os.sep):
+        abort(403)
+    return fullPath
 
 def sanitizeFilename(name):
     name = os.path.basename(name)
@@ -72,6 +91,16 @@ def sanitizeFilename(name):
     name = re.sub(r"\s+", "-", name)
     name = re.sub(r"[^a-z0-9._-]", "", name)
     return name or "file"
+
+def getShardDirForFilename(filename):
+    fileId = filename.split(".", 1)[0]
+    return fileId[:2]
+
+def getPathsForFilename(filename):
+    shardDir = safeJoin(uploadDir, getShardDirForFilename(filename))
+    filePath = safeJoin(shardDir, filename)
+    metaPath = safeJoin(shardDir, f".{filename}.meta")
+    return shardDir, filePath, metaPath
 
 def calculateExpiryTimestamp(fileSize):
     size = min(fileSize, maxFileSize)
@@ -91,6 +120,19 @@ def calculateExpiryTimestamp(fileSize):
     lifetime = maxAge - (maxAge - minAge) * logRatio
     return time.time() + lifetime
 
+def getCurrentStorageBytes():
+    total = 0
+    for root, _, files in os.walk(uploadDir):
+        for name in files:
+            if name.endswith(".meta"):
+                continue
+            path = os.path.join(root, name)
+            try:
+                total += os.path.getsize(path)
+            except OSError:
+                continue
+    return total
+
 def cleanupExpiredFiles(force=False):
     global lastCleanup
     now = time.time()
@@ -100,65 +142,124 @@ def cleanupExpiredFiles(force=False):
 
     lastCleanup = now
 
-    for name in os.listdir(uploadDir):
-        if name.endswith(".meta"):
-            continue
+    try:
+        shardEntries = list(os.scandir(uploadDir))
+    except OSError:
+        return
 
-        filePath = os.path.join(uploadDir, name)
-        metaPath = os.path.join(uploadDir, f".{name}.meta")
-
-        if not os.path.isfile(filePath) or not os.path.isfile(metaPath):
+    for shardEntry in shardEntries:
+        if not shardEntry.is_dir():
             continue
+        try:
+            fileEntries = list(os.scandir(shardEntry.path))
+        except OSError:
+            continue
+        for entry in fileEntries:
+            name = entry.name
+            if name.endswith(".meta") or not entry.is_file():
+                continue
+
+            filePath = safeJoin(shardEntry.path, name)
+            metaPath = safeJoin(shardEntry.path, f".{name}.meta")
+
+            if not os.path.isfile(metaPath):
+                continue
+
+            try:
+                with open(metaPath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                expiry = float(data["expiry"])
+            except Exception:
+                try:
+                    os.remove(metaPath)
+                except OSError:
+                    pass
+                continue
+
+            if now >= expiry:
+                try:
+                    os.remove(filePath)
+                except OSError:
+                    pass
+                try:
+                    os.remove(metaPath)
+                except OSError:
+                    pass
 
         try:
-            with open(metaPath, "r") as f:
-                expiry = float(f.read().strip())
-        except Exception:
-            continue
-
-        if now >= expiry:
-            try:
-                os.remove(filePath)
-                os.remove(metaPath)
-            except Exception:
-                pass
+            os.rmdir(shardEntry.path)
+        except OSError:
+            pass
 
 def save(fileObj, outputPath):
     written = 0
-    with open(outputPath, "wb") as out:
-        while True:
-            chunk = fileObj.stream.read(1024 * 1024)
-            if not chunk:
-                break
+    startedAt = time.time()
+    tempPath = outputPath + ".tmp"
+    try:
+        with open(tempPath, "wb") as out:
+            while True:
+                chunk = fileObj.stream.read(chunkSize)
+                if not chunk:
+                    break
 
-            written += len(chunk)
-            if written > maxFileSize:
-                out.close()
-                os.remove(outputPath)
-                abort(413)
+                now = time.time()
+                written += len(chunk)
+                elapsed = max(now - startedAt, 0.001)
 
-            out.write(chunk)
+                if written > maxFileSize:
+                    abort(413)
+                if elapsed > uploadTimeoutSeconds:
+                    abort(408)
+                if elapsed > uploadRateGraceSeconds:
+                    averageRate = written / elapsed
+                    if averageRate < minUploadRateBytesPerSecond:
+                        abort(408)
 
-def iterFileRange(filePath, start, end, chunkSize=1024 * 1024):
-    with open(filePath, "rb") as f:
-        f.seek(start)
-        remaining = end - start + 1
-        while remaining > 0:
-            data = f.read(min(chunkSize, remaining))
-            if not data:
-                break
-            remaining -= len(data)
-            yield data
+                out.write(chunk)
+
+        os.replace(tempPath, outputPath)
+    finally:
+        if os.path.exists(tempPath):
+            try:
+                os.remove(tempPath)
+            except OSError:
+                pass
+
+def iterFileRange(filePath, start, end, chunkSizeValue=1024 * 1024):
+    try:
+        with open(filePath, "rb") as f:
+            f.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                data = f.read(min(chunkSizeValue, remaining))
+                if not data:
+                    break
+                remaining -= len(data)
+                yield data
+    except OSError:
+        return
 
 # ======================
 # Flask hooks
 # ======================
 
 @app.before_request
-def enforceLimitsAndCleanup():
-    cleanupExpiredFiles()
+def enforceLimits():
     if request.content_length and request.content_length > maxFileSize:
         abort(413)
+
+@app.after_request
+def applySecurityHeaders(response):
+    #response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+def cleanupLoop():
+    while True:
+        cleanupExpiredFiles(force=True)
+        time.sleep(cleanupInterval)
+
+cleanupThread = threading.Thread(target=cleanupLoop, daemon=True)
+cleanupThread.start()
 
 # ======================
 # Routes
@@ -844,7 +945,17 @@ function upload(file) {
 
     xhr.onload = () => {
         if (xhr.status === 200) {
-            responseUrl = xhr.responseText.trim();
+            try {
+                const payload = JSON.parse(xhr.responseText);
+                responseUrl = payload.url;
+            } catch {
+                li.textContent = `${file.name} failed (bad server response)`;
+                return;
+            }
+            if (!responseUrl) {
+                li.textContent = `${file.name} failed (missing URL)`;
+                return;
+            }
             realProgress = 100; // force target to 100
             uploadDone = true;
         } else {
@@ -934,8 +1045,12 @@ def handleUpload():
     fileObj = request.files["file"]
     if fileObj.content_length and fileObj.content_length > maxFileSize:
         abort(413)
+    if not fileObj.filename:
+        name = "file"
+    else:
+        name = fileObj.filename
     # splitext accepts str|bytes whilst fileObj.filename is str|none
-    name = sanitizeFilename(fileObj.filename or "")
+    name = sanitizeFilename(name)
     ext = os.path.splitext(name)[1].lower()
     name = name.strip()
     
@@ -944,25 +1059,35 @@ def handleUpload():
         ext = name.lower()
     fileId = generateFileId()
     finalName = f"{fileId}{ext}"
-    outputPath = os.path.join(uploadDir, finalName)
+    shardDir, outputPath, metaPath = getPathsForFilename(finalName)
+    os.makedirs(shardDir, exist_ok=True)
+
+    if getCurrentStorageBytes() >= maxStorageBytes:
+        abort(507)
 
     save(fileObj, outputPath)
 
     fileSize = os.path.getsize(outputPath)
+    if getCurrentStorageBytes() > maxStorageBytes:
+        try:
+            os.remove(outputPath)
+        except OSError:
+            pass
+        abort(507)
     expiry = calculateExpiryTimestamp(fileSize)
 
-    with open(os.path.join(uploadDir, f".{finalName}.meta"), "w") as f:
-        f.write(str(expiry))
+    with open(metaPath, "w", encoding="utf-8") as f:
+        json.dump({"expiry": expiry}, f)
 
     url = f"{request.host_url.rstrip('/')}/{finalName}"
-    return url + "\n", 200, {"Content-Type": "text/plain"}
+    return jsonify({"url": url})
 
-@app.route("/<path:filename>")
+@app.route("/<path:filename>", methods=["GET", "HEAD"])
 def serveFile(filename):
-    cleanupExpiredFiles()
+    if not fileIdPattern.fullmatch(filename):
+        abort(404)
 
-    filePath = os.path.join(uploadDir, filename)
-    metaPath = os.path.join(uploadDir, f".{filename}.meta")
+    _, filePath, metaPath = getPathsForFilename(filename)
 
     if not os.path.isfile(filePath) or not os.path.isfile(metaPath):
         abort(404)
@@ -983,8 +1108,21 @@ def serveFile(filename):
                 abort(416)
 
             startStr, endStr = value.split("-")
-            start = int(startStr) if startStr else 0
-            end = int(endStr) if endStr else fileSize - 1
+            if startStr == "":
+                suffixLength = int(endStr)
+                if suffixLength <= 0:
+                    abort(416)
+                start = fileSize - suffixLength
+                end = fileSize - 1
+            elif endStr == "":
+                start = int(startStr)
+                end = fileSize - 1
+            else:
+                start = int(startStr)
+                end = int(endStr)
+
+            start = max(0, start)
+            end = min(fileSize - 1, end)
 
             if start >= fileSize or start > end:
                 abort(416)
@@ -993,9 +1131,14 @@ def serveFile(filename):
         except Exception:
             abort(416)
     else:
-        start = 0
-        end = fileSize - 1
-        status = 200
+        if request.method == "HEAD":
+            response = Response(status=200, mimetype=mimeType)
+            response.headers["Accept-Ranges"] = "bytes"
+            response.headers["Content-Length"] = str(fileSize)
+            if downloadRequested:
+                response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+        return send_file(filePath, mimetype=mimeType, as_attachment=downloadRequested, download_name=filename)
 
     length = end - start + 1
 
