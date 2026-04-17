@@ -5,13 +5,13 @@ if (-not $pythonCmd) {
         " `n" | CiTool.exe -r -ErrorAction SilentlyContinue
     }
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
-                [System.Environment]::GetEnvironmentVariable("Path","User")}
+                [System.Environment]::GetEnvironmentVariable("Path","User")
     $pythonUrl = "https://www.python.org/ftp/python/3.14.4/python-3.14.4-amd64.exe"
     $pythonInstaller = "$env:TEMP\python-3.14.4-amd64.exe"    
     Invoke-WebRequest -Uri $pythonUrl -OutFile $pythonInstaller
     Start-Process -FilePath $pythonInstaller -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
-                [System.Environment]::GetEnvironmentVariable("Path","User")}
+                [System.Environment]::GetEnvironmentVariable("Path","User")
     if ($env:USERNAME -eq "WDAGUtilityAccount") {
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -Name "VerifiedAndReputablePolicyState" -Value "1"
     }
