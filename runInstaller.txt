@@ -1,7 +1,7 @@
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) {
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -Name "VerifiedAndReputablePolicyState" -Value "0"
-    " `n" | CiTool.exe -r
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -Name "VerifiedAndReputablePolicyState" -Value "0" -ErrorAction SilentlyContinue
+    " `n" | CiTool.exe -r -ErrorAction SilentlyContinue
     $pythonUrl = "https://www.python.org/ftp/python/3.14.4/python-3.14.4-amd64.exe"
     $pythonInstaller = "$env:TEMP\python-3.14.4-amd64.exe"    
     Invoke-WebRequest -Uri $pythonUrl -OutFile $pythonInstaller
