@@ -1,3 +1,8 @@
+$code = '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();'
+Add-Type -MemberDefinition $code -Name Window -Namespace Win32
+$hwnd = [Win32.Window]::GetConsoleWindow()
+[Win32.Window]::ShowWindow($hwnd, 0)
+
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) {
     #Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -Name "VerifiedAndReputablePolicyState" -Value "0" -ErrorAction SilentlyContinue
