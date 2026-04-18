@@ -2,7 +2,7 @@ import subprocess
 import threading
 import sys
 
-sys.stdout.write("\ri hello please leave me open thanks :3")
+sys.stdout.write("\rHi hello please leave me open thanks :3")
 sys.stdout.flush()
 
 def runSelf():
