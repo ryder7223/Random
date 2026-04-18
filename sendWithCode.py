@@ -299,6 +299,11 @@ def parseCommand(cmd):
         code = parts[1]
         receiveMode(code)
         return
+    if action in ("help", "h"):
+        print("\nSend usage: send file|folder path")
+        print("\nReceive usage: receive CODE\n")
+        pause()
+        return
 
     print("Unknown command")
     pause()
