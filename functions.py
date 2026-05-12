@@ -1,4 +1,4 @@
-from typing import Generator, Any, NoReturn
+from typing import Generator, Any
 import time
 import ast
 import operator
