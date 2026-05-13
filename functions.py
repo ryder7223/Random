@@ -1,4 +1,4 @@
-from typing import Generator, Any
+from typing import Generator, Any, Callable, Iterable
 import time
 import ast
 import operator
@@ -18,30 +18,84 @@ def printGenerator(gen: Generator[Any, Any, Any], limit: int | None = None, dot:
 		if limit is not None and count >= limit:
 			return
 
-def functionTime(func, runs: int = 10, *args, **kwargs) -> tuple[float, float, float]:
+def functionTime(
+	func: Callable[..., Any],
+	runs: int = 10,
+	iterableArgs: Iterable[tuple[Any, ...]] | None = None
+) -> tuple[list[float], list[Any | Exception]]:
+
 	"""
-	Measures the average execution time of func over a given number of runs.
+	Measures execution time over multiple runs.
+	Supports iterating func params.\n
+	Timing a function with no param iteration:
+	```py
+	times, result = functionTime(lambda: printGenerator(piSpigot(), limit=200), runs=10)
+	```
+	Iterating through a list for func:
+	```py
+	data = [1778637131, 1778637132, 1778637133, 1778637134]
+	
+	times, results = functionTime(
+	    lambda x: unixToRelativeTime(x),
+	    iterableArgs=[(x,) for x in data]
+	)
+	```
+	Iterating through a list of tuples for func:
+	```py
+	data = [(1778637131,), (1778637132,), (1778637133,), (1778637134,)]
+
+	times, results = functionTime(unixToRelativeTime, iterableArgs=data)
+	```
+	Iterating through a list of tuples for func with multiple params:
+	```py
+	def add(x, y):
+	    return x + y
+	
+	data = [(2, 3), (4, 5)]
+	
+	times, results = functionTime(lambda x, y: add(x, y), iterableArgs=data)
+	```
 	"""
+
 	times = []
+	results = []
 
-	if runs <= 0:
-		return 0.0, 0.0, 0.0
+	if iterableArgs is not None:
+		iterableArgs = list(iterableArgs)
+		runs = len(iterableArgs)
+		actualRuns = iterableArgs
+	else:
+		if runs <= 0:
+			raise ValueError("runs must be greater than 0")
+		actualRuns = [()] * runs
 
-	for _ in range(runs):
+	for i in range(runs):
 		start = time.perf_counter()
-		func(*args, **kwargs)
-		end = time.perf_counter()
+
+		try:
+			if iterableArgs is not None:
+				result = func(*actualRuns[i])
+			else:
+				result = func()
+			end = time.perf_counter()
+
+		except Exception as exception:
+			end = time.perf_counter()
+			result = exception
+
 		times.append(end - start)
+		results.append(result)
 
-	# End high-resolution timer
-	return sum(times) / runs, min(times), max(times)
+	return times, results
 
-def printFunctionTime(func, runs: int = 10, *args, **kwargs):
-	avg, minimum, maximum = functionTime(func, runs=runs, *args, **kwargs)
+def printFunctionTime(func: Callable[..., Any], runs: int = 10, *args, **kwargs) -> tuple[list[float], list[Any | Exception]]:
+	times, result = functionTime(func, runs=runs, *args, **kwargs)
 
-	print(f"\nShortest runtime: {minimum:.8f} seconds")
-	print(f"Longest runtime: {maximum:.8f} seconds")
-	print(f"\nAverage runtime: {avg:.8f} seconds")
+	print(f"\nShortest runtime: {min(times):.8f} seconds")
+	print(f"Longest runtime: {max(times):.8f} seconds")
+	print(f"\nAverage runtime: {sum(times) / len(times):.8f} seconds")
+
+	return times, result
 
 def calcPerc(*values, decimals: int = 2) -> None:
 	numericValues = []
