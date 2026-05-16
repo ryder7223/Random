@@ -3,14 +3,25 @@ import re
 import secrets
 import time
 import math
+import json
+import threading
 import mimetypes
-from flask import Flask, request, abort, render_template_string, Response, stream_with_context
+from flask import Flask, request, abort, render_template_string, Response, stream_with_context, send_file, jsonify
 from PIL import Image, ImageFile
+from urllib.parse import quote
+import hashlib
+from collections import deque
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 
 app = Flask(__name__)
 
-uploadDir = "uploads"
+uploadDir = os.path.abspath("uploads")
 os.makedirs(uploadDir, exist_ok=True)
+
+# Only enable if actually behind a trusted proxy
+if os.environ.get("TRUST_PROXY") == "1":
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
 # ======================
 # Limits & hardening
@@ -25,12 +36,59 @@ ImageFile.LOAD_TRUNCATED_IMAGES = False
 minAge = 3 * 60 * 60 # 3 Hours
 maxAge = 10 * 24 * 60 * 60 # 10 Days
 
-cleanupInterval = 30
+cleanupInterval = 120
 lastCleanup = 0
+chunkSize = 1024 * 1024
+uploadRateGraceSeconds = 5
+minUploadRateBytesPerSecond = 16 * 1024
+uploadTimeoutSeconds = 20 * 60
+maxStorageBytes = 10 * maxFileSize
+tokenLength = 6
+fileIdPattern = re.compile(
+    r"^[A-Za-z0-9_-]+\.[A-Za-z0-9]{1,20}$"
+)
+storageCounterPath = os.path.join(uploadDir, ".storage_total")
+storageLock = threading.RLock()
+storageInitialized = False
+rateLimitWindow = 60
+maxUploadsPerWindow = 20
+rateLock = threading.Lock()
+rateLimitLog = {}
+activeUploads = {}
+activeLock = threading.Lock()
+maxConcurrentUploadsPerIp = 3
+reservedStorageBytes = 0
+multipartAllowance = 1024 * 1024
+dangerousExts = {
+    # active web content
+    ".html", ".htm", ".xhtml", ".xht",
+    ".svg",
+    ".js", ".mjs", ".cjs",
+    ".css",
+    ".json", ".jsonp",
+    ".mhtml", ".mht",
+
+    # xml / transformation
+    ".xml", ".xsl", ".xslt", ".kml", ".gpx",
+
+    # server-side execution risks
+    ".php", ".phtml", ".asp", ".aspx", ".jsp", ".cgi", ".do",
+
+    # frontend source formats
+    ".ts", ".tsx", ".jsx", ".vue",
+
+    # optional high-risk binary/web formats
+    ".wasm",
+    ".map",
+}
+
 
 # ======================
 # Helpers
 # ======================
+
+def getClientIp():
+    return request.remote_addr or "unknown"
 
 def formatBytes(num):
     units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
@@ -63,15 +121,180 @@ def formatDuration(seconds):
 
     return " ".join(parts[:-1]) + " and " + parts[-1]
 
+def readStorageTotal():
+    initializeStorageIfNeeded()
+
+    try:
+        with open(storageCounterPath, "r", encoding="utf-8") as f:
+            return int(f.read().strip())
+    except Exception:
+        return 0
+
+def writeStorageTotal(value):
+    tmpPath = storageCounterPath + ".tmp"
+    with open(tmpPath, "w", encoding="utf-8") as f:
+        f.write(str(value))
+    os.replace(tmpPath, storageCounterPath)
+
+
+def addStorageBytes(delta):
+    with storageLock:
+        initializeStorageIfNeeded()
+
+        try:
+            with open(storageCounterPath, "r", encoding="utf-8") as f:
+                total = int(f.read().strip())
+        except Exception:
+            total = 0
+
+        total = max(0, total + delta)
+        writeStorageTotal(total)
+        return total
+
+def checkRateLimit(clientKey):
+    now = time.time()
+
+    with rateLock:
+        window = rateLimitLog.get(clientKey)
+
+        if window is None:
+            window = deque()
+            rateLimitLog[clientKey] = window
+
+        # remove old timestamps
+        while window and now - window[0] > rateLimitWindow:
+            window.popleft()
+
+        if len(window) >= maxUploadsPerWindow:
+            return False
+
+        window.append(now)
+
+        # cleanup stale entries occasionally
+        if len(rateLimitLog) > 10000 and secrets.randbelow(100) == 0:
+            expired = [
+                k for k, v in rateLimitLog.items()
+                if not v or now - v[-1] > rateLimitWindow * 2
+            ]
+
+            for k in expired:
+                del rateLimitLog[k]
+
+        return True
+
+def acquireUploadSlot(ip):
+    with activeLock:
+        count = activeUploads.get(ip, 0)
+        if count >= maxConcurrentUploadsPerIp:
+            return False
+        activeUploads[ip] = count + 1
+        return True
+
+
+def releaseUploadSlot(ip):
+    with activeLock:
+        if ip in activeUploads:
+            activeUploads[ip] -= 1
+            if activeUploads[ip] <= 0:
+                del activeUploads[ip]
+
+def getStorageTotalLocked():
+    with storageLock:
+        try:
+            with open(storageCounterPath, "r", encoding="utf-8") as f:
+                return int(f.read().strip())
+        except Exception:
+            return 0
+
+def initializeStorageIfNeeded():
+    global storageInitialized
+
+    with storageLock:
+        if storageInitialized:
+            return
+
+        if os.path.isfile(storageCounterPath):
+            try:
+                with open(storageCounterPath, "r", encoding="utf-8") as f:
+                    int(f.read().strip())
+        
+                storageInitialized = True
+                return
+        
+            except Exception:
+                pass
+
+        total = 0
+
+        for root, _, files in os.walk(uploadDir):
+            for name in files:
+                if name.endswith(".meta") or name == ".storage_total":
+                    continue
+
+                path = os.path.join(root, name)
+
+                try:
+                    total += os.path.getsize(path)
+                except OSError:
+                    continue
+
+        writeStorageTotal(total)
+        storageInitialized = True
+
+def tryReserveStorage(bytesToReserve):
+    global reservedStorageBytes
+
+    with storageLock:
+        current = readStorageTotal()
+
+        projected = current + (reservedStorageBytes + bytesToReserve)
+
+        if projected < 0:
+            projected = 0
+
+        if projected > maxStorageBytes:
+            return False
+
+        reservedStorageBytes += bytesToReserve
+        return True
+
+
+def releaseReservedStorage(bytesToRelease):
+    global reservedStorageBytes
+
+    with storageLock:
+        reservedStorageBytes = max(
+            0,
+            reservedStorageBytes - bytesToRelease
+        )
+
 def generateFileId():
-    return secrets.token_urlsafe(6)
+    global tokenLength
+    return secrets.token_urlsafe(tokenLength)
+
+def safeJoin(base, path):
+    fullPath = os.path.realpath(os.path.join(base, path))
+    if not fullPath.startswith(os.path.abspath(base) + os.sep):
+        abort(403)
+    return fullPath
 
 def sanitizeFilename(name):
     name = os.path.basename(name)
     name = name.lower().strip()
     name = re.sub(r"\s+", "-", name)
     name = re.sub(r"[^a-z0-9._-]", "", name)
+    name = re.sub(r"\.+", ".", name)
     return name or "file"
+
+def getShardDirForFilename(filename):
+    fileId = filename.split(".", 1)[0]
+    return fileId[:2]
+
+def getPathsForFilename(filename):
+    shardDir = safeJoin(uploadDir, getShardDirForFilename(filename))
+    filePath = safeJoin(shardDir, filename)
+    metaPath = safeJoin(shardDir, f".{filename}.meta")
+    return shardDir, filePath, metaPath
 
 def calculateExpiryTimestamp(fileSize):
     size = min(fileSize, maxFileSize)
@@ -91,6 +314,14 @@ def calculateExpiryTimestamp(fileSize):
     lifetime = maxAge - (maxAge - minAge) * logRatio
     return time.time() + lifetime
 
+def getClientKey():
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    userAgent = request.headers.get("User-Agent", "")
+    accept = request.headers.get("Accept", "")
+
+    raw = f"{ip}|{userAgent}|{accept}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
 def cleanupExpiredFiles(force=False):
     global lastCleanup
     now = time.time()
@@ -100,65 +331,138 @@ def cleanupExpiredFiles(force=False):
 
     lastCleanup = now
 
-    for name in os.listdir(uploadDir):
-        if name.endswith(".meta"):
-            continue
+    try:
+        shardEntries = list(os.scandir(uploadDir))
+    except OSError:
+        return
 
-        filePath = os.path.join(uploadDir, name)
-        metaPath = os.path.join(uploadDir, f".{name}.meta")
+    if not shardEntries:
+        return
 
-        if not os.path.isfile(filePath) or not os.path.isfile(metaPath):
+    for shardEntry in shardEntries:
+        if not shardEntry.is_dir():
             continue
+        try:
+            fileEntries = list(os.scandir(shardEntry.path))
+        except OSError:
+            continue
+        for entry in fileEntries:
+            name = entry.name
+            if name.endswith(".meta") or name == ".storage_total" or not entry.is_file():
+                continue
+
+            filePath = entry.path
+            metaPath = os.path.join(shardEntry.path, f".{name}.meta")
+
+            if not os.path.isfile(metaPath):
+                continue
+
+            try:
+                with open(filePath, "rb"):
+                    pass
+            except OSError:
+                continue
+
+            try:
+                with open(metaPath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                expiry = float(data["expiry"])
+            except Exception:
+                try:
+                    os.remove(metaPath)
+                except OSError:
+                    pass
+                continue
+
+            if now >= expiry:
+                try:
+                    fileSize = os.path.getsize(filePath)
+                    os.remove(filePath)
+                    addStorageBytes(-fileSize)
+                except OSError:
+                    pass
+                try:
+                    os.remove(metaPath)
+                except OSError:
+                    pass
 
         try:
-            with open(metaPath, "r") as f:
-                expiry = float(f.read().strip())
-        except Exception:
-            continue
-
-        if now >= expiry:
-            try:
-                os.remove(filePath)
-                os.remove(metaPath)
-            except Exception:
-                pass
+            if not os.listdir(shardEntry.path):
+                os.rmdir(shardEntry.path)
+        except OSError:
+            pass
 
 def save(fileObj, outputPath):
     written = 0
-    with open(outputPath, "wb") as out:
-        while True:
-            chunk = fileObj.stream.read(1024 * 1024)
-            if not chunk:
-                break
+    startedAt = time.time()
+    tempPath = outputPath + ".tmp"
+    try:
+        with open(tempPath, "wb") as out:
+            while True:
+                chunk = fileObj.stream.read(chunkSize)
+                if not chunk:
+                    break
 
-            written += len(chunk)
-            if written > maxFileSize:
-                out.close()
-                os.remove(outputPath)
-                abort(413)
+                now = time.time()
+                written += len(chunk)
+                elapsed = max(now - startedAt, 0.001)
 
-            out.write(chunk)
+                if written > maxFileSize:
+                    abort(413)
+                if elapsed > uploadTimeoutSeconds:
+                    abort(408)
+                if elapsed > uploadRateGraceSeconds:
+                    if written < minUploadRateBytesPerSecond * (elapsed - uploadRateGraceSeconds):
+                        abort(408)
 
-def iterFileRange(filePath, start, end, chunkSize=1024 * 1024):
-    with open(filePath, "rb") as f:
-        f.seek(start)
-        remaining = end - start + 1
-        while remaining > 0:
-            data = f.read(min(chunkSize, remaining))
-            if not data:
-                break
-            remaining -= len(data)
-            yield data
+                out.write(chunk)
+
+        os.replace(tempPath, outputPath)
+    finally:
+        if os.path.exists(tempPath):
+            try:
+                os.remove(tempPath)
+            except OSError:
+                pass
+
+def iterFileRange(filePath, start, end, chunkSizeValue=1024 * 1024):
+    try:
+        with open(filePath, "rb") as f:
+            f.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                data = f.read(min(chunkSizeValue, remaining))
+                if not data:
+                    break
+                remaining -= len(data)
+                yield data
+    except OSError:
+        return
 
 # ======================
 # Flask hooks
 # ======================
 
 @app.before_request
-def enforceLimitsAndCleanup():
-    cleanupExpiredFiles()
-    if request.content_length and request.content_length > maxFileSize:
+def enforceLimits():
+    if (
+        request.content_length and
+        request.content_length > maxFileSize + multipartAllowance
+    ):
         abort(413)
+
+@app.after_request
+def applySecurityHeaders(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+def cleanupLoop():
+    while True:
+        cleanupExpiredFiles(force=False)
+        time.sleep(cleanupInterval)
+
+cleanupThread = threading.Thread(target=cleanupLoop, daemon=True)
+cleanupThread.start()
 
 # ======================
 # Routes
@@ -226,6 +530,7 @@ def indexOrUpload():
     from { background-position: 0 0, 0 0; }
     to   { background-position: -20px 0, 0 0; }
 }
+
 body {
     font-family: sans-serif;
     padding: 40px;
@@ -233,14 +538,17 @@ body {
     margin: auto;
     line-height: 1.5;
 }
+
 h2, h3 {
     margin-top: 1.5em;
 }
+
 pre {
     background: #f5f5f5;
     padding: 12px;
     overflow-x: auto;
 }
+
 #drop {
     border: 2px dashed #888;
     padding: 40px;
@@ -248,12 +556,15 @@ pre {
     cursor: pointer;
     margin-top: 30px;
 }
+
 #drop.hover {
     background: #eee;
 }
+
 a {
     text-decoration: none;
 }
+
 small {
     color: #555;
 }
@@ -382,15 +693,22 @@ function upload(file) {
     let uploadDone = false;
     let responseUrl = null;
 
-    const maxSpeed = 200 / 1000; // % per ms (200% in 1s)
+    // Max catch-up movement speed for the *displayed* progress.
+    // Kept deliberately low to avoid visible "jumps" when real progress leaps.
+    const maxSpeed = 60 / 1000; // % per ms (60% in 1s)
+
+    // When the tab is throttled/backgrounded, RAF can resume with a large delta.
+    // Clamp delta so we don't fast-forward the animation.
+    const maxDeltaMs = 80; // hard cap on per-frame delta used for animation
 
     let lastTime = performance.now();
 
     function tick(now) {
-        const delta = now - lastTime;
+        const rawDelta = now - lastTime;
         lastTime = now;
 
         // Max allowed movement this frame
+        const delta = Math.min(rawDelta, maxDeltaMs);
         const maxStep = maxSpeed * delta;
 
         // Move toward real progress
@@ -401,7 +719,9 @@ function upload(file) {
         }
 
         // Clamp
-        if (displayProgress > 100) displayProgress = 100;
+        if (displayProgress > 100) {
+            displayProgress = 100;
+        }
 
         progressBar.style.width = displayProgress + "%";
 
@@ -433,8 +753,20 @@ function upload(file) {
 
     xhr.onload = () => {
         if (xhr.status === 200) {
-            responseUrl = xhr.responseText.trim();
-            realProgress = 100; // force target to 100
+            try {
+                const payload = JSON.parse(xhr.responseText);
+                responseUrl = payload.url;
+            } catch {
+                li.textContent = `${file.name} failed (bad server response)`;
+                return;
+            }
+
+            if (!responseUrl) {
+                li.textContent = `${file.name} failed (missing URL)`;
+                return;
+            }
+
+            realProgress = 100;
             uploadDone = true;
         } else {
             li.textContent = `${file.name} failed (${xhr.status})`;
@@ -496,6 +828,7 @@ document.addEventListener("paste", e => {
             if (!file.name) {
                 const ext = file.type ? file.type.split("/")[1] : "bin";
                 const timestamp = Date.now();
+
                 Object.defineProperty(file, "name", {
                     value: `pasted-${timestamp}.${ext}`,
                 });
@@ -514,41 +847,103 @@ document.addEventListener("paste", e => {
 
 @app.route("/upload", methods=["POST"])
 def handleUpload():
-    if "file" not in request.files:
-        abort(400)
+    clientIp = getClientIp()
 
-    fileObj = request.files["file"]
-    if fileObj.content_length and fileObj.content_length > maxFileSize:
-        abort(413)
-    # splitext accepts str|bytes whilst fileObj.filename is str|none
-    name = sanitizeFilename(fileObj.filename or "")
-    ext = os.path.splitext(name)[1].lower()
-    name = name.strip()
+    clientKey = getClientKey()
     
-    # Handle "filename=.txt" case
-    if name.startswith(".") and name.count(".") == 1:
-        ext = name.lower()
-    fileId = generateFileId()
-    finalName = f"{fileId}{ext}"
-    outputPath = os.path.join(uploadDir, finalName)
+    if not checkRateLimit(clientKey):
+        abort(429)
 
-    save(fileObj, outputPath)
+    if not acquireUploadSlot(clientIp):
+        abort(429)
 
-    fileSize = os.path.getsize(outputPath)
-    expiry = calculateExpiryTimestamp(fileSize)
+    reservedAmount = 0
 
-    with open(os.path.join(uploadDir, f".{finalName}.meta"), "w") as f:
-        f.write(str(expiry))
+    try:
+        announcedSize = request.content_length
 
-    url = f"{request.host_url.rstrip('/')}/{finalName}"
-    return url + "\n", 200, {"Content-Type": "text/plain"}
+        # Flask multipart includes form overhead,
+        # so only trust positive reasonable values.
+        if announcedSize and announcedSize > 0:
+            reserveSize = min(announcedSize, maxFileSize)
+        else:
+            reserveSize = maxFileSize
 
-@app.route("/<path:filename>")
+        reservedAmount = reserveSize
+        
+        if not tryReserveStorage(reserveSize):
+            reservedAmount = 0
+            abort(507)
+
+        if "file" not in request.files:
+            abort(400)
+
+        fileObj = request.files["file"]
+
+        if (
+            fileObj.content_length and
+            fileObj.content_length > maxFileSize + multipartAllowance
+        ):
+            abort(413)
+
+        name = fileObj.filename or "file"
+
+        if len(name) > 200:
+            abort(400)
+
+        name = sanitizeFilename(name)
+        ext = os.path.splitext(name)[1].lower()
+        name = name.strip()
+
+        #if ext in dangerousExts:abort(400)
+
+        if name.startswith(".") and ext == "":
+            ext = name.lower()
+
+        while True:
+            fileId = generateFileId()
+            finalName = f"{fileId}{ext}"
+        
+            shardDir, outputPath, metaPath = getPathsForFilename(finalName)
+        
+            if not os.path.exists(outputPath):
+                break
+        
+        os.makedirs(shardDir, exist_ok=True)
+
+        if getStorageTotalLocked() >= maxStorageBytes:
+            abort(507)
+
+        save(fileObj, outputPath)
+
+        fileSize = os.path.getsize(outputPath)
+
+        if reservedAmount > fileSize:
+            releaseReservedStorage(reservedAmount - fileSize)
+            reservedAmount = fileSize
+
+        addStorageBytes(fileSize)
+
+        expiry = calculateExpiryTimestamp(fileSize)
+
+        with open(metaPath, "w", encoding="utf-8") as f:
+            json.dump({"expiry": expiry}, f)
+
+        url = f"{request.host_url.rstrip('/')}/{finalName}"
+        return jsonify({"url": url})
+
+    finally:
+        if reservedAmount > 0:
+            releaseReservedStorage(reservedAmount)
+
+        releaseUploadSlot(clientIp)
+
+@app.route("/<path:filename>", methods=["GET", "HEAD"])
 def serveFile(filename):
-    cleanupExpiredFiles()
+    if not fileIdPattern.fullmatch(filename):
+        abort(404)
 
-    filePath = os.path.join(uploadDir, filename)
-    metaPath = os.path.join(uploadDir, f".{filename}.meta")
+    _, filePath, metaPath = getPathsForFilename(filename)
 
     if not os.path.isfile(filePath) or not os.path.isfile(metaPath):
         abort(404)
@@ -557,9 +952,13 @@ def serveFile(filename):
 
     mimeType, _ = mimetypes.guess_type(filePath)
     mimeType = mimeType or "application/octet-stream"
-
+    ext = "." + filename.rsplit(".", 1)[-1].lower()
+    isDangerous = ext in dangerousExts
     downloadRequested = request.args.get("download") == "true"
 
+    asAttachment = downloadRequested or isDangerous
+
+    status = 200
     rangeHeader = request.headers.get("Range")
 
     if rangeHeader:
@@ -569,8 +968,21 @@ def serveFile(filename):
                 abort(416)
 
             startStr, endStr = value.split("-")
-            start = int(startStr) if startStr else 0
-            end = int(endStr) if endStr else fileSize - 1
+            if startStr == "":
+                suffixLength = int(endStr)
+                if suffixLength <= 0:
+                    abort(416)
+                start = fileSize - suffixLength
+                end = fileSize - 1
+            elif endStr == "":
+                start = int(startStr)
+                end = fileSize - 1
+            else:
+                start = int(startStr)
+                end = int(endStr)
+
+            start = max(0, start)
+            end = min(fileSize - 1, end)
 
             if start >= fileSize or start > end:
                 abort(416)
@@ -579,9 +991,32 @@ def serveFile(filename):
         except Exception:
             abort(416)
     else:
-        start = 0
-        end = fileSize - 1
-        status = 200
+        if request.method == "HEAD":
+            response = Response(status=200, mimetype=mimeType)
+
+            response.headers["Accept-Ranges"] = "bytes"
+            response.headers["Content-Length"] = str(fileSize)
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; "
+                "script-src 'none'; "
+                "style-src 'none'; "
+                "img-src 'self' data:; "
+                "connect-src 'self'; "
+                "base-uri 'none'; "
+                "form-action 'self'; "
+                "frame-ancestors 'none'"
+            )
+
+            if downloadRequested:
+                quoted = quote(filename)
+                response.headers["Content-Disposition"] = (
+                    f"attachment; filename*=UTF-8''{quoted}"
+                )
+
+                response.headers["Cache-Control"] = "private, max-age=0, no-cache"
+
+            return response
+        return send_file(filePath, mimetype=mimeType, as_attachment=asAttachment, download_name=filename)
 
     length = end - start + 1
 
@@ -594,12 +1029,27 @@ def serveFile(filename):
 
     response.headers["Accept-Ranges"] = "bytes"
     response.headers["Content-Length"] = str(length)
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; "
+        "script-src 'none'; "
+        "style-src 'none'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "base-uri 'none'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'"
+    )
 
     if status == 206:
         response.headers["Content-Range"] = f"bytes {start}-{end}/{fileSize}"
 
     if downloadRequested:
-        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        quoted = quote(filename)
+        response.headers["Content-Disposition"] = (
+            f"attachment; filename*=UTF-8''{quoted}"
+        )
+
+        response.headers["Cache-Control"] = "private, max-age=0, no-cache"
 
     return response
 
