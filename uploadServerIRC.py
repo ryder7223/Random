@@ -315,7 +315,7 @@ def calculateExpiryTimestamp(fileSize):
     return time.time() + lifetime
 
 def getClientKey():
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    ip = getClientIp()
     userAgent = request.headers.get("User-Agent", "")
     accept = request.headers.get("Accept", "")
 
