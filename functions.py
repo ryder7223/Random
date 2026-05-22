@@ -6,6 +6,7 @@ import math
 import uuid
 import sys
 from datetime import datetime, timezone
+import random
 
 def printGenerator(gen: Generator[Any, Any, Any], limit: int | None = None, dot: str = ".", sep: str = "", splitFirst: bool = True) -> None:
 	if splitFirst:
@@ -96,6 +97,20 @@ def printFunctionTime(func: Callable[..., Any], runs: int = 10, *args, **kwargs)
 	print(f"\nAverage runtime: {sum(times) / len(times):.8f} seconds")
 
 	return times, result
+
+def printTree(node, indent=0):
+	prefix = "  " * indent
+
+	if not isinstance(node, (tuple, list)):
+		print(prefix + repr(node))
+		return
+
+	print(prefix + "[")
+
+	for item in node:
+		printTree(item, indent + 1)
+
+	print(prefix + "]")
 
 def calcPerc(*values, decimals: int = 2) -> None:
 	numericValues = []
@@ -206,7 +221,7 @@ def bin2dec(x: str | int) -> int:
 		x = x[2:]
 	return int(x, 2)
 
-def unixToTime(unixTime: int) -> str:
+def unixToRelativeTime(unixTime: int) -> str:
 	now = datetime.now().astimezone()
 	target = datetime.fromtimestamp(unixTime, tz=timezone.utc).astimezone()
 
@@ -245,3 +260,45 @@ def unixToTime(unixTime: int) -> str:
 		result = " ".join(parts[:-1]) + " and " + parts[-1]
 
 	return f"in {result}" if isFuture else f"{result} ago"
+
+def intToHexRev(n):
+	reversedHex = bytes.fromhex(str(hex(n))[2:])[::-1].hex()
+	return " ".join([reversedHex[i:i+2] for i in range(0, len(reversedHex), 2)])
+
+def randomList(length: int, minimum: int, maximum: int) -> list:
+	return [random.randint(minimum, maximum) for _ in range(length)]
+
+class Sort:
+
+	@staticmethod
+	def isSorted(list_: list) -> bool:
+		return all(list_[i] <= list_[i + 1] for i in range(len(list_) - 1))
+
+	@staticmethod
+	def swap(list_, index):
+		list_[index], list_[index + 1] = list_[index + 1], list_[index]
+		
+
+	@staticmethod
+	def bubble(values: list):
+		print(f"Length: {len(values)}")
+		print(f"Range: {min(values)} to {max(values)} ({max(values) - min(values)})")
+		print("\nSorting...")
+		step = 1
+		while True:
+			swapped = False
+
+			for index in range(len(values) - 1):
+				if values[index] > values[index + 1]:
+					print(f"{step}. " + str(values))
+					print(len(str(step)) * " " + "   " + " " * index * 3 + f"{values[index]}--{values[index + 1]}")
+					Sort.swap(values, index)
+					swapped = True
+					step += 1
+			
+			if not swapped:
+				print("Sorted!\n")
+				break
+		return values
+
+print(Sort.bubble(randomList(5, 0, 10)))
