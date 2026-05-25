@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "minecraft-protocol": "latest",
+    "prismarine-auth": "latest"
+  }
+}
