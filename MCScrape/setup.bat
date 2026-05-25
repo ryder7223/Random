@@ -266,7 +266,7 @@ echo ==========================================
 echo Setup complete
 echo ==========================================
 echo Username: %MC_USERNAME%
-echo You can now run your scripts.
+echo You can now run MCScrape.py
 echo.
 
 pause
