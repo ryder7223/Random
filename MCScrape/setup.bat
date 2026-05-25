@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 echo ==========================================
-echo  Minecraft Toolchain One-Click Setup
+echo  Minecraft Toolchain Setup
 echo ==========================================
 echo.
 
