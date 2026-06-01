@@ -14,17 +14,11 @@ PORT = 25565
 TIMEOUT = 0.5
 MAX_WORKERS = 1000
 
-# ----------------------------
-# WHITELIST SETTINGS
-# ----------------------------
 ENABLE_WHITELIST_CHECK = False
 
 printLock = threading.Lock()
 dbLock = threading.Lock()
 
-# ----------------------------
-# SQLite setup
-# ----------------------------
 dbConnection = sqlite3.connect("minecraft_servers.db", check_same_thread=False)
 dbCursor = dbConnection.cursor()
 
@@ -49,10 +43,6 @@ CREATE TABLE IF NOT EXISTS servers (
 """)
 dbConnection.commit()
 
-
-# ----------------------------
-# NODE WHITELIST CHECK (WITH RETRIES)
-# ----------------------------
 def checkWhitelistNode(ip, port, maxRetries=3):
     for attempt in range(maxRetries):
         try:
@@ -94,14 +84,7 @@ def checkWhitelistNode(ip, port, maxRetries=3):
     return {"status": "error", "error": "max_retries_exceeded"}
 
 
-# ----------------------------
-# DATABASE SAVE
-# ----------------------------
 def saveToDatabase(ip, port, ms, whitelistStatus=None):
-
-    # ----------------------------
-    # WHITELIST VALUE HANDLING
-    # ----------------------------
     if not ENABLE_WHITELIST_CHECK:
         whitelistStatus = "none"
         isWhitelisted = None
@@ -194,9 +177,6 @@ def checkMinecraftServer(ip: str, port: int):
         if not ms.online:
             return
 
-        # ----------------------------
-        # WHITELIST CHECK
-        # ----------------------------
         status = "none"
 
         if ENABLE_WHITELIST_CHECK:
@@ -206,14 +186,8 @@ def checkMinecraftServer(ip: str, port: int):
             if status == "timeout":
                 status = "joinable"
 
-        # ----------------------------
-        # SAVE TO DATABASE
-        # ----------------------------
         saveToDatabase(ip, port, ms, status)
 
-        # ----------------------------
-        # OUTPUT
-        # ----------------------------
         lines = []
 
         lines.append("------------------------------------")
