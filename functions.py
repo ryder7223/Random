@@ -268,7 +268,33 @@ def intToHexRev(n):
 def randomList(length: int, minimum: int, maximum: int) -> list:
 	return [random.randint(minimum, maximum) for _ in range(length)]
 
+def diff(a: int, b: int):
+	result = a - b
+	if result < 0:
+		result *= -1
+	return result
+
 class Sort:
+
+	@staticmethod
+	def lpad(list_, index, step: int | None = None):
+		totalLength = len(repr(list_))
+		startToIndex = len(repr(list_[:index+1])) - 1
+		indexToEnd = len(repr(list_)[startToIndex:])
+		indexLength = len(repr(list_[index]))
+		resultLength = totalLength - indexToEnd - indexLength
+
+		valueLength = len(str(list_[index]))
+		literalLength = len(repr(list_[index]))
+
+		# assume symmetrical difference
+		if valueLength != literalLength:
+			resultLength += diff(valueLength, literalLength) // 2
+
+		if step is not None:
+			resultLength += len(str(step)) + 2
+
+		return resultLength * " "
 
 	@staticmethod
 	def isSorted(list_: list) -> bool:
@@ -277,21 +303,36 @@ class Sort:
 	@staticmethod
 	def swap(list_, index):
 		list_[index], list_[index + 1] = list_[index + 1], list_[index]
-		
+
+	@staticmethod
+	def listInfo(values: list):
+		print(f"Length: {len(values)}")
+		print(f"Range: {min(values)} to {max(values)} ({max(values) - min(values)})")
+
+	@staticmethod
+	def printStepSwap(values: list, index: int, step: int):
+		print(f"{step}. " + str(values))
+		print(Sort.lpad(values, index, step) + f"{values[index]}--{values[index + 1]}")
+
+	@staticmethod
+	def printStepSelectionSwap(values: list, left: int, right: int, step: int):
+		pad2 = (diff(len(Sort.lpad(values, left, step)), len(Sort.lpad(values, right, step))) - 1) * " "
+		print(f"{step}. {values}")
+		print(
+			Sort.lpad(values, left, step)
+			+ f"^{pad2}^"
+		)
 
 	@staticmethod
 	def bubble(values: list):
-		print(f"Length: {len(values)}")
-		print(f"Range: {min(values)} to {max(values)} ({max(values) - min(values)})")
+		Sort.listInfo(values)
 		print("\nSorting...")
 		step = 1
 		while True:
 			swapped = False
-
 			for index in range(len(values) - 1):
 				if values[index] > values[index + 1]:
-					print(f"{step}. " + str(values))
-					print(len(str(step)) * " " + "   " + " " * index * 3 + f"{values[index]}--{values[index + 1]}")
+					Sort.printStepSwap(values, index, step)
 					Sort.swap(values, index)
 					swapped = True
 					step += 1
@@ -301,4 +342,33 @@ class Sort:
 				break
 		return values
 
-print(Sort.bubble(randomList(5, 0, 10)))
+	@staticmethod
+	def selection(values: list):
+		Sort.listInfo(values)
+		print("\nSorting...")
+		step = 1
+	
+		for start in range(len(values) - 1):
+			minIndex = start
+	
+			for index in range(start + 1, len(values)):
+				if values[index] < values[minIndex]:
+					minIndex = index
+	
+			if minIndex != start:
+				Sort.printStepSelectionSwap(
+					values,
+					start,
+					minIndex,
+					step
+				)
+	
+				values[start], values[minIndex] = (
+					values[minIndex],
+					values[start]
+				)
+	
+				step += 1
+	
+		print("Sorted!\n")
+		return values
