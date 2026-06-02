@@ -1,3 +1,29 @@
+import subprocess
+import importlib
+import sys
+
+requiredModules = {
+    "minestat": "minestat",
+    "colorama": "colorama"
+}
+
+def installMissingModules(modules):
+    installedSomething = False
+
+    for importName, pipName in modules.items():
+        try:
+            importlib.import_module(importName)
+        except ImportError:
+            print(f"{pipName} is not installed. Installing...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pipName])
+            installedSomething = True
+
+    if installedSomething:
+        subprocess.check_call([sys.executable] + sys.argv)
+        sys.exit()
+
+installMissingModules(requiredModules)
+
 import socket
 import minestat
 from datetime import datetime
@@ -14,12 +40,11 @@ PORT = 25565
 TIMEOUT = 0.5
 MAX_WORKERS = 1000
 
+ENABLE_WHITELIST_CHECK = False
+
 printLock = threading.Lock()
 dbLock = threading.Lock()
 
-# ----------------------------
-# SQLite setup
-# ----------------------------
 dbConnection = sqlite3.connect("minecraft_servers.db", check_same_thread=False)
 dbCursor = dbConnection.cursor()
 
@@ -44,10 +69,6 @@ CREATE TABLE IF NOT EXISTS servers (
 """)
 dbConnection.commit()
 
-
-# ----------------------------
-# NODE WHITELIST CHECK (WITH RETRIES)
-# ----------------------------
 def checkWhitelistNode(ip, port, maxRetries=3):
     for attempt in range(maxRetries):
         try:
@@ -70,7 +91,7 @@ def checkWhitelistNode(ip, port, maxRetries=3):
 
             status = nodeResult.get("status", "error")
 
-            # Only retry on timeout
+            # Only retry on disconnect
             if status == "disconnected" and attempt < maxRetries - 1:
                 time.sleep(0.5)
                 continue
@@ -88,12 +109,20 @@ def checkWhitelistNode(ip, port, maxRetries=3):
 
     return {"status": "error", "error": "max_retries_exceeded"}
 
+def saveToDatabase(ip, port, ms, whitelistStatus=None):
+    if not ENABLE_WHITELIST_CHECK:
+        whitelistStatus = "none"
+        isWhitelisted = None
 
-# ----------------------------
-# DATABASE SAVE
-# ----------------------------
-def saveToDatabase(ip, port, ms, whitelistStatus):
-    isWhitelisted = 1 if whitelistStatus == "whitelist_allowed" or whitelistStatus == "whitelist_blocked" else 2 if whitelistStatus == "error" or whitelistStatus == "disconnected" else 0
+    else:
+        if whitelistStatus in ("whitelist_allowed", "whitelist_blocked"):
+            isWhitelisted = 1
+
+        elif whitelistStatus in ("error", "disconnected"):
+            isWhitelisted = 2
+
+        else:
+            isWhitelisted = 0
 
     with dbLock:
         dbCursor.execute("""
@@ -116,26 +145,32 @@ def saveToDatabase(ip, port, ms, whitelistStatus):
             ms.map,
             str(ms.slp_protocol),
             isWhitelisted,
-            str(datetime.now())
+            str(datetime.now().strftime("%d/%m/%Y | %I:%M:%S %p"))
         ))
+
         dbConnection.commit()
 
 
 def isPrivateIp(firstOctet, secondOctet):
     if firstOctet == 10:
         return True
+
     if firstOctet == 172 and 16 <= secondOctet <= 31:
         return True
+
     if firstOctet == 192 and secondOctet == 168:
         return True
+
     return False
 
 
-def generate_ip():
+def generateIp():
     while True:
         firstOctet = random.randint(1, 222)
+
         if firstOctet >= 127:
             firstOctet += 1
+
         secondOctet = random.randint(0, 255)
 
         if isPrivateIp(firstOctet, secondOctet):
@@ -157,6 +192,7 @@ def checkMinecraftServer(ip: str, port: int):
             data = data[16:]
 
         decoded = data.decode("utf-16", errors="ignore")
+
         if not decoded:
             return
 
@@ -166,21 +202,19 @@ def checkMinecraftServer(ip: str, port: int):
         if not ms.online:
             return
 
-        # ----------------------------
-        # NODE WHITELIST CHECK (RETRY ENABLED)
-        # ----------------------------
-        nodeResult = checkWhitelistNode(ip, port)
-        status = nodeResult.get("status", "unknown")
+        status = "none"
 
-        # Save to database
+        if ENABLE_WHITELIST_CHECK:
+            nodeResult = checkWhitelistNode(ip, port)
+            status = nodeResult.get("status", "unknown")
+
+            if status == "timeout":
+                status = "joinable"
+
         saveToDatabase(ip, port, ms, status)
 
-        if status == "timeout":
-            status = "joinable"
-        # ----------------------------
-        # OUTPUT
-        # ----------------------------
         lines = []
+
         lines.append("------------------------------------")
         lines.append(f"{Fore.GREEN}[+] {ip}:{port} Minecraft server detected{Style.RESET_ALL}")
         lines.append(f"{Fore.YELLOW}Latency: {ms.latency} ms{Style.RESET_ALL}")
@@ -209,6 +243,7 @@ def checkMinecraftServer(ip: str, port: int):
 
     except (socket.timeout, ConnectionRefusedError, OSError):
         return
+
     except Exception as e:
         with printLock:
             print(f"{Fore.RED}[!] {ip}:{port} - {type(e).__name__}: {e}{Style.RESET_ALL}")
@@ -221,5 +256,5 @@ def main():
 
 if __name__ == "__main__":
     while True:
-        targets = [generate_ip() for _ in range(100000)]
+        targets = [generateIp() for _ in range(100000)]
         main()
