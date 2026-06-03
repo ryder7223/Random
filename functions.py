@@ -243,10 +243,10 @@ def systemID():
 	return uuid.getnode()
 
 def odd(n: int) -> bool:
-	return True if n & 1 else False
+	return bool(n & 1)
 
 def even(n: int) -> bool:
-	return False if n & 1 else True
+	return not bool(n & 1)
 
 def version():
 	"""
@@ -258,7 +258,7 @@ def dec2bin(x: int | str) -> str:
 	"""
 	Converts a decimal integer to a binary string without the '0b' prefix.
 	"""
-	return bin(x)[2:] if isinstance(x, int) else bin(int(x))[2:]
+	return format(int(x), "b")
 
 def bin2dec(x: str | int) -> int:
 	"""
