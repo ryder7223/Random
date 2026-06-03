@@ -9,6 +9,9 @@ from datetime import datetime, timezone
 import random
 
 def printGenerator(gen: Generator[Any, Any, Any], limit: int | None = None, dot: str = ".", sep: str = "", splitFirst: bool = True) -> None:
+	"""
+	Prints the values of generators up to any point.
+	"""
 	if splitFirst:
 		firstDigit = next(gen)
 		print(firstDigit, end=dot, flush=True)
@@ -37,8 +40,8 @@ def functionTime(
 	data = [1778637131, 1778637132, 1778637133, 1778637134]
 	
 	times, results = functionTime(
-	    lambda x: unixToRelativeTime(x),
-	    iterableArgs=[(x,) for x in data]
+		lambda x: unixToRelativeTime(x),
+		iterableArgs=[(x,) for x in data]
 	)
 	```
 	Iterating through a list of tuples for func:
@@ -89,8 +92,12 @@ def functionTime(
 
 	return times, results
 
-def printFunctionTime(func: Callable[..., Any], runs: int = 10, *args, **kwargs) -> tuple[list[float], list[Any | Exception]]:
-	times, result = functionTime(func, runs=runs, *args, **kwargs)
+def printFunctionTime(func: Callable[..., Any], runs: int = 10, iterableArgs: Iterable[tuple[Any, ...]] | None = None) -> tuple[list[float], list[Any | Exception]]:
+	"""
+	Calls functionTime() and prints the shortest, longest, and average runtimes.
+	Functions exactly the same as functionTime() so returns the same data.
+	"""
+	times, result = functionTime(func, runs=runs, iterableArgs=iterableArgs)
 
 	print(f"\nShortest runtime: {min(times):.8f} seconds")
 	print(f"Longest runtime: {max(times):.8f} seconds")
@@ -99,6 +106,9 @@ def printFunctionTime(func: Callable[..., Any], runs: int = 10, *args, **kwargs)
 	return times, result
 
 def printTree(node, indent=0):
+	"""
+	Visualises lists through indented printing.
+	"""
 	prefix = "  " * indent
 
 	if not isinstance(node, (tuple, list)):
@@ -112,7 +122,16 @@ def printTree(node, indent=0):
 
 	print(prefix + "]")
 
-def calcPerc(*values, decimals: int = 2) -> None:
+def polygonalNumber(order: int, sides: int) -> int:
+	"""
+	Generates polygonal numbers of any side conut.
+	"""
+	return ((sides - 2) * order * order - (sides - 4) * order) // 2
+
+def calcPerc(*values: tuple[int], decimals: int = 2) -> None:
+	"""
+	Prints the relative percentages of any amount of integers out of their added total.
+	"""
 	numericValues = []
 	try:
 		for v in values:
@@ -128,7 +147,31 @@ def calcPerc(*values, decimals: int = 2) -> None:
 	except:
 		print("Invalid input")
 
+def generateIp(public: bool = True):
+	"""
+	Generates ip addresses with the option to include ips that aren't public.
+	"""
+	while True:
+		firstOctet = random.randint(1, 222)
+
+		if firstOctet >= 127:
+			firstOctet += 1
+
+		secondOctet = random.randint(0, 255)
+
+		if public:
+			if (lambda x, y: True if x == 10 or
+				x == 172 and 16 <= y <= 31 or
+				x == 192 and y == 168 else False)(firstOctet, secondOctet):
+				continue
+
+		return f"{firstOctet}.{secondOctet}.{random.randint(0,255)}.{random.randint(0,255)}"
+
 def mcStacks(amountInput: str, stackSizeInput: int):
+	"""
+	Calculates stacks of items, supporting arithmatic in the input. e.g.
+	`mcStacks(\"8*8*5 + 45\", 64)`
+	"""
 	allowedOps = {
 		ast.Add: operator.add,
 		ast.Sub: operator.sub,
@@ -194,6 +237,9 @@ def mcStacks(amountInput: str, stackSizeInput: int):
 	return [stacks, remainder]
 
 def systemID():
+	"""
+	Wraps uuid.getnode()
+	"""
 	return uuid.getnode()
 
 def odd(n: int) -> bool:
@@ -203,6 +249,9 @@ def even(n: int) -> bool:
 	return False if n & 1 else True
 
 def version():
+	"""
+	Prints the current python version.
+	"""
 	print(f"Python version: {sys.version}")
 
 def dec2bin(x: int | str) -> str:
@@ -222,6 +271,11 @@ def bin2dec(x: str | int) -> int:
 	return int(x, 2)
 
 def unixToRelativeTime(unixTime: int) -> str:
+	"""
+	Converts unix time to it's word representation, e.g.
+	`in 3 years 8 weeks 6 days 9 hours and 46 minutes` or
+	`16 weeks 3 days 17 hours 47 minutes and 55 seconds ago`.
+	"""
 	now = datetime.now().astimezone()
 	target = datetime.fromtimestamp(unixTime, tz=timezone.utc).astimezone()
 
@@ -262,22 +316,40 @@ def unixToRelativeTime(unixTime: int) -> str:
 	return f"in {result}" if isFuture else f"{result} ago"
 
 def intToHexRev(n):
+	"""
+	Converts integers to hex and reverses the hex in pairs of two,
+	only accepts integers that convert to an even length hex. e.g.
+	`482024245324` becomes `4c 48 e2 3a 70`.
+	"""
 	reversedHex = bytes.fromhex(str(hex(n))[2:])[::-1].hex()
 	return " ".join([reversedHex[i:i+2] for i in range(0, len(reversedHex), 2)])
 
 def randomList(length: int, minimum: int, maximum: int) -> list:
+	"""
+	Generates a list of random numbers.
+	"""
 	return [random.randint(minimum, maximum) for _ in range(length)]
 
 def diff(a: int, b: int):
+	"""
+	Calculates the magnitude of the difference between two values,
+	always returns a positive number.
+	"""
 	result = a - b
 	if result < 0:
 		result *= -1
 	return result
 
 class Sort:
+	"""
+	Sorting utilities and visualised sorting algorithms.
+	"""
 
 	@staticmethod
-	def lpad(list_, index, step: int | None = None):
+	def lpad(list_, index, step: int | None = None, pad: str | None = None):
+		"""
+		Left pads up to a specific index for lists using spaces by default.
+		"""
 		totalLength = len(repr(list_))
 		startToIndex = len(repr(list_[:index+1])) - 1
 		indexToEnd = len(repr(list_)[startToIndex:])
@@ -294,28 +366,32 @@ class Sort:
 		if step is not None:
 			resultLength += len(str(step)) + 2
 
-		return resultLength * " "
+		padder = " "
+		if pad is not None:
+			padder = pad
+
+		return resultLength * padder
 
 	@staticmethod
-	def isSorted(list_: list) -> bool:
+	def _isSorted(list_: list) -> bool:
 		return all(list_[i] <= list_[i + 1] for i in range(len(list_) - 1))
 
 	@staticmethod
-	def swap(list_, index):
+	def _swap(list_, index):
 		list_[index], list_[index + 1] = list_[index + 1], list_[index]
 
 	@staticmethod
-	def listInfo(values: list):
+	def _listInfo(values: list):
 		print(f"Length: {len(values)}")
 		print(f"Range: {min(values)} to {max(values)} ({max(values) - min(values)})")
 
 	@staticmethod
-	def printStepSwap(values: list, index: int, step: int):
+	def _printStepSwap(values: list, index: int, step: int):
 		print(f"{step}. " + str(values))
 		print(Sort.lpad(values, index, step) + f"{values[index]}--{values[index + 1]}")
 
 	@staticmethod
-	def printStepSelectionSwap(values: list, left: int, right: int, step: int):
+	def _printStepSelectionSwap(values: list, left: int, right: int, step: int):
 		pad2 = (diff(len(Sort.lpad(values, left, step)), len(Sort.lpad(values, right, step))) - 1) * " "
 		print(f"{step}. {values}")
 		print(
@@ -325,15 +401,15 @@ class Sort:
 
 	@staticmethod
 	def bubble(values: list):
-		Sort.listInfo(values)
+		Sort._listInfo(values)
 		print("\nSorting...")
 		step = 1
 		while True:
 			swapped = False
 			for index in range(len(values) - 1):
 				if values[index] > values[index + 1]:
-					Sort.printStepSwap(values, index, step)
-					Sort.swap(values, index)
+					Sort._printStepSwap(values, index, step)
+					Sort._swap(values, index)
 					swapped = True
 					step += 1
 			
@@ -344,7 +420,7 @@ class Sort:
 
 	@staticmethod
 	def selection(values: list):
-		Sort.listInfo(values)
+		Sort._listInfo(values)
 		print("\nSorting...")
 		step = 1
 	
@@ -356,7 +432,7 @@ class Sort:
 					minIndex = index
 	
 			if minIndex != start:
-				Sort.printStepSelectionSwap(
+				Sort._printStepSelectionSwap(
 					values,
 					start,
 					minIndex,
