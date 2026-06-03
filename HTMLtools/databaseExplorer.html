@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline SQLite Explorer</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+
+<style>
+body{font-family:sans-serif;margin:20px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px}
+#filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin:15px 0}
+.filter{border:1px solid #ccc;padding:8px}
+.filter label{display:block;font-weight:bold;margin-bottom:5px}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #ccc;padding:5px;text-align:left;cursor:pointer}
+th{background:#eee}
+.pagination{margin-top:15px}
+textarea{width:100%;height:120px}
+#console{white-space:pre-wrap;background:#111;color:#0f0;padding:10px;margin-top:10px}
+</style>
+</head>
+
+<body>
+
+<h1>Offline SQLite Explorer</h1>
+
+<div class="toolbar">
+    <input type="file" id="dbFile">
+
+    <select id="tableSelect"></select>
+
+    <button onclick="loadSelectedTable()">Browse</button>
+    <button onclick="searchTable()">Search</button>
+    <button onclick="globalSearch()">Global Search</button>
+    <button onclick="exportCsv()">Export CSV</button>
+</div>
+
+<h3>Schema</h3>
+<div id="schema"></div>
+
+<h3>Filters</h3>
+<div id="filters"></div>
+
+<h3>Custom SQL</h3>
+<textarea id="customSql"></textarea>
+<button onclick="runCustomSql()">Execute SQL</button>
+
+<hr>
+
+<div id="status"></div>
+
+<table id="results">
+<thead></thead>
+<tbody></tbody>
+</table>
+
+<div class="pagination">
+<button onclick="prevPage()">Previous</button>
+<span id="pageLabel">Page 1</span>
+<button onclick="nextPage()">Next</button>
+</div>
+
+<h3>Console</h3>
+<div id="console"></div>
+
+<script>
+
+let SQL;
+let db;
+
+let currentPage=1;
+let pageSize=100;
+let currentTable="";
+let currentColumns=[];
+let sortColumn="";
+let sortDir="ASC";
+
+init();
+
+async function init(){
+
+    SQL=await initSqlJs({
+        locateFile:file=>
+        `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
+    });
+
+    document.getElementById("dbFile")
+        .addEventListener("change",loadDatabase);
+}
+
+function getBaseQuery(){
+    return document.getElementById("customSql").value.trim();
+}
+
+function log(msg){
+    document.getElementById("console").textContent += msg + "\n";
+}
+
+function runCustomSql(){
+
+    let sql=document
+        .getElementById("customSql")
+        .value
+        .trim();
+
+    if(!sql) return;
+
+    // normalise whitespace + ensure single statement
+    sql=sql.replace(/\s+/g," ");
+
+    try{
+
+        const res=db.exec(sql);
+
+        render(res);
+
+        log("CUSTOM SQL: "+sql);
+
+    }catch(e){
+
+        log("SQL ERROR: "+e.message);
+    }
+}
+
+async function loadDatabase(event){
+
+    const file=event.target.files[0];
+    if(!file) return;
+
+    const buffer=await file.arrayBuffer();
+    db=new SQL.Database(new Uint8Array(buffer));
+
+    loadTables();
+}
+
+function loadTables(){
+
+    const res=db.exec(`
+        SELECT name
+        FROM sqlite_master
+        WHERE type='table'
+        ORDER BY name
+    `);
+
+    const select=document.getElementById("tableSelect");
+    select.innerHTML="";
+
+    if(!res.length) return;
+
+    const tables=res[0].values.map(r=>r[0]);
+
+    tables.forEach(t=>{
+        const opt=document.createElement("option");
+        opt.value=t;
+        opt.textContent=t;
+        select.appendChild(opt);
+    });
+
+    currentTable=tables[0];
+
+    buildFilters();
+    runQuery();
+}
+
+function getColumns(table){
+
+    const res=db.exec(`PRAGMA table_info("${table}")`);
+    if(!res.length) return [];
+
+    return res[0].values.map(r=>({
+        cid:r[0],
+        name:r[1],
+        type:(r[2]||"TEXT").toUpperCase()
+    }));
+}
+
+function buildFilters(){
+    attachLiveFilters();
+    currentTable=document.getElementById("tableSelect").value;
+    currentColumns=getColumns(currentTable);
+
+    const container=document.getElementById("filters");
+    container.innerHTML="";
+
+    const schema=document.getElementById("schema");
+    schema.innerHTML=currentColumns
+        .map(c=>`${c.name} (${c.type})`)
+        .join("<br>");
+
+    currentColumns.forEach(col=>{
+
+        const isNumeric=
+            col.type.includes("INT") ||
+            col.type.includes("REAL") ||
+            col.type.includes("NUM");
+
+        const div=document.createElement("div");
+        div.className="filter";
+
+        div.innerHTML=`
+            <label onclick="toggleColumn('${col.name}')">
+                ${col.name}
+            </label>
+
+            <select data-col="${col.name}">
+                <option value="contains">contains</option>
+                <option value="=">=</option>
+                <option value="!=">!=</option>
+                <option value=">">></option>
+                <option value="<"><</option>
+            </select>
+
+            <input data-col-input="${col.name}" placeholder="value">
+
+            ${isNumeric ? `
+                <input data-col-min="${col.name}" placeholder="min">
+                <input data-col-max="${col.name}" placeholder="max">
+            ` : ""}
+        `;
+
+        container.appendChild(div);
+    });
+}
+
+document.getElementById("tableSelect")
+.addEventListener("change",()=>{
+    buildFilters();
+    runQuery();
+});
+
+function buildWhere(){
+
+    let where=[];
+
+    document.querySelectorAll(".filter").forEach(f=>{
+
+        const select=f.querySelector("select");
+        const col=select.dataset.col;
+        const op=select.value;
+
+        const input=f.querySelector(`[data-col-input="${col}"]`);
+        const val=input ? input.value.trim() : "";
+
+        if(val){
+
+            if(op==="contains"){
+                where.push(`"${col}" LIKE '%${escapeSql(val)}%'`);
+            }else{
+                where.push(`"${col}" ${op} '${escapeSql(val)}'`);
+            }
+        }
+
+        const min=f.querySelector(`[data-col-min="${col}"]`);
+        const max=f.querySelector(`[data-col-max="${col}"]`);
+
+        if(min && min.value)
+            where.push(`"${col}" >= ${Number(min.value)}`);
+
+        if(max && max.value)
+            where.push(`"${col}" <= ${Number(max.value)}`);
+    });
+
+    return where.length ? "WHERE "+where.join(" AND ") : "";
+}
+
+function buildOrder(){
+
+    if(!sortColumn) return "";
+
+    return `ORDER BY "${sortColumn}" ${sortDir}`;
+}
+
+function attachLiveFilters(){
+
+    document.getElementById("filters")
+    .addEventListener("input",()=>{
+
+        currentPage=1;
+        runQuery();
+    });
+}
+
+function runQuery(){
+
+    if(!db) return;
+
+    currentTable=document.getElementById("tableSelect").value;
+
+    const offset=(currentPage-1)*pageSize;
+
+    let baseSql=getBaseQuery();
+
+    let where=buildWhere();
+
+    let finalSql;
+
+    // CASE 1: custom SQL exists
+    if(baseSql){
+
+        // wrap it safely as subquery
+        finalSql=`
+            SELECT *
+            FROM (
+                ${baseSql}
+            ) AS base
+            ${where.replace("WHERE","WHERE")}
+            ${buildOrder()}
+            LIMIT ${pageSize}
+            OFFSET ${offset}
+        `;
+
+    }else{
+
+        // CASE 2: normal table browsing
+        finalSql=`
+            SELECT *
+            FROM "${currentTable}"
+            ${where}
+            ${buildOrder()}
+            LIMIT ${pageSize}
+            OFFSET ${offset}
+        `;
+    }
+
+    try{
+
+        log(finalSql);
+
+        const res=db.exec(finalSql);
+
+        render(res);
+
+    }catch(e){
+        log("ERROR: "+e.message);
+    }
+}
+
+function searchTable(){
+    currentPage=1;
+    runQuery();
+}
+
+function loadSelectedTable(){
+    currentPage=1;
+    lastQuery="";
+    runQuery();
+}
+
+function render(res){
+
+    const head=document.querySelector("#results thead");
+    const body=document.querySelector("#results tbody");
+
+    head.innerHTML="";
+    body.innerHTML="";
+
+    if(!res.length){
+        log("No results");
+        return;
+    }
+
+    const cols=res[0].columns;
+
+    head.innerHTML="<tr>"+
+        cols.map(c=>
+            `<th onclick="sort('${c}')">${c}</th>`
+        ).join("")+
+    "</tr>";
+
+    res[0].values.forEach(r=>{
+        body.innerHTML+="<tr>"+
+            r.map(v=>`<td>${v??""}</td>`).join("")+
+        "</tr>";
+    });
+
+    document.getElementById("pageLabel")
+        .textContent=`Page ${currentPage}`;
+}
+
+function sort(col){
+
+    if(sortColumn===col)
+        sortDir=sortDir==="ASC"?"DESC":"ASC";
+    else{
+        sortColumn=col;
+        sortDir="ASC";
+    }
+
+    runQuery();
+}
+
+function nextPage(){
+    currentPage++;
+    runQuery();
+}
+
+function prevPage(){
+    if(currentPage>1){
+        currentPage--;
+        runQuery();
+    }
+}
+
+function globalSearch(){
+
+    const term=prompt("Search all tables:");
+    if(!term) return;
+
+    const tables=db.exec(`
+        SELECT name FROM sqlite_master WHERE type='table'
+    `)[0].values.map(r=>r[0]);
+
+    log("GLOBAL SEARCH: "+term);
+
+    tables.forEach(t=>{
+
+        const cols=getColumns(t)
+            .filter(c=>c.type.includes("TEXT"))
+            .map(c=>`"${c.name}" LIKE '%${escapeSql(term)}%'`)
+            .join(" OR ");
+
+        if(!cols) return;
+
+        try{
+
+            const r=db.exec(`
+                SELECT * FROM "${t}"
+                WHERE ${cols}
+                LIMIT 50
+            `);
+
+            if(r.length)
+                log(`MATCH in ${t}: ${r[0].values.length} rows`);
+
+        }catch{}
+    });
+}
+
+function toggleColumn(col){
+    log("Column clicked: "+col);
+}
+
+function exportCsv(){
+
+    const table=document.getElementById("results");
+
+    let csv=[];
+
+    for(const row of table.rows){
+
+        let cols=[];
+
+        for(const cell of row.cells){
+            cols.push('"'+cell.innerText.replace(/"/g,'""')+'"');
+        }
+
+        csv.push(cols.join(","));
+    }
+
+    const blob=new Blob([csv.join("\n")]);
+    const url=URL.createObjectURL(blob);
+
+    const a=document.createElement("a");
+    a.href=url;
+    a.download="export.csv";
+    a.click();
+}
+
+function escapeSql(s){
+    return s.replaceAll("'","''");
+}
+
+</script>
+
+</body>
+</html>
