@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minecraft Server Database Search</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<style>
+body{font-family:sans-serif;margin:20px}
+input,select,button{padding:6px;margin:2px}
+table{border-collapse:collapse;width:100%;margin-top:10px}
+th,td{border:1px solid #ccc;padding:6px;text-align:left}
+th{background:#eee}
+.filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:15px}
+.pagination{margin-top:10px}
+</style>
+</head>
+<body>
+<h1>Minecraft Server Database Search</h1>
+<input type="file" id="dbFile">
+<hr>
+
+<div class="filters">
+<input id="id" placeholder="ID">
+<input id="ip" placeholder="IP">
+<input id="port" placeholder="Port">
+<input id="latency" placeholder="Latency">
+<input id="players" placeholder="Players">
+<input id="min_players" placeholder="Min Players">
+<input id="max_players" placeholder="Max Players">
+<input id="player_list" placeholder="Player List">
+<input id="motd" placeholder="MOTD">
+<input id="version" placeholder="Version">
+<input id="exclude_versions" placeholder="Exclude Versions (comma separated)">
+<input id="gamemode" placeholder="Gamemode">
+<input id="plugins" placeholder="Plugins">
+<input id="map" placeholder="Map">
+<input id="protocol" placeholder="Protocol">
+
+<select id="whitelist">
+<option value="">Whitelist</option>
+<option value="1">Yes</option>
+<option value="0">No</option>
+</select>
+
+<label>From<input id="dateFrom" placeholder="dd/mm/yyyy"></label>
+<label>To<input id="dateTo" placeholder="dd/mm/yyyy"></label>
+
+<select id="searchMode">
+<option value="contains">Contains</option>
+<option value="exact">Exact</option>
+<option value="starts">Starts With</option>
+</select>
+
+<select id="caseSensitive">
+<option value="0">Case Insensitive</option>
+<option value="1">Case Sensitive</option>
+</select>
+
+<select id="sortBy">
+<option value="id">ID</option>
+<option value="timestamp">Timestamp</option>
+<option value="players">Players</option>
+<option value="latency">Latency</option>
+</select>
+
+<select id="sortOrder">
+<option value="DESC">DESC</option>
+<option value="ASC">ASC</option>
+</select>
+
+<input id="pageSize" value="25">
+
+<button onclick="newSearch()">Search</button>
+<button onclick="exportCsv()">Export CSV</button>
+</div>
+
+<div id="count"></div>
+<table id="results"><thead></thead><tbody></tbody></table>
+
+<div class="pagination">
+<button onclick="prevPage()">Previous</button>
+<span id="pageLabel"></span>
+<button onclick="nextPage()">Next</button>
+</div>
+
+<script>
+let db;let SQL;let currentPage=1;let lastRows=[];let lastQuery="";
+const textColumns=["ip","player_list","motd","version","gamemode","plugins","map","protocol"];
+
+init();
+
+async function init(){
+SQL=await initSqlJs({locateFile:file=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`});
+document.getElementById("dbFile").addEventListener("change",loadDatabase);
+loadUrlParameters();
+}
+
+async function loadDatabase(event){
+const file=event.target.files[0];
+const buffer=await file.arrayBuffer();
+db=new SQL.Database(new Uint8Array(buffer));
+newSearch();
+}
+
+function parseDate(d){
+if(!d)return null;
+const parts=d.split("/");
+if(parts.length!==3)return null;
+return `${parts[2]}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}`;
+}
+
+function buildQuery(){
+let where=[];
+const mode=document.getElementById("searchMode").value;
+const caseSensitive=document.getElementById("caseSensitive").value==="1";
+const textComparison=mode==="exact"?"LIKE":"LIKE";
+
+const likeVal=v=>mode==="exact"
+?`'%${escapeSql(v)}%'`
+:mode==="starts"
+?`'${escapeSql(v)}%'`
+:`'%${escapeSql(v)}%'`;
+
+textColumns.forEach(col=>{
+const v=document.getElementById(col).value.trim();
+if(!v)return;
+if(caseSensitive){
+where.push(`${col} LIKE ${likeVal(v)}`);
+}else{
+where.push(`LOWER(${col}) LIKE LOWER(${likeVal(v)})`);
+}
+});
+
+["id","port","latency","players","max_players"].forEach(col=>{
+const v=document.getElementById(col).value.trim();
+if(v)where.push(`${col}=${Number(v)}`);
+});
+
+const minPlayers=document.getElementById("min_players").value.trim();
+if(minPlayers)where.push(`players>=${Number(minPlayers)}`);
+
+const maxPlayers=document.getElementById("max_players").value.trim();
+if(maxPlayers)where.push(`players<=${Number(maxPlayers)}`);
+
+const whitelist=document.getElementById("whitelist").value;
+if(whitelist!=="")where.push(`whitelist=${whitelist}`);
+
+const from=parseDate(document.getElementById("dateFrom").value);
+const to=parseDate(document.getElementById("dateTo").value);
+if(from)where.push(`substr(timestamp,instr(timestamp,'|')+2)>='${from}'`);
+if(to)where.push(`substr(timestamp,instr(timestamp,'|')+2)<='${to}'`);
+
+const version=document.getElementById("version").value.trim();
+if(version)where.push(`version LIKE '%${escapeSql(version)}%'`);
+
+const exclude=document.getElementById("exclude_versions").value.trim();
+if(exclude){
+exclude.split(",").map(v=>v.trim()).filter(Boolean).forEach(v=>{
+where.push(`LOWER(version) NOT LIKE LOWER('%${escapeSql(v)}%')`);
+});
+}
+
+return where.length?"WHERE "+where.join(" AND "):"";
+}
+
+function runQuery(){
+if(!db)return {sql:"",result:[]};
+
+const pageSize=Number(document.getElementById("pageSize").value);
+const offset=(currentPage-1)*pageSize;
+const sortBy=document.getElementById("sortBy").value;
+const sortOrder=document.getElementById("sortOrder").value;
+
+const where=lastQuery;
+const sql=`SELECT * FROM servers ${where} ORDER BY ${sortBy} ${sortOrder} LIMIT ${pageSize} OFFSET ${offset}`;
+
+const result=db.exec(sql);
+return {sql,result};
+}
+
+function newSearch(){
+currentPage=1;
+lastQuery=buildQuery();
+renderAndRun();
+updateUrl();
+}
+
+function search(){
+renderAndRun();
+updateUrl();
+}
+
+function renderAndRun(){
+if(!db)return;
+
+const {result}=runQuery();
+
+render(result);
+}
+
+function render(result){
+const head=document.querySelector("#results thead");
+const body=document.querySelector("#results tbody");
+
+head.innerHTML="";body.innerHTML="";
+
+if(!result.length){
+document.getElementById("count").textContent="0 results";
+return;
+}
+
+const cols=result[0].columns;
+head.innerHTML="<tr>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr>";
+
+lastRows=[];
+
+result[0].values.forEach(r=>{
+lastRows.push(r);
+body.innerHTML+="<tr>"+r.map(v=>`<td>${v??""}</td>`).join("")+"</tr>";
+});
+
+document.getElementById("count").textContent=`${result[0].values.length} results`;
+document.getElementById("pageLabel").textContent=`Page ${currentPage}`;
+}
+
+function nextPage(){
+currentPage++;
+search();
+}
+
+function prevPage(){
+if(currentPage>1){
+currentPage--;
+search();
+}
+}
+
+function exportCsv(){
+if(!lastRows.length)return;
+const table=document.getElementById("results");
+let csv=[];
+for(let row of table.rows){
+let cols=[];
+for(let cell of row.cells)cols.push('"'+cell.innerText.replace(/"/g,'""')+'"');
+csv.push(cols.join(","));
+}
+const blob=new Blob([csv.join("\n")]);
+const url=URL.createObjectURL(blob);
+const a=document.createElement("a");
+a.href=url;a.download="servers.csv";a.click();
+}
+
+function escapeSql(str){return str.replaceAll("'","''");}
+
+function updateUrl(){
+const params=new URLSearchParams();
+document.querySelectorAll("input,select").forEach(el=>{
+if(el.value)params.set(el.id,el.value);
+});
+history.replaceState(null,"","?"+params.toString());
+}
+
+function loadUrlParameters(){
+const params=new URLSearchParams(location.search);
+params.forEach((v,k)=>{
+const el=document.getElementById(k);
+if(el)el.value=v;
+});
+}
+</script>
+</body>
+</html>
