@@ -21,7 +21,7 @@ os.makedirs(uploadDir, exist_ok=True)
 
 # Only enable if actually behind a trusted proxy
 if os.environ.get("TRUST_PROXY") == "1":
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
+	app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
 # ======================
 # Limits & hardening
@@ -36,6 +36,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = False
 minAge = 3 * 60 * 60 # 3 Hours
 maxAge = 10 * 24 * 60 * 60 # 10 Days
 
+maxSpeed = 200 / 1000 # 200% per 1000 ms
 cleanupInterval = 120
 lastCleanup = 0
 chunkSize = 1024 * 1024
@@ -45,41 +46,41 @@ uploadTimeoutSeconds = 20 * 60
 maxStorageBytes = 10 * maxFileSize
 tokenLength = 6
 fileIdPattern = re.compile(
-    r"^[A-Za-z0-9_-]+\.[A-Za-z0-9]{1,20}$"
+	r"^[A-Za-z0-9_-]+\.[A-Za-z0-9]{1,20}$"
 )
 storageCounterPath = os.path.join(uploadDir, ".storage_total")
 storageLock = threading.RLock()
 storageInitialized = False
 rateLimitWindow = 60
-maxUploadsPerWindow = 20
+maxUploadsPerWindow = 50
 rateLock = threading.Lock()
 rateLimitLog = {}
 activeUploads = {}
 activeLock = threading.Lock()
-maxConcurrentUploadsPerIp = 3
+maxConcurrentUploadsPerIp = 50
 reservedStorageBytes = 0
 multipartAllowance = 1024 * 1024
 dangerousExts = {
-    # active web content
-    ".html", ".htm", ".xhtml", ".xht",
-    ".svg",
-    ".js", ".mjs", ".cjs",
-    ".css",
-    ".json", ".jsonp",
-    ".mhtml", ".mht",
+	# active web content
+	".html", ".htm", ".xhtml", ".xht",
+	".svg",
+	".js", ".mjs", ".cjs",
+	".css",
+	".json", ".jsonp",
+	".mhtml", ".mht",
 
-    # xml / transformation
-    ".xml", ".xsl", ".xslt", ".kml", ".gpx",
+	# xml / transformation
+	".xml", ".xsl", ".xslt", ".kml", ".gpx",
 
-    # server-side execution risks
-    ".php", ".phtml", ".asp", ".aspx", ".jsp", ".cgi", ".do",
+	# server-side execution risks
+	".php", ".phtml", ".asp", ".aspx", ".jsp", ".cgi", ".do",
 
-    # frontend source formats
-    ".ts", ".tsx", ".jsx", ".vue",
+	# frontend source formats
+	".ts", ".tsx", ".jsx", ".vue",
 
-    # optional high-risk binary/web formats
-    ".wasm",
-    ".map",
+	# optional high-risk binary/web formats
+	".wasm",
+	".map",
 }
 
 
@@ -88,356 +89,356 @@ dangerousExts = {
 # ======================
 
 def getClientIp():
-    return request.remote_addr or "unknown"
+	return request.remote_addr or "unknown"
 
 def formatBytes(num):
-    units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
-    for unit in units:
-        if num < 1024:
-            return f"{num:.0f} {unit}"
-        num /= 1024
-    return f"{num:.0f} PiB"
+	units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
+	for unit in units:
+		if num < 1024:
+			return f"{num:.0f} {unit}"
+		num /= 1024
+	return f"{num:.0f} PiB"
 
 def formatDuration(seconds):
-    units = [
-        ("day", 24 * 60 * 60),
-        ("hour", 60 * 60),
-        ("minute", 60),
-        ("second", 1),
-    ]
+	units = [
+		("day", 24 * 60 * 60),
+		("hour", 60 * 60),
+		("minute", 60),
+		("second", 1),
+	]
 
-    parts = []
-    for name, unitSeconds in units:
-        value = seconds // unitSeconds
-        if value:
-            parts.append(f"{int(value)} {name}{'' if value == 1 else 's'}")
-            seconds -= value * unitSeconds
+	parts = []
+	for name, unitSeconds in units:
+		value = seconds // unitSeconds
+		if value:
+			parts.append(f"{int(value)} {name}{'' if value == 1 else 's'}")
+			seconds -= value * unitSeconds
 
-    if not parts:
-        return "0 seconds"
+	if not parts:
+		return "0 seconds"
 
-    if len(parts) == 1:
-        return parts[0]
+	if len(parts) == 1:
+		return parts[0]
 
-    return " ".join(parts[:-1]) + " and " + parts[-1]
+	return " ".join(parts[:-1]) + " and " + parts[-1]
 
 def readStorageTotal():
-    initializeStorageIfNeeded()
+	initializeStorageIfNeeded()
 
-    try:
-        with open(storageCounterPath, "r", encoding="utf-8") as f:
-            return int(f.read().strip())
-    except Exception:
-        return 0
+	try:
+		with open(storageCounterPath, "r", encoding="utf-8") as f:
+			return int(f.read().strip())
+	except Exception:
+		return 0
 
 def writeStorageTotal(value):
-    tmpPath = storageCounterPath + ".tmp"
-    with open(tmpPath, "w", encoding="utf-8") as f:
-        f.write(str(value))
-    os.replace(tmpPath, storageCounterPath)
+	tmpPath = storageCounterPath + ".tmp"
+	with open(tmpPath, "w", encoding="utf-8") as f:
+		f.write(str(value))
+	os.replace(tmpPath, storageCounterPath)
 
 
 def addStorageBytes(delta):
-    with storageLock:
-        initializeStorageIfNeeded()
+	with storageLock:
+		initializeStorageIfNeeded()
 
-        try:
-            with open(storageCounterPath, "r", encoding="utf-8") as f:
-                total = int(f.read().strip())
-        except Exception:
-            total = 0
+		try:
+			with open(storageCounterPath, "r", encoding="utf-8") as f:
+				total = int(f.read().strip())
+		except Exception:
+			total = 0
 
-        total = max(0, total + delta)
-        writeStorageTotal(total)
-        return total
+		total = max(0, total + delta)
+		writeStorageTotal(total)
+		return total
 
 def checkRateLimit(clientKey):
-    now = time.time()
+	now = time.time()
 
-    with rateLock:
-        window = rateLimitLog.get(clientKey)
+	with rateLock:
+		window = rateLimitLog.get(clientKey)
 
-        if window is None:
-            window = deque()
-            rateLimitLog[clientKey] = window
+		if window is None:
+			window = deque()
+			rateLimitLog[clientKey] = window
 
-        # remove old timestamps
-        while window and now - window[0] > rateLimitWindow:
-            window.popleft()
+		# remove old timestamps
+		while window and now - window[0] > rateLimitWindow:
+			window.popleft()
 
-        if len(window) >= maxUploadsPerWindow:
-            return False
+		if len(window) >= maxUploadsPerWindow:
+			return False
 
-        window.append(now)
+		window.append(now)
 
-        # cleanup stale entries occasionally
-        if len(rateLimitLog) > 10000 and secrets.randbelow(100) == 0:
-            expired = [
-                k for k, v in rateLimitLog.items()
-                if not v or now - v[-1] > rateLimitWindow * 2
-            ]
+		# cleanup stale entries occasionally
+		if len(rateLimitLog) > 10000 and secrets.randbelow(100) == 0:
+			expired = [
+				k for k, v in rateLimitLog.items()
+				if not v or now - v[-1] > rateLimitWindow * 2
+			]
 
-            for k in expired:
-                del rateLimitLog[k]
+			for k in expired:
+				del rateLimitLog[k]
 
-        return True
+		return True
 
 def acquireUploadSlot(ip):
-    with activeLock:
-        count = activeUploads.get(ip, 0)
-        if count >= maxConcurrentUploadsPerIp:
-            return False
-        activeUploads[ip] = count + 1
-        return True
+	with activeLock:
+		count = activeUploads.get(ip, 0)
+		if count >= maxConcurrentUploadsPerIp:
+			return False
+		activeUploads[ip] = count + 1
+		return True
 
 
 def releaseUploadSlot(ip):
-    with activeLock:
-        if ip in activeUploads:
-            activeUploads[ip] -= 1
-            if activeUploads[ip] <= 0:
-                del activeUploads[ip]
+	with activeLock:
+		if ip in activeUploads:
+			activeUploads[ip] -= 1
+			if activeUploads[ip] <= 0:
+				del activeUploads[ip]
 
 def getStorageTotalLocked():
-    with storageLock:
-        try:
-            with open(storageCounterPath, "r", encoding="utf-8") as f:
-                return int(f.read().strip())
-        except Exception:
-            return 0
+	with storageLock:
+		try:
+			with open(storageCounterPath, "r", encoding="utf-8") as f:
+				return int(f.read().strip())
+		except Exception:
+			return 0
 
 def initializeStorageIfNeeded():
-    global storageInitialized
+	global storageInitialized
 
-    with storageLock:
-        if storageInitialized:
-            return
+	with storageLock:
+		if storageInitialized:
+			return
 
-        if os.path.isfile(storageCounterPath):
-            try:
-                with open(storageCounterPath, "r", encoding="utf-8") as f:
-                    int(f.read().strip())
-        
-                storageInitialized = True
-                return
-        
-            except Exception:
-                pass
+		if os.path.isfile(storageCounterPath):
+			try:
+				with open(storageCounterPath, "r", encoding="utf-8") as f:
+					int(f.read().strip())
+		
+				storageInitialized = True
+				return
+		
+			except Exception:
+				pass
 
-        total = 0
+		total = 0
 
-        for root, _, files in os.walk(uploadDir):
-            for name in files:
-                if name.endswith(".meta") or name == ".storage_total":
-                    continue
+		for root, _, files in os.walk(uploadDir):
+			for name in files:
+				if name.endswith(".meta") or name == ".storage_total":
+					continue
 
-                path = os.path.join(root, name)
+				path = os.path.join(root, name)
 
-                try:
-                    total += os.path.getsize(path)
-                except OSError:
-                    continue
+				try:
+					total += os.path.getsize(path)
+				except OSError:
+					continue
 
-        writeStorageTotal(total)
-        storageInitialized = True
+		writeStorageTotal(total)
+		storageInitialized = True
 
 def tryReserveStorage(bytesToReserve):
-    global reservedStorageBytes
+	global reservedStorageBytes
 
-    with storageLock:
-        current = readStorageTotal()
+	with storageLock:
+		current = readStorageTotal()
 
-        projected = current + (reservedStorageBytes + bytesToReserve)
+		projected = current + (reservedStorageBytes + bytesToReserve)
 
-        if projected < 0:
-            projected = 0
+		if projected < 0:
+			projected = 0
 
-        if projected > maxStorageBytes:
-            return False
+		if projected > maxStorageBytes:
+			return False
 
-        reservedStorageBytes += bytesToReserve
-        return True
+		reservedStorageBytes += bytesToReserve
+		return True
 
 
 def releaseReservedStorage(bytesToRelease):
-    global reservedStorageBytes
+	global reservedStorageBytes
 
-    with storageLock:
-        reservedStorageBytes = max(
-            0,
-            reservedStorageBytes - bytesToRelease
-        )
+	with storageLock:
+		reservedStorageBytes = max(
+			0,
+			reservedStorageBytes - bytesToRelease
+		)
 
 def generateFileId():
-    global tokenLength
-    return secrets.token_urlsafe(tokenLength)
+	global tokenLength
+	return secrets.token_urlsafe(tokenLength)
 
 def safeJoin(base, path):
-    fullPath = os.path.realpath(os.path.join(base, path))
-    if not fullPath.startswith(os.path.abspath(base) + os.sep):
-        abort(403)
-    return fullPath
+	fullPath = os.path.realpath(os.path.join(base, path))
+	if not fullPath.startswith(os.path.abspath(base) + os.sep):
+		abort(403)
+	return fullPath
 
 def sanitizeFilename(name):
-    name = os.path.basename(name)
-    name = name.lower().strip()
-    name = re.sub(r"\s+", "-", name)
-    name = re.sub(r"[^a-z0-9._-]", "", name)
-    name = re.sub(r"\.+", ".", name)
-    return name or "file"
+	name = os.path.basename(name)
+	name = name.lower().strip()
+	name = re.sub(r"\s+", "-", name)
+	name = re.sub(r"[^a-z0-9._-]", "", name)
+	name = re.sub(r"\.+", ".", name)
+	return name or "file"
 
 def getShardDirForFilename(filename):
-    fileId = filename.split(".", 1)[0]
-    return fileId[:2]
+	fileId = filename.split(".", 1)[0]
+	return fileId[:2]
 
 def getPathsForFilename(filename):
-    shardDir = safeJoin(uploadDir, getShardDirForFilename(filename))
-    filePath = safeJoin(shardDir, filename)
-    metaPath = safeJoin(shardDir, f".{filename}.meta")
-    return shardDir, filePath, metaPath
+	shardDir = safeJoin(uploadDir, getShardDirForFilename(filename))
+	filePath = safeJoin(shardDir, filename)
+	metaPath = safeJoin(shardDir, f".{filename}.meta")
+	return shardDir, filePath, metaPath
 
 def calculateExpiryTimestamp(fileSize):
-    size = min(fileSize, maxFileSize)
-    ratio = size / maxFileSize
+	size = min(fileSize, maxFileSize)
+	ratio = size / maxFileSize
 
-    # Tiny files (<20MB) stay mostly full lifetime
-    if ratio < 0.02:
-        biasedRatio = ratio
-    else:
-        # Shifted & biased ratio for medium files
-        shiftedRatio = (ratio - 0.02) / (1 - 0.02)  # normalize to 0–1
-        biasedRatio = shiftedRatio ** 0.25          # smaller exponent -> more aggressive early
+	# Tiny files (<20MB) stay mostly full lifetime
+	if ratio < 0.02:
+		biasedRatio = ratio
+	else:
+		# Shifted & biased ratio for medium files
+		shiftedRatio = (ratio - 0.02) / (1 - 0.02)  # normalize to 0â€“1
+		biasedRatio = shiftedRatio ** 0.25		  # smaller exponent -> more aggressive early
 
-    # Stronger log multiplier to collapse medium files faster
-    logRatio = math.log1p(biasedRatio * 100) / math.log1p(100)
+	# Stronger log multiplier to collapse medium files faster
+	logRatio = math.log1p(biasedRatio * 100) / math.log1p(100)
 
-    lifetime = maxAge - (maxAge - minAge) * logRatio
-    return time.time() + lifetime
+	lifetime = maxAge - (maxAge - minAge) * logRatio
+	return time.time() + lifetime
 
 def getClientKey():
-    ip = getClientIp()
-    userAgent = request.headers.get("User-Agent", "")
-    accept = request.headers.get("Accept", "")
+	ip = getClientIp()
+	userAgent = request.headers.get("User-Agent", "")
+	accept = request.headers.get("Accept", "")
 
-    raw = f"{ip}|{userAgent}|{accept}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+	raw = f"{ip}|{userAgent}|{accept}"
+	return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 def cleanupExpiredFiles(force=False):
-    global lastCleanup
-    now = time.time()
+	global lastCleanup
+	now = time.time()
 
-    if not force and (now - lastCleanup) < cleanupInterval:
-        return
+	if not force and (now - lastCleanup) < cleanupInterval:
+		return
 
-    lastCleanup = now
+	lastCleanup = now
 
-    try:
-        shardEntries = list(os.scandir(uploadDir))
-    except OSError:
-        return
+	try:
+		shardEntries = list(os.scandir(uploadDir))
+	except OSError:
+		return
 
-    if not shardEntries:
-        return
+	if not shardEntries:
+		return
 
-    for shardEntry in shardEntries:
-        if not shardEntry.is_dir():
-            continue
-        try:
-            fileEntries = list(os.scandir(shardEntry.path))
-        except OSError:
-            continue
-        for entry in fileEntries:
-            name = entry.name
-            if name.endswith(".meta") or name == ".storage_total" or not entry.is_file():
-                continue
+	for shardEntry in shardEntries:
+		if not shardEntry.is_dir():
+			continue
+		try:
+			fileEntries = list(os.scandir(shardEntry.path))
+		except OSError:
+			continue
+		for entry in fileEntries:
+			name = entry.name
+			if name.endswith(".meta") or name == ".storage_total" or not entry.is_file():
+				continue
 
-            filePath = entry.path
-            metaPath = os.path.join(shardEntry.path, f".{name}.meta")
+			filePath = entry.path
+			metaPath = os.path.join(shardEntry.path, f".{name}.meta")
 
-            if not os.path.isfile(metaPath):
-                continue
+			if not os.path.isfile(metaPath):
+				continue
 
-            try:
-                with open(filePath, "rb"):
-                    pass
-            except OSError:
-                continue
+			try:
+				with open(filePath, "rb"):
+					pass
+			except OSError:
+				continue
 
-            try:
-                with open(metaPath, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                expiry = float(data["expiry"])
-            except Exception:
-                try:
-                    os.remove(metaPath)
-                except OSError:
-                    pass
-                continue
+			try:
+				with open(metaPath, "r", encoding="utf-8") as f:
+					data = json.load(f)
+				expiry = float(data["expiry"])
+			except Exception:
+				try:
+					os.remove(metaPath)
+				except OSError:
+					pass
+				continue
 
-            if now >= expiry:
-                try:
-                    fileSize = os.path.getsize(filePath)
-                    os.remove(filePath)
-                    addStorageBytes(-fileSize)
-                except OSError:
-                    pass
-                try:
-                    os.remove(metaPath)
-                except OSError:
-                    pass
+			if now >= expiry:
+				try:
+					fileSize = os.path.getsize(filePath)
+					os.remove(filePath)
+					addStorageBytes(-fileSize)
+				except OSError:
+					pass
+				try:
+					os.remove(metaPath)
+				except OSError:
+					pass
 
-        try:
-            if not os.listdir(shardEntry.path):
-                os.rmdir(shardEntry.path)
-        except OSError:
-            pass
+		try:
+			if not os.listdir(shardEntry.path):
+				os.rmdir(shardEntry.path)
+		except OSError:
+			pass
 
 def save(fileObj, outputPath):
-    written = 0
-    startedAt = time.time()
-    tempPath = outputPath + ".tmp"
-    try:
-        with open(tempPath, "wb") as out:
-            while True:
-                chunk = fileObj.stream.read(chunkSize)
-                if not chunk:
-                    break
+	written = 0
+	startedAt = time.time()
+	tempPath = outputPath + ".tmp"
+	try:
+		with open(tempPath, "wb") as out:
+			while True:
+				chunk = fileObj.stream.read(chunkSize)
+				if not chunk:
+					break
 
-                now = time.time()
-                written += len(chunk)
-                elapsed = max(now - startedAt, 0.001)
+				now = time.time()
+				written += len(chunk)
+				elapsed = max(now - startedAt, 0.001)
 
-                if written > maxFileSize:
-                    abort(413)
-                if elapsed > uploadTimeoutSeconds:
-                    abort(408)
-                if elapsed > uploadRateGraceSeconds:
-                    if written < minUploadRateBytesPerSecond * (elapsed - uploadRateGraceSeconds):
-                        abort(408)
+				if written > maxFileSize:
+					abort(413)
+				if elapsed > uploadTimeoutSeconds:
+					abort(408)
+				if elapsed > uploadRateGraceSeconds:
+					if written < minUploadRateBytesPerSecond * (elapsed - uploadRateGraceSeconds):
+						abort(408)
 
-                out.write(chunk)
+				out.write(chunk)
 
-        os.replace(tempPath, outputPath)
-    finally:
-        if os.path.exists(tempPath):
-            try:
-                os.remove(tempPath)
-            except OSError:
-                pass
+		os.replace(tempPath, outputPath)
+	finally:
+		if os.path.exists(tempPath):
+			try:
+				os.remove(tempPath)
+			except OSError:
+				pass
 
 def iterFileRange(filePath, start, end, chunkSizeValue=1024 * 1024):
-    try:
-        with open(filePath, "rb") as f:
-            f.seek(start)
-            remaining = end - start + 1
-            while remaining > 0:
-                data = f.read(min(chunkSizeValue, remaining))
-                if not data:
-                    break
-                remaining -= len(data)
-                yield data
-    except OSError:
-        return
+	try:
+		with open(filePath, "rb") as f:
+			f.seek(start)
+			remaining = end - start + 1
+			while remaining > 0:
+				data = f.read(min(chunkSizeValue, remaining))
+				if not data:
+					break
+				remaining -= len(data)
+				yield data
+	except OSError:
+		return
 
 # ======================
 # Flask hooks
@@ -445,21 +446,21 @@ def iterFileRange(filePath, start, end, chunkSizeValue=1024 * 1024):
 
 @app.before_request
 def enforceLimits():
-    if (
-        request.content_length and
-        request.content_length > maxFileSize + multipartAllowance
-    ):
-        abort(413)
+	if (
+		request.content_length and
+		request.content_length > maxFileSize + multipartAllowance
+	):
+		abort(413)
 
 @app.after_request
 def applySecurityHeaders(response):
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    return response
+	response.headers["X-Content-Type-Options"] = "nosniff"
+	return response
 
 def cleanupLoop():
-    while True:
-        cleanupExpiredFiles(force=False)
-        time.sleep(cleanupInterval)
+	while True:
+		cleanupExpiredFiles(force=False)
+		time.sleep(cleanupInterval)
 
 cleanupThread = threading.Thread(target=cleanupLoop, daemon=True)
 cleanupThread.start()
@@ -470,16 +471,16 @@ cleanupThread.start()
 
 @app.route("/favicon.ico")
 def favicon():
-    return "", 204
+	return "", 204
 
 @app.route("/", methods=["GET", "POST"])
 def indexOrUpload():
-    if request.method == "POST":
-        return handleUpload()
-    maxFileSizeHuman = formatBytes(maxFileSize)
-    minAgeHuman = formatDuration(minAge)
-    maxAgeHuman = formatDuration(maxAge)
-    return render_template_string("""
+	if request.method == "POST":
+		return handleUpload()
+	maxFileSizeHuman = formatBytes(maxFileSize)
+	minAgeHuman = formatDuration(minAge)
+	maxAgeHuman = formatDuration(maxAge)
+	return render_template_string("""
 <!doctype html>
 <html>
 <head>
@@ -488,126 +489,126 @@ def indexOrUpload():
 <style>
 /* ====== Web 1.0-ish look & feel ====== */
 :root {
-    --bg: #c0c0c0;
-    --panel: #d4d0c8;
-    --ink: #000;
-    --link: #0000ee;
-    --vlink: #551a8b;
-    --hilite: #ffffff;
-    --shadow: #808080;
-    --darkshadow: #404040;
-    --accent1: #2f5fbf;
-    --accent2: #6fa0ff;
+	--bg: #c0c0c0;
+	--panel: #d4d0c8;
+	--ink: #000;
+	--link: #0000ee;
+	--vlink: #551a8b;
+	--hilite: #ffffff;
+	--shadow: #808080;
+	--darkshadow: #404040;
+	--accent1: #2f5fbf;
+	--accent2: #6fa0ff;
 }
 
 html, body {
-    height: 100%;
+	height: 100%;
 }
 
 body {
-    background: var(--bg);
-    color: var(--ink);
-    margin: 0;
-    padding: 18px 12px 28px;
-    font-family: Tahoma, Verdana, Arial, sans-serif;
-    font-size: 14px;
-    line-height: 1.45;
+	background: var(--bg);
+	color: var(--ink);
+	margin: 0;
+	padding: 18px 12px 28px;
+	font-family: Tahoma, Verdana, Arial, sans-serif;
+	font-size: 14px;
+	line-height: 1.45;
 }
 
 /* A tiny dither-ish pattern to feel "old web"
 body:before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-        linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
-    background-size: 6px 6px;
-    mix-blend-mode: multiply;
-    opacity: 0.35;
+	content: "";
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	background-image:
+		linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+	background-size: 6px 6px;
+	mix-blend-mode: multiply;
+	opacity: 0.35;
 }
 */
 
 .window {
-    width: min(960px, calc(100% - 16px));
-    margin: 0 auto;
-    background: var(--panel);
-    border: 1px solid var(--darkshadow);
-    box-shadow:
-        inset 1px 1px 0 var(--hilite),
-        inset -1px -1px 0 var(--shadow);
+	width: min(960px, calc(100% - 16px));
+	margin: 0 auto;
+	background: var(--panel);
+	border: 1px solid var(--darkshadow);
+	box-shadow:
+		inset 1px 1px 0 var(--hilite),
+		inset -1px -1px 0 var(--shadow);
 }
 
 .titlebar {
-    padding: 6px 10px;
-    color: #fff;
-    font-weight: bold;
-    letter-spacing: 0.2px;
-    font-size: clamp(14px, 4.3vw, 18px);
-    background: linear-gradient(90deg, var(--accent1), var(--accent2));
-    border-bottom: 1px solid var(--darkshadow);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+	padding: 6px 10px;
+	color: #fff;
+	font-weight: bold;
+	letter-spacing: 0.2px;
+	font-size: clamp(14px, 4.3vw, 18px);
+	background: linear-gradient(90deg, var(--accent1), var(--accent2));
+	border-bottom: 1px solid var(--darkshadow);
+	box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
 }
 
 .content {
-    padding: 14px 14px 18px;
+	padding: 14px 14px 18px;
 }
 
 .toolbar {
-    font-size: 12px;
-    color: #111;
-    background: #e7e4dc;
-    border: 1px solid var(--shadow);
-    box-shadow:
-        inset 1px 1px 0 var(--hilite),
-        inset -1px -1px 0 #b0b0b0;
-    padding: 8px 10px;
-    margin: 10px 0 14px;
+	font-size: 12px;
+	color: #111;
+	background: #e7e4dc;
+	border: 1px solid var(--shadow);
+	box-shadow:
+		inset 1px 1px 0 var(--hilite),
+		inset -1px -1px 0 #b0b0b0;
+	padding: 8px 10px;
+	margin: 10px 0 14px;
 }
 
 .intro {
-    background: linear-gradient(#ffffff, #f1efe9);
-    border: 1px solid #6c7a96;
-    border-radius: 12px;
-    padding: 12px 12px 12px;
-    box-shadow:
-        inset 1px 1px 0 #ffffff,
-        inset -1px -1px 0 #7a869e,
-        0 2px 0 rgba(0,0,0,0.08),
-        0 10px 18px rgba(0,0,0,0.06);
+	background: linear-gradient(#ffffff, #f1efe9);
+	border: 1px solid #6c7a96;
+	border-radius: 12px;
+	padding: 12px 12px 12px;
+	box-shadow:
+		inset 1px 1px 0 #ffffff,
+		inset -1px -1px 0 #7a869e,
+		0 2px 0 rgba(0,0,0,0.08),
+		0 10px 18px rgba(0,0,0,0.06);
 }
 
 .intro p {
-    margin: 0;
+	margin: 0;
 }
 
 .section {
-    margin: 14px 0;
-    padding: 10px 10px 12px;
-    background: #efeee9;
-    border: 1px solid var(--shadow);
-    box-shadow:
-        inset 1px 1px 0 var(--hilite),
-        inset -1px -1px 0 #b0b0b0;
+	margin: 14px 0;
+	padding: 10px 10px 12px;
+	background: #efeee9;
+	border: 1px solid var(--shadow);
+	box-shadow:
+		inset 1px 1px 0 var(--hilite),
+		inset -1px -1px 0 #b0b0b0;
 }
 
 .section h3 {
-    margin: 0 0 12px;
-    font-size: 14px;
-    font-weight: bold;
-    letter-spacing: 0.2px;
-    color: #0b0b0b;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #000; /* thin black line below titles */
+	margin: 0 0 12px;
+	font-size: 14px;
+	font-weight: bold;
+	letter-spacing: 0.2px;
+	color: #0b0b0b;
+	padding-bottom: 6px;
+	border-bottom: 1px solid #000; /* thin black line below titles */
 }
 
 hr {
-    border: 0;
-    height: 0;
-    border-top: 1px solid var(--shadow);
-    border-bottom: 1px solid var(--hilite);
-    margin: 14px 0;
+	border: 0;
+	height: 0;
+	border-top: 1px solid var(--shadow);
+	border-bottom: 1px solid var(--hilite);
+	margin: 14px 0;
 }
 
 a:link { color: var(--link); text-decoration: underline; }
@@ -616,336 +617,336 @@ a:hover { background: #fffdcf; }
 
 /* Upload queue + returned-links panel (white only after first link) */
 #outWrap {
-    margin: 10px 0 0;
+	margin: 10px 0 0;
 }
 
 #out {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    background: transparent;
-    border: 0;
-    box-shadow: none;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	background: transparent;
+	border: 0;
+	box-shadow: none;
 }
 
 #outWrap.hasLinks {
-    padding: 10px;
-    background: #fff;
-    border: 1px solid #6c7a96;
-    border-radius: 12px;
-    box-shadow:
-        inset 1px 1px 0 #ffffff,
-        inset -1px -1px 0 #7a869e,
-        0 2px 0 rgba(0,0,0,0.08);
+	padding: 10px;
+	background: #fff;
+	border: 1px solid #6c7a96;
+	border-radius: 12px;
+	box-shadow:
+		inset 1px 1px 0 #ffffff,
+		inset -1px -1px 0 #7a869e,
+		0 2px 0 rgba(0,0,0,0.08);
 }
 
 #out li {
-    margin: 8px 0 0;
-    padding: 0;
-    background: transparent;
-    border: 0;
-    box-shadow: none;
+	margin: 8px 0 0;
+	padding: 0;
+	background: transparent;
+	border: 0;
+	box-shadow: none;
 }
 
-/* Make “result links” feel like clickable UI */
+/* Make â€œresult linksâ€ feel like clickable UI */
 #out a {
-    display: inline-block;
-    padding: 4px 9px 5px;
-    border-radius: 999px;
-    text-decoration: none;
-    color: #0b1a33;
-    font-size: 12px;
-    line-height: 1;
-    vertical-align: middle;
-    white-space: nowrap;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.12) 42%, rgba(0,0,0,0.06) 100%),
-        linear-gradient(180deg, #f2f2f2, #cfcfcf);
-    border: 1px solid #4a4a4a;
-    box-shadow:
-        0 0 0 2px #b9b9b9,
-        inset 0 1px 0 rgba(255,255,255,0.85),
-        inset 0 -2px 0 rgba(0,0,0,0.18),
-        0 2px 0 rgba(0,0,0,0.18),
-        0 6px 10px rgba(0,0,0,0.10);
-    font-weight: 700;
-    letter-spacing: 0.15px;
+	display: inline-block;
+	padding: 4px 9px 5px;
+	border-radius: 999px;
+	text-decoration: none;
+	color: #0b1a33;
+	font-size: 12px;
+	line-height: 1;
+	vertical-align: middle;
+	white-space: nowrap;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	background:
+		linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.12) 42%, rgba(0,0,0,0.06) 100%),
+		linear-gradient(180deg, #f2f2f2, #cfcfcf);
+	border: 1px solid #4a4a4a;
+	box-shadow:
+		0 0 0 2px #b9b9b9,
+		inset 0 1px 0 rgba(255,255,255,0.85),
+		inset 0 -2px 0 rgba(0,0,0,0.18),
+		0 2px 0 rgba(0,0,0,0.18),
+		0 6px 10px rgba(0,0,0,0.10);
+	font-weight: 700;
+	letter-spacing: 0.15px;
 }
 
 #out a:hover {
-    filter: brightness(1.03) contrast(1.03);
+	filter: brightness(1.03) contrast(1.03);
 }
 
 #out a:active {
-    transform: translateY(1px);
-    box-shadow:
-        0 0 0 2px #b9b9b9,
-        inset 0 1px 0 rgba(255,255,255,0.70),
-        inset 0 -1px 0 rgba(0,0,0,0.16),
-        0 1px 0 rgba(0,0,0,0.20),
-        0 3px 6px rgba(0,0,0,0.12);
+	transform: translateY(1px);
+	box-shadow:
+		0 0 0 2px #b9b9b9,
+		inset 0 1px 0 rgba(255,255,255,0.70),
+		inset 0 -1px 0 rgba(0,0,0,0.16),
+		0 1px 0 rgba(0,0,0,0.20),
+		0 3px 6px rgba(0,0,0,0.12);
 }
 
 pre, code {
-    font-family: "Courier New", Courier, monospace;
-    font-size: 13px;
+	font-family: "Courier New", Courier, monospace;
+	font-size: 13px;
 }
 
 pre {
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.12) 45%, rgba(0,0,0,0.06) 100%),
-        linear-gradient(180deg, #ffffff, #f3f3f3);
-    border: 1px solid #4a4a4a;
-    border-radius: 14px;
-    box-shadow:
-        0 0 0 1.5px #b9b9b9,
-        inset 0 1px 0 rgba(255,255,255,0.85),
-        inset 0 -2px 0 rgba(0,0,0,0.08),
-        inset 2px 0 0 rgba(255,255,255,0.25),
-        inset -2px 0 0 rgba(0,0,0,0.06),
-        0 2px 0 rgba(0,0,0,0.12),
-        0 10px 18px rgba(0,0,0,0.08);
-    position: relative;
-    color: #0b1a33;
-    padding: 10px;
-    overflow-x: auto;
-    margin: 8px 0 10px;
+	background:
+		linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.12) 45%, rgba(0,0,0,0.06) 100%),
+		linear-gradient(180deg, #ffffff, #f3f3f3);
+	border: 1px solid #4a4a4a;
+	border-radius: 14px;
+	box-shadow:
+		0 0 0 1.5px #b9b9b9,
+		inset 0 1px 0 rgba(255,255,255,0.85),
+		inset 0 -2px 0 rgba(0,0,0,0.08),
+		inset 2px 0 0 rgba(255,255,255,0.25),
+		inset -2px 0 0 rgba(0,0,0,0.06),
+		0 2px 0 rgba(0,0,0,0.12),
+		0 10px 18px rgba(0,0,0,0.08);
+	position: relative;
+	color: #0b1a33;
+	padding: 10px;
+	overflow-x: auto;
+	margin: 8px 0 10px;
 }
 
 pre:before {
-    content: "";
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    top: 6px;
-    height: 36%;
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.10));
-    pointer-events: none;
+	content: "";
+	position: absolute;
+	left: 12px;
+	right: 12px;
+	top: 6px;
+	height: 36%;
+	border-radius: 999px;
+	background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.10));
+	pointer-events: none;
 }
 
 code {
-    display: inline;
-    padding: 1px 4px 1px;
-    background: #fff7c7;
-    border: 1px solid #9a8f55;
-    box-shadow:
-        inset 1px 1px 0 rgba(255,255,255,0.85),
-        inset -1px -1px 0 rgba(0,0,0,0.10);
-    font-weight: 700;
-    letter-spacing: 0.15px;
-    line-height: 1.2;
-    vertical-align: baseline;
+	display: inline;
+	padding: 1px 4px 1px;
+	background: #fff7c7;
+	border: 1px solid #9a8f55;
+	box-shadow:
+		inset 1px 1px 0 rgba(255,255,255,0.85),
+		inset -1px -1px 0 rgba(0,0,0,0.10);
+	font-weight: 700;
+	letter-spacing: 0.15px;
+	line-height: 1.2;
+	vertical-align: baseline;
 }
 
 ul {
-    margin: 8px 0 0 18px;
-    padding: 0;
+	margin: 8px 0 0 18px;
+	padding: 0;
 }
 
 li {
-    margin: 6px 0;
+	margin: 6px 0;
 }
 
 small {
-    color: #222;
+	color: #222;
 }
 
 input[type="file"] {
-    font-family: inherit;
-    font-size: 13px;
-    padding: 2px;
-    background: #fff;
-    border: 1px solid var(--shadow);
-    box-shadow:
-        inset 1px 1px 0 var(--hilite),
-        inset -1px -1px 0 #b0b0b0;
+	font-family: inherit;
+	font-size: 13px;
+	padding: 2px;
+	background: #fff;
+	border: 1px solid var(--shadow);
+	box-shadow:
+		inset 1px 1px 0 var(--hilite),
+		inset -1px -1px 0 #b0b0b0;
 }
 
 /* ===== Progress Bar (already Web 1.0 style) ===== */
 
 .progressWrap {
-    width: 100%;
-    height: 10px;
-    border-radius: 999px;
-    background: linear-gradient(#d0d8e8, #aab7cf);
-    border: 1px solid #6c7a96;
-    box-shadow:
-        inset 1px 1px 0 #ffffff,
-        inset -1px -1px 0 #7a869e;
-    overflow: hidden;
-    margin-top: 6px;
+	width: 100%;
+	height: 10px;
+	border-radius: 999px;
+	background: linear-gradient(#d0d8e8, #aab7cf);
+	border: 1px solid #6c7a96;
+	box-shadow:
+		inset 1px 1px 0 #ffffff,
+		inset -1px -1px 0 #7a869e;
+	overflow: hidden;
+	margin-top: 6px;
 }
 
 .progressBar {
-    height: 100%;
-    width: 0%;
-    border-radius: 999px;
-    background:
-        linear-gradient(
-            135deg,
-            rgba(255,255,255,0.25) 25%,
-            rgba(0,0,0,0.05) 25%,
-            rgba(0,0,0,0.05) 50%,
-            rgba(255,255,255,0.25) 50%,
-            rgba(255,255,255,0.25) 75%,
-            rgba(0,0,0,0.05) 75%
-        ),
-        linear-gradient(#6fa0ff, #2f5fbf);
+	height: 100%;
+	width: 0%;
+	border-radius: 999px;
+	background:
+		linear-gradient(
+			135deg,
+			rgba(255,255,255,0.25) 25%,
+			rgba(0,0,0,0.05) 25%,
+			rgba(0,0,0,0.05) 50%,
+			rgba(255,255,255,0.25) 50%,
+			rgba(255,255,255,0.25) 75%,
+			rgba(0,0,0,0.05) 75%
+		),
+		linear-gradient(#6fa0ff, #2f5fbf);
 
-    background-size: 20px 20px, 100% 100%;
-    animation: moveStripes 1s linear infinite;
+	background-size: 20px 20px, 100% 100%;
+	animation: moveStripes 1s linear infinite;
 
-    box-shadow:
-        inset 1px 1px 0 rgba(255,255,255,0.6),
-        inset -1px -1px 0 rgba(0,0,0,0.3);
+	box-shadow:
+		inset 1px 1px 0 rgba(255,255,255,0.6),
+		inset -1px -1px 0 rgba(0,0,0,0.3);
 }
 
 /* Moving diagonal stripes */
 @keyframes moveStripes {
-    from { background-position: 0 0, 0 0; }
-    to   { background-position: -20px 0, 0 0; }
+	from { background-position: 0 0, 0 0; }
+	to   { background-position: -20px 0, 0 0; }
 }
 
 h2 {
-    margin: 0;
-    font-size: clamp(18px, 4.8vw, 22px);
-    line-height: 1.15;
+	margin: 0;
+	font-size: clamp(18px, 4.8vw, 22px);
+	line-height: 1.15;
 }
 
 #drop {
-    border: 1px solid var(--darkshadow);
-    border-radius: 16px;
-    padding: 16px 12px 14px;
-    text-align: center;
-    cursor: pointer;
-    margin-top: 10px;
-    background: linear-gradient(#ffffff, #f3f1ea);
-    box-shadow:
-        inset 1px 1px 0 var(--hilite),
-        inset -1px -1px 0 #b0b0b0,
-        inset 0 10px 18px rgba(255,255,255,0.55),
-        inset 0 -10px 18px rgba(0,0,0,0.06);
+	border: 1px solid var(--darkshadow);
+	border-radius: 16px;
+	padding: 16px 12px 14px;
+	text-align: center;
+	cursor: pointer;
+	margin-top: 10px;
+	background: linear-gradient(#ffffff, #f3f1ea);
+	box-shadow:
+		inset 1px 1px 0 var(--hilite),
+		inset -1px -1px 0 #b0b0b0,
+		inset 0 10px 18px rgba(255,255,255,0.55),
+		inset 0 -10px 18px rgba(0,0,0,0.06);
 }
 #drop.hover {
-    background: linear-gradient(#fffeea, #fff4b8);
+	background: linear-gradient(#fffeea, #fff4b8);
 }
 
 .dropHint {
-    display: block;
-    margin-bottom: 10px;
+	display: block;
+	margin-bottom: 10px;
 }
 
 /* Hide the real file input, keep it accessible via label/JS */
 #fileInput {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 }
 
 /* Tactile Web 1.0 pill button with metallic rim */
 .fileBtn {
-    display: inline-block;
-    user-select: none;
-    cursor: pointer;
-    font-family: Tahoma, Verdana, Arial, sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.2px;
-    color: #0a0a0a;
+	display: inline-block;
+	user-select: none;
+	cursor: pointer;
+	font-family: Tahoma, Verdana, Arial, sans-serif;
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.2px;
+	color: #0a0a0a;
 
-    padding: 8px 18px 9px;
-    border-radius: 999px; /* semi-circle sides */
+	padding: 8px 18px 9px;
+	border-radius: 999px; /* semi-circle sides */
 
-    /* border radius-safe metallic rim */
-    border: 1px solid #4a4a4a;
+	/* border radius-safe metallic rim */
+	border: 1px solid #4a4a4a;
 
-    /* blue button body with top highlight + bottom shade */
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.10) 38%, rgba(0,0,0,0.08) 100%),
-        linear-gradient(180deg, #8fb6ff, #3c6fd7);
+	/* blue button body with top highlight + bottom shade */
+	background:
+		linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.10) 38%, rgba(0,0,0,0.08) 100%),
+		linear-gradient(180deg, #8fb6ff, #3c6fd7);
 
-    /* subtle diagonal sheen like your progress bar */
-    box-shadow:
-        0 0 0 2px #b9b9b9,
-        inset 0 1px 0 rgba(255,255,255,0.75),
-        inset 0 -2px 0 rgba(0,0,0,0.28),
-        inset 2px 0 0 rgba(255,255,255,0.25),
-        inset -2px 0 0 rgba(0,0,0,0.12),
-        0 2px 0 rgba(0,0,0,0.25),
-        0 6px 10px rgba(0,0,0,0.15);
+	/* subtle diagonal sheen like your progress bar */
+	box-shadow:
+		0 0 0 2px #b9b9b9,
+		inset 0 1px 0 rgba(255,255,255,0.75),
+		inset 0 -2px 0 rgba(0,0,0,0.28),
+		inset 2px 0 0 rgba(255,255,255,0.25),
+		inset -2px 0 0 rgba(0,0,0,0.12),
+		0 2px 0 rgba(0,0,0,0.25),
+		0 6px 10px rgba(0,0,0,0.15);
 
-    position: relative;
+	position: relative;
 }
 
 /* Metallic/etched label styling */
 .fileBtnText {
-    display: inline-block;
-    position: relative;
-    z-index: 1; /* above glossy strip */
+	display: inline-block;
+	position: relative;
+	z-index: 1; /* above glossy strip */
 
-    /* Darker colored "metal" gradient text (flat, not embossed) */
-    color: #10223d; /* fallback for browsers without background-clip:text */
-    background: linear-gradient(180deg, #0b1a33 0%, #415a7a 35%, #162a47 70%, #0b1a33 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+	/* Darker colored "metal" gradient text (flat, not embossed) */
+	color: #10223d; /* fallback for browsers without background-clip:text */
+	background: linear-gradient(180deg, #0b1a33 0%, #415a7a 35%, #162a47 70%, #0b1a33 100%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
 
-    /* Slight "curved to pill" feel */
-    transform: perspective(700px) rotateX(7deg);
-    transform-origin: center;
-    letter-spacing: 0.3px;
+	/* Slight "curved to pill" feel */
+	transform: perspective(700px) rotateX(7deg);
+	transform-origin: center;
+	letter-spacing: 0.3px;
 }
 
 /* glossy top strip */
 .fileBtn:before {
-    content: "";
-    position: absolute;
-    left: 10px;
-    right: 10px;
-    top: 4px;
-    height: 42%;
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.10));
-    pointer-events: none;
+	content: "";
+	position: absolute;
+	left: 10px;
+	right: 10px;
+	top: 4px;
+	height: 42%;
+	border-radius: 999px;
+	background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.10));
+	pointer-events: none;
 }
 
 .fileBtn:hover {
-    filter: brightness(1.03) contrast(1.03);
+	filter: brightness(1.03) contrast(1.03);
 }
 
 .fileBtn:active {
-    transform: translateY(1px);
-    box-shadow:
-        0 0 0 2px #b9b9b9,
-        inset 0 1px 0 rgba(255,255,255,0.55),
-        inset 0 -1px 0 rgba(0,0,0,0.25),
-        inset 2px 0 0 rgba(255,255,255,0.18),
-        inset -2px 0 0 rgba(0,0,0,0.10),
-        0 1px 0 rgba(0,0,0,0.28),
-        0 3px 6px rgba(0,0,0,0.18);
+	transform: translateY(1px);
+	box-shadow:
+		0 0 0 2px #b9b9b9,
+		inset 0 1px 0 rgba(255,255,255,0.55),
+		inset 0 -1px 0 rgba(0,0,0,0.25),
+		inset 2px 0 0 rgba(255,255,255,0.18),
+		inset -2px 0 0 rgba(0,0,0,0.10),
+		0 1px 0 rgba(0,0,0,0.28),
+		0 3px 6px rgba(0,0,0,0.18);
 }
 
 .fileBtn:focus-visible {
-    outline: none;
-    box-shadow:
-        0 0 0 2px #b9b9b9,
-        0 0 0 4px rgba(0,0,0,0.18),
-        inset 0 1px 0 rgba(255,255,255,0.75),
-        inset 0 -2px 0 rgba(0,0,0,0.28),
-        inset 2px 0 0 rgba(255,255,255,0.25),
-        inset -2px 0 0 rgba(0,0,0,0.12),
-        0 2px 0 rgba(0,0,0,0.25),
-        0 6px 10px rgba(0,0,0,0.15);
+	outline: none;
+	box-shadow:
+		0 0 0 2px #b9b9b9,
+		0 0 0 4px rgba(0,0,0,0.18),
+		inset 0 1px 0 rgba(255,255,255,0.75),
+		inset 0 -2px 0 rgba(0,0,0,0.28),
+		inset 2px 0 0 rgba(255,255,255,0.25),
+		inset -2px 0 0 rgba(0,0,0,0.12),
+		0 2px 0 rgba(0,0,0,0.25),
+		0 6px 10px rgba(0,0,0,0.15);
 }
 </style>
 </head>
@@ -988,7 +989,7 @@ Or, simply choose a file and upload it using the web interface below.
 
 <div id="drop">
 <span class="dropHint">Drag &amp; drop files here</span>
-<label class="fileBtn" for="fileInput"><span class="fileBtnText">Choose file(s)…</span></label>
+<label class="fileBtn" for="fileInput"><span class="fileBtnText">Choose file(s)</span></label>
 <input type="file" id="fileInput" multiple>
 </div>
 
@@ -1058,177 +1059,177 @@ const out = document.getElementById("out");
 const outWrap = document.getElementById("outWrap");
 
 function upload(file) {
-    if (file.size > maxFileSize) {
-        const li = document.createElement("li");
-        li.textContent = `${file.name} rejected (file too large)`;
-        out.appendChild(li);
-        return;
-    }
+	if (file.size > maxFileSize) {
+		const li = document.createElement("li");
+		li.textContent = `${file.name} rejected (file too large)`;
+		out.appendChild(li);
+		return;
+	}
 
-    const li = document.createElement("li");
-    li.textContent = file.name;
+	const li = document.createElement("li");
+	li.textContent = file.name;
 
-    const progressWrap = document.createElement("div");
-    progressWrap.className = "progressWrap";
+	const progressWrap = document.createElement("div");
+	progressWrap.className = "progressWrap";
 
-    const progressBar = document.createElement("div");
-    progressBar.className = "progressBar";
+	const progressBar = document.createElement("div");
+	progressBar.className = "progressBar";
 
-    progressWrap.appendChild(progressBar);
-    li.appendChild(progressWrap);
-    out.appendChild(li);
+	progressWrap.appendChild(progressBar);
+	li.appendChild(progressWrap);
+	out.appendChild(li);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/upload");
+	const xhr = new XMLHttpRequest();
+	xhr.open("POST", "/upload");
 
-    // =========================
-    // Artificial progress state
-    // =========================
-    let realProgress = 0;
-    let displayProgress = 0;
-    let uploadDone = false;
-    let responseUrl = null;
+	// =========================
+	// Artificial progress state
+	// =========================
+	let realProgress = 0;
+	let displayProgress = 0;
+	let uploadDone = false;
+	let responseUrl = null;
 
-    // Max catch-up movement speed for the *displayed* progress.
-    // Kept deliberately low to avoid visible "jumps" when real progress leaps.
-    const maxSpeed = 60 / 1000; // % per ms (60% in 1s)
+	// Max catch-up movement speed for the *displayed* progress.
+	// Kept deliberately low to avoid visible "jumps" when real progress leaps.
+	const maxSpeed = {{maxSpeed}} //60 / 1000; // % per ms (60% in 1s)
 
-    // When the tab is throttled/backgrounded, RAF can resume with a large delta.
-    // Clamp delta so we don't fast-forward the animation.
-    const maxDeltaMs = 80; // hard cap on per-frame delta used for animation
+	// When the tab is throttled/backgrounded, RAF can resume with a large delta.
+	// Clamp delta so we don't fast-forward the animation.
+	const maxDeltaMs = 80; // hard cap on per-frame delta used for animation
 
-    let lastTime = performance.now();
+	let lastTime = performance.now();
 
-    function tick(now) {
-        const rawDelta = now - lastTime;
-        lastTime = now;
+	function tick(now) {
+		const rawDelta = now - lastTime;
+		lastTime = now;
 
-        // Max allowed movement this frame
-        const delta = Math.min(rawDelta, maxDeltaMs);
-        const maxStep = maxSpeed * delta;
+		// Max allowed movement this frame
+		const delta = Math.min(rawDelta, maxDeltaMs);
+		const maxStep = maxSpeed * delta;
 
-        // Move toward real progress
-        const diff = realProgress - displayProgress;
+		// Move toward real progress
+		const diff = realProgress - displayProgress;
 
-        if (diff > 0) {
-            displayProgress += Math.min(diff, maxStep);
-        }
+		if (diff > 0) {
+			displayProgress += Math.min(diff, maxStep);
+		}
 
-        // Clamp
-        if (displayProgress > 100) displayProgress = 100;
+		// Clamp
+		if (displayProgress > 100) displayProgress = 100;
 
-        progressBar.style.width = displayProgress + "%";
+		progressBar.style.width = displayProgress + "%";
 
-        // Completion condition
-        if (uploadDone && displayProgress >= 100) {
-            const a = document.createElement("a");
-            a.href = responseUrl;
-            a.textContent = responseUrl;
-            a.target = "_blank";
+		// Completion condition
+		if (uploadDone && displayProgress >= 100) {
+			const a = document.createElement("a");
+			a.href = responseUrl;
+			a.textContent = responseUrl;
+			a.target = "_blank";
 
-            li.innerHTML = "";
-            li.appendChild(a);
-            outWrap.classList.add("hasLinks");
-            return;
-        }
+			li.innerHTML = "";
+			li.appendChild(a);
+			outWrap.classList.add("hasLinks");
+			return;
+		}
 
-        requestAnimationFrame(tick);
-    }
+		requestAnimationFrame(tick);
+	}
 
-    requestAnimationFrame(tick);
+	requestAnimationFrame(tick);
 
-    // =========================
-    // Real progress tracking
-    // =========================
-    xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-            realProgress = (e.loaded / e.total) * 100;
-        }
-    };
+	// =========================
+	// Real progress tracking
+	// =========================
+	xhr.upload.onprogress = (e) => {
+		if (e.lengthComputable) {
+			realProgress = (e.loaded / e.total) * 100;
+		}
+	};
 
-    xhr.onload = () => {
-        if (xhr.status === 200) {
-            try {
-                const payload = JSON.parse(xhr.responseText);
-                responseUrl = payload.url;
-            } catch {
-                li.textContent = `${file.name} failed (bad server response)`;
-                return;
-            }
-            if (!responseUrl) {
-                li.textContent = `${file.name} failed (missing URL)`;
-                return;
-            }
-            realProgress = 100; // force target to 100
-            uploadDone = true;
-        } else {
-            li.textContent = `${file.name} failed (${xhr.status})`;
-        }
-    };
+	xhr.onload = () => {
+		if (xhr.status === 200) {
+			try {
+				const payload = JSON.parse(xhr.responseText);
+				responseUrl = payload.url;
+			} catch {
+				li.textContent = `${file.name} failed (bad server response)`;
+				return;
+			}
+			if (!responseUrl) {
+				li.textContent = `${file.name} failed (missing URL)`;
+				return;
+			}
+			realProgress = 100; // force target to 100
+			uploadDone = true;
+		} else {
+			li.textContent = `${file.name} failed (${xhr.status})`;
+		}
+	};
 
-    xhr.onerror = () => {
-        li.textContent = `${file.name} failed`;
-    };
+	xhr.onerror = () => {
+		li.textContent = `${file.name} failed`;
+	};
 
-    const form = new FormData();
-    form.append("file", file);
+	const form = new FormData();
+	form.append("file", file);
 
-    xhr.send(form);
+	xhr.send(form);
 }
 
 drop.addEventListener("dragover", e => {
-    e.preventDefault();
-    drop.classList.add("hover");
+	e.preventDefault();
+	drop.classList.add("hover");
 });
 
 drop.addEventListener("dragleave", () => {
-    drop.classList.remove("hover");
+	drop.classList.remove("hover");
 });
 
 drop.addEventListener("drop", e => {
-    e.preventDefault();
-    drop.classList.remove("hover");
-    [...e.dataTransfer.files].forEach(upload);
+	e.preventDefault();
+	drop.classList.remove("hover");
+	[...e.dataTransfer.files].forEach(upload);
 });
 
 drop.addEventListener("click", () => input.click());
 
 input.addEventListener("change", () => {
-    [...input.files].forEach(upload);
-    input.value = "";
+	[...input.files].forEach(upload);
+	input.value = "";
 });
 
 document.addEventListener("paste", e => {
-    if (!e.clipboardData) {
-        return;
-    }
+	if (!e.clipboardData) {
+		return;
+	}
 
-    const items = e.clipboardData.items;
-    if (!items) {
-        return;
-    }
+	const items = e.clipboardData.items;
+	if (!items) {
+		return;
+	}
 
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
+	for (let i = 0; i < items.length; i++) {
+		const item = items[i];
 
-        if (item.kind === "file") {
-            const file = item.getAsFile();
-            if (!file) {
-                continue;
-            }
+		if (item.kind === "file") {
+			const file = item.getAsFile();
+			if (!file) {
+				continue;
+			}
 
-            // Some clipboard images have empty names
-            if (!file.name) {
-                const ext = file.type ? file.type.split("/")[1] : "bin";
-                const timestamp = Date.now();
-                Object.defineProperty(file, "name", {
-                    value: `pasted-${timestamp}.${ext}`,
-                });
-            }
+			// Some clipboard images have empty names
+			if (!file.name) {
+				const ext = file.type ? file.type.split("/")[1] : "bin";
+				const timestamp = Date.now();
+				Object.defineProperty(file, "name", {
+					value: `pasted-${timestamp}.${ext}`,
+				});
+			}
 
-            upload(file);
-        }
-    }
+			upload(file);
+		}
+	}
 });
 </script>
 
@@ -1237,220 +1238,220 @@ document.addEventListener("paste", e => {
 
 </body>
 </html>
-""", maxFileSize=maxFileSize, maxFileSizeHuman=maxFileSizeHuman, minAgeHuman=minAgeHuman, maxAgeHuman=maxAgeHuman, host=request.host_url.rstrip("/"))
+""", maxFileSize=maxFileSize, maxFileSizeHuman=maxFileSizeHuman, minAgeHuman=minAgeHuman, maxAgeHuman=maxAgeHuman, host=request.host_url.rstrip("/"), maxSpeed=maxSpeed)
 
 
 @app.route("/upload", methods=["POST"])
 def handleUpload():
-    clientIp = getClientIp()
+	clientIp = getClientIp()
 
-    clientKey = getClientKey()
-    
-    if not checkRateLimit(clientKey):
-        abort(429)
+	clientKey = getClientKey()
+	
+	if not checkRateLimit(clientKey):
+		abort(429)
 
-    if not acquireUploadSlot(clientIp):
-        abort(429)
+	if not acquireUploadSlot(clientIp):
+		abort(429)
 
-    reservedAmount = 0
+	reservedAmount = 0
 
-    try:
-        announcedSize = request.content_length
+	try:
+		announcedSize = request.content_length
 
-        # Flask multipart includes form overhead,
-        # so only trust positive reasonable values.
-        if announcedSize and announcedSize > 0:
-            reserveSize = min(announcedSize, maxFileSize)
-        else:
-            reserveSize = maxFileSize
+		# Flask multipart includes form overhead,
+		# so only trust positive reasonable values.
+		if announcedSize and announcedSize > 0:
+			reserveSize = min(announcedSize, maxFileSize)
+		else:
+			reserveSize = maxFileSize
 
-        reservedAmount = reserveSize
-        
-        if not tryReserveStorage(reserveSize):
-            reservedAmount = 0
-            abort(507)
+		reservedAmount = reserveSize
+		
+		if not tryReserveStorage(reserveSize):
+			reservedAmount = 0
+			abort(507)
 
-        if "file" not in request.files:
-            abort(400)
+		if "file" not in request.files:
+			abort(400)
 
-        fileObj = request.files["file"]
+		fileObj = request.files["file"]
 
-        if (
-            fileObj.content_length and
-            fileObj.content_length > maxFileSize + multipartAllowance
-        ):
-            abort(413)
+		if (
+			fileObj.content_length and
+			fileObj.content_length > maxFileSize + multipartAllowance
+		):
+			abort(413)
 
-        name = fileObj.filename or "file"
+		name = fileObj.filename or "file"
 
-        if len(name) > 200:
-            abort(400)
+		if len(name) > 200:
+			abort(400)
 
-        name = sanitizeFilename(name)
-        ext = os.path.splitext(name)[1].lower()
-        name = name.strip()
+		name = sanitizeFilename(name)
+		ext = os.path.splitext(name)[1].lower()
+		name = name.strip()
 
-        #if ext in dangerousExts:abort(400)
+		#if ext in dangerousExts:abort(400)
 
-        if name.startswith(".") and ext == "":
-            ext = name.lower()
+		if name.startswith(".") and ext == "":
+			ext = name.lower()
 
-        while True:
-            fileId = generateFileId()
-            finalName = f"{fileId}{ext}"
-        
-            shardDir, outputPath, metaPath = getPathsForFilename(finalName)
-        
-            if not os.path.exists(outputPath):
-                break
-        
-        os.makedirs(shardDir, exist_ok=True)
+		while True:
+			fileId = generateFileId()
+			finalName = f"{fileId}{ext}"
+		
+			shardDir, outputPath, metaPath = getPathsForFilename(finalName)
+		
+			if not os.path.exists(outputPath):
+				break
+		
+		os.makedirs(shardDir, exist_ok=True)
 
-        if getStorageTotalLocked() >= maxStorageBytes:
-            abort(507)
+		if getStorageTotalLocked() >= maxStorageBytes:
+			abort(507)
 
-        save(fileObj, outputPath)
+		save(fileObj, outputPath)
 
-        fileSize = os.path.getsize(outputPath)
+		fileSize = os.path.getsize(outputPath)
 
-        if reservedAmount > fileSize:
-            releaseReservedStorage(reservedAmount - fileSize)
-            reservedAmount = fileSize
+		if reservedAmount > fileSize:
+			releaseReservedStorage(reservedAmount - fileSize)
+			reservedAmount = fileSize
 
-        addStorageBytes(fileSize)
+		addStorageBytes(fileSize)
 
-        expiry = calculateExpiryTimestamp(fileSize)
+		expiry = calculateExpiryTimestamp(fileSize)
 
-        with open(metaPath, "w", encoding="utf-8") as f:
-            json.dump({"expiry": expiry}, f)
+		with open(metaPath, "w", encoding="utf-8") as f:
+			json.dump({"expiry": expiry}, f)
 
-        url = f"{request.host_url.rstrip('/')}/{finalName}"
-        return jsonify({"url": url})
+		url = f"{request.host_url.rstrip('/')}/{finalName}"
+		return jsonify({"url": url})
 
-    finally:
-        if reservedAmount > 0:
-            releaseReservedStorage(reservedAmount)
+	finally:
+		if reservedAmount > 0:
+			releaseReservedStorage(reservedAmount)
 
-        releaseUploadSlot(clientIp)
+		releaseUploadSlot(clientIp)
 
 @app.route("/<path:filename>", methods=["GET", "HEAD"])
 def serveFile(filename):
-    if not fileIdPattern.fullmatch(filename):
-        abort(404)
+	if not fileIdPattern.fullmatch(filename):
+		abort(404)
 
-    _, filePath, metaPath = getPathsForFilename(filename)
+	_, filePath, metaPath = getPathsForFilename(filename)
 
-    if not os.path.isfile(filePath) or not os.path.isfile(metaPath):
-        abort(404)
+	if not os.path.isfile(filePath) or not os.path.isfile(metaPath):
+		abort(404)
 
-    fileSize = os.path.getsize(filePath)
+	fileSize = os.path.getsize(filePath)
 
-    mimeType, _ = mimetypes.guess_type(filePath)
-    mimeType = mimeType or "application/octet-stream"
-    ext = "." + filename.rsplit(".", 1)[-1].lower()
-    isDangerous = ext in dangerousExts
-    downloadRequested = request.args.get("download") == "true"
+	mimeType, _ = mimetypes.guess_type(filePath)
+	mimeType = mimeType or "application/octet-stream"
+	ext = "." + filename.rsplit(".", 1)[-1].lower()
+	isDangerous = ext in dangerousExts
+	downloadRequested = request.args.get("download") == "true"
 
-    asAttachment = downloadRequested or isDangerous
+	asAttachment = downloadRequested or isDangerous
 
-    status = 200
-    rangeHeader = request.headers.get("Range")
+	status = 200
+	rangeHeader = request.headers.get("Range")
 
-    if rangeHeader:
-        try:
-            unit, value = rangeHeader.split("=")
-            if unit != "bytes":
-                abort(416)
+	if rangeHeader:
+		try:
+			unit, value = rangeHeader.split("=")
+			if unit != "bytes":
+				abort(416)
 
-            startStr, endStr = value.split("-")
-            if startStr == "":
-                suffixLength = int(endStr)
-                if suffixLength <= 0:
-                    abort(416)
-                start = fileSize - suffixLength
-                end = fileSize - 1
-            elif endStr == "":
-                start = int(startStr)
-                end = fileSize - 1
-            else:
-                start = int(startStr)
-                end = int(endStr)
+			startStr, endStr = value.split("-")
+			if startStr == "":
+				suffixLength = int(endStr)
+				if suffixLength <= 0:
+					abort(416)
+				start = fileSize - suffixLength
+				end = fileSize - 1
+			elif endStr == "":
+				start = int(startStr)
+				end = fileSize - 1
+			else:
+				start = int(startStr)
+				end = int(endStr)
 
-            start = max(0, start)
-            end = min(fileSize - 1, end)
+			start = max(0, start)
+			end = min(fileSize - 1, end)
 
-            if start >= fileSize or start > end:
-                abort(416)
+			if start >= fileSize or start > end:
+				abort(416)
 
-            status = 206
-        except Exception:
-            abort(416)
-    else:
-        if request.method == "HEAD":
-            response = Response(status=200, mimetype=mimeType)
+			status = 206
+		except Exception:
+			abort(416)
+	else:
+		if request.method == "HEAD":
+			response = Response(status=200, mimetype=mimeType)
 
-            response.headers["Accept-Ranges"] = "bytes"
-            response.headers["Content-Length"] = str(fileSize)
-            response.headers["Content-Security-Policy"] = (
-                "default-src 'none'; "
-                "script-src 'none'; "
-                "style-src 'none'; "
-                "img-src 'self' data:; "
-                "connect-src 'self'; "
-                "base-uri 'none'; "
-                "form-action 'self'; "
-                "frame-ancestors 'none'"
-            )
+			response.headers["Accept-Ranges"] = "bytes"
+			response.headers["Content-Length"] = str(fileSize)
+			response.headers["Content-Security-Policy"] = (
+				"default-src 'none'; "
+				"script-src 'none'; "
+				"style-src 'none'; "
+				"img-src 'self' data:; "
+				"connect-src 'self'; "
+				"base-uri 'none'; "
+				"form-action 'self'; "
+				"frame-ancestors 'none'"
+			)
 
-            if downloadRequested:
-                quoted = quote(filename)
-                response.headers["Content-Disposition"] = (
-                    f"attachment; filename*=UTF-8''{quoted}"
-                )
+			if downloadRequested:
+				quoted = quote(filename)
+				response.headers["Content-Disposition"] = (
+					f"attachment; filename*=UTF-8''{quoted}"
+				)
 
-                response.headers["Cache-Control"] = "private, max-age=0, no-cache"
+				response.headers["Cache-Control"] = "private, max-age=0, no-cache"
 
-            return response
-        return send_file(filePath, mimetype=mimeType, as_attachment=asAttachment, download_name=filename)
+			return response
+		return send_file(filePath, mimetype=mimeType, as_attachment=asAttachment, download_name=filename)
 
-    length = end - start + 1
+	length = end - start + 1
 
-    response = Response(
-        stream_with_context(iterFileRange(filePath, start, end)),
-        status=status,
-        mimetype=mimeType,
-        direct_passthrough=True
-    )
+	response = Response(
+		stream_with_context(iterFileRange(filePath, start, end)),
+		status=status,
+		mimetype=mimeType,
+		direct_passthrough=True
+	)
 
-    response.headers["Accept-Ranges"] = "bytes"
-    response.headers["Content-Length"] = str(length)
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'none'; "
-        "script-src 'none'; "
-        "style-src 'none'; "
-        "img-src 'self' data:; "
-        "connect-src 'self'; "
-        "base-uri 'none'; "
-        "form-action 'self'; "
-        "frame-ancestors 'none'"
-    )
+	response.headers["Accept-Ranges"] = "bytes"
+	response.headers["Content-Length"] = str(length)
+	response.headers["Content-Security-Policy"] = (
+		"default-src 'none'; "
+		"script-src 'none'; "
+		"style-src 'none'; "
+		"img-src 'self' data:; "
+		"connect-src 'self'; "
+		"base-uri 'none'; "
+		"form-action 'self'; "
+		"frame-ancestors 'none'"
+	)
 
-    if status == 206:
-        response.headers["Content-Range"] = f"bytes {start}-{end}/{fileSize}"
+	if status == 206:
+		response.headers["Content-Range"] = f"bytes {start}-{end}/{fileSize}"
 
-    if downloadRequested:
-        quoted = quote(filename)
-        response.headers["Content-Disposition"] = (
-            f"attachment; filename*=UTF-8''{quoted}"
-        )
+	if downloadRequested:
+		quoted = quote(filename)
+		response.headers["Content-Disposition"] = (
+			f"attachment; filename*=UTF-8''{quoted}"
+		)
 
-        response.headers["Cache-Control"] = "private, max-age=0, no-cache"
+		response.headers["Cache-Control"] = "private, max-age=0, no-cache"
 
-    return response
+	return response
 
 # ======================
 # Entrypoint
 # ======================
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5014, debug=True)
+	app.run(host="0.0.0.0", port=5014, debug=True)
