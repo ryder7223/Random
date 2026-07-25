@@ -1,0 +1,2568 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>iOS Repository Browser</title>
+    <style>
+      :root {
+        --background: #0b0d12;
+        --surface: #151922;
+        --surface2: #1d2330;
+        --text: #f5f7fb;
+        --secondary: #9ba4b5;
+        --accent: #4f8cff;
+        --border: #2b3342;
+        --success: #3ecf8e;
+        --warning: #f5a623;
+        --error: #ff6b6b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background: var(--background);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      body.modalOpen {
+        overflow: hidden;
+      }
+
+      header {
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(11, 13, 18, .9);
+        backdrop-filter: blur(12px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .headerTop {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .headerTop h1 {
+        min-width: 0;
+      }
+
+      .headerToggle {
+        flex-shrink: 0;
+        padding: 8px 14px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      .headerBody {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .headerBody.collapsed {
+        display: none;
+      }
+
+      .headerCompact {
+        display: none;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .headerCompact.visible {
+        display: flex;
+      }
+
+      .headerCompact input {
+        flex: 1;
+        min-width: 160px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .sources {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .sourceGroup {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .sourceGroup label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--secondary);
+      }
+
+      .sourceGroup textarea {
+        width: 100%;
+        min-height: 88px;
+        resize: vertical;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .sourceHint {
+        font-size: 12px;
+        color: var(--secondary);
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .filters {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .filters select {
+        min-width: 140px;
+      }
+
+      input,
+      select,
+      button,
+      textarea {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-size: 14px;
+      }
+
+      input {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      button {
+        cursor: pointer;
+        transition: .2s;
+      }
+
+      button:hover {
+        background: var(--surface2);
+      }
+
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+        font-weight: 600;
+      }
+
+      button.primary:hover {
+        filter: brightness(1.08);
+      }
+
+      button:disabled {
+        opacity: .45;
+        cursor: not-allowed;
+      }
+
+      main {
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+      }
+
+      .viewTabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .viewTab {
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .viewTab.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+
+      .panel {
+        display: none;
+      }
+
+      .panel.active {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+      }
+
+      .repoInfo {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 20px;
+        margin: 0;
+      }
+
+      #repoInfo:empty {
+        display: none;
+      }
+
+      .repoInfoHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .repoSummary {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .repoCount {
+        color: var(--secondary);
+        font-size: 14px;
+        font-weight: 400;
+      }
+
+      .repoList {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .repoChip {
+        background: var(--surface2);
+        border: 1px solid transparent;
+        border-radius: 20px;
+        padding: 6px 12px;
+        font-size: 13px;
+        color: #ccd4e5;
+      }
+
+      .repoChip.clickable {
+        cursor: pointer;
+        transition: .2s;
+        font: inherit;
+      }
+
+      .repoChip.clickable:hover {
+        border-color: #46526b;
+        background: #283041;
+      }
+
+      .repoChip.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+
+      .repoChip.failed {
+        border: 1px solid rgba(255, 107, 107, .35);
+        color: #ffb4b4;
+      }
+
+      .loadWarnings {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: rgba(245, 166, 35, .1);
+        border: 1px solid rgba(245, 166, 35, .25);
+        font-size: 13px;
+        color: #ffd89a;
+      }
+
+      .resultMeta {
+        color: var(--secondary);
+        font-size: 13px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        display: flex;
+        gap: 16px;
+        transition: .2s;
+        cursor: pointer;
+      }
+
+      .card:hover {
+        transform: translateY(-3px);
+        border-color: #46526b;
+      }
+
+      .card.filtered {
+        border-color: rgba(79, 140, 255, .45);
+      }
+
+      .icon {
+        width: 76px;
+        height: 76px;
+        border-radius: 16px;
+        object-fit: cover;
+        background: #222;
+        flex-shrink: 0;
+      }
+
+      .content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .name {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+
+      .subtitle {
+        color: #c7ceda;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+
+      .developer {
+        color: var(--secondary);
+        font-size: 14px;
+      }
+
+      .description {
+        margin-top: 10px;
+        font-size: 14px;
+        line-height: 1.45;
+        color: #c7ceda;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+      }
+
+      .meta {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .badge {
+        background: var(--surface2);
+        border-radius: 20px;
+        padding: 5px 10px;
+        font-size: 12px;
+        color: #ccd4e5;
+      }
+
+      .badge.beta {
+        background: rgba(245, 166, 35, .15);
+        color: #ffd089;
+      }
+
+      .badge.featured {
+        background: rgba(62, 207, 142, .15);
+        color: #8eecc0;
+      }
+
+      .badge.category {
+        text-transform: capitalize;
+      }
+
+      .badge.source {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        background: transparent;
+        padding: 0;
+      }
+
+      .repoLink {
+        background: var(--surface2);
+        border: 1px solid transparent;
+        border-radius: 20px;
+        padding: 5px 10px;
+        font-size: 12px;
+        font-family: inherit;
+        color: #9ec5ff;
+        cursor: pointer;
+        transition: .2s;
+      }
+
+      .repoLink:hover {
+        border-color: #46526b;
+        background: #283041;
+      }
+
+      .repoLink.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+
+      .versionRow {
+        margin-top: 14px;
+        display: flex;
+        gap: 8px;
+      }
+
+      .versionSelect {
+        width: 100%;
+      }
+
+      .cardActions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+      }
+
+      .download,
+      .detailsBtn {
+        flex: 1;
+        text-align: center;
+        text-decoration: none;
+        padding: 10px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      .download {
+        display: block;
+        background: var(--accent);
+        color: white;
+        border: 1px solid var(--accent);
+      }
+
+      .detailsBtn {
+        background: var(--surface2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        cursor: pointer;
+      }
+
+      .detailsBtn:hover {
+        background: #283041;
+      }
+
+      .pagination {
+        margin-top: 10px;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .empty {
+        text-align: center;
+        color: var(--secondary);
+        padding: 40px;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: var(--secondary);
+      }
+
+      .repoDetailGrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 18px;
+      }
+
+      .repoDetailCard {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .repoHeaderBanner {
+        height: 110px;
+        background: var(--surface2);
+        background-size: cover;
+        background-position: center;
+        position: relative;
+      }
+
+      .repoHeaderBanner .repoIcon {
+        position: absolute;
+        left: 18px;
+        bottom: -28px;
+        width: 64px;
+        height: 64px;
+        border-radius: 14px;
+        border: 3px solid var(--surface);
+        object-fit: cover;
+        background: #222;
+      }
+
+      .repoDetailBody {
+        padding: 40px 18px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex: 1;
+      }
+
+      .repoDetailBody h2 {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .repoLinks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .repoLinks a {
+        color: #9ec5ff;
+        text-decoration: none;
+        font-size: 13px;
+        background: var(--surface2);
+        padding: 6px 10px;
+        border-radius: 999px;
+      }
+
+      .repoLinks a:hover {
+        text-decoration: underline;
+      }
+
+      .featuredList,
+      .newsList {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .featuredItem,
+      .newsCard {
+        background: var(--surface2);
+        border-radius: 12px;
+        padding: 12px;
+        border: 1px solid transparent;
+      }
+
+      button.featuredItem {
+        width: 100%;
+        text-align: left;
+        color: var(--text);
+        font: inherit;
+        cursor: pointer;
+      }
+
+      button.featuredItem:hover {
+        border-color: #46526b;
+        background: #283041;
+      }
+
+      .newsCard {
+        display: grid;
+        grid-template-columns: 88px 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .newsCard.noImage {
+        grid-template-columns: 1fr;
+      }
+
+      .newsCard img {
+        width: 88px;
+        height: 88px;
+        object-fit: cover;
+        border-radius: 10px;
+        background: #222;
+      }
+
+      .newsTitle {
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      .newsMeta {
+        font-size: 12px;
+        color: var(--secondary);
+        margin-bottom: 6px;
+      }
+
+      .newsCaption {
+        font-size: 13px;
+        color: #c7ceda;
+        line-height: 1.4;
+        white-space: pre-wrap;
+      }
+
+      .sectionLabel {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--secondary);
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        margin-top: 6px;
+      }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .65);
+        z-index: 100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .overlay.open {
+        display: flex;
+      }
+
+      .modal {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        width: min(920px, 100%);
+        max-height: min(92vh, 100%);
+        overflow: auto;
+        position: relative;
+      }
+
+      .modalClose {
+        position: sticky;
+        top: 12px;
+        float: right;
+        margin: 12px 12px 0 0;
+        z-index: 2;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        padding: 0;
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .modalBody {
+        padding: 8px 22px 22px;
+        clear: both;
+      }
+
+      .modalHero {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        margin-bottom: 18px;
+      }
+
+      .modalHero img {
+        width: 96px;
+        height: 96px;
+        border-radius: 20px;
+        object-fit: cover;
+        background: #222;
+        flex-shrink: 0;
+      }
+
+      .modalHero h2 {
+        margin: 0 0 4px;
+        font-size: 24px;
+      }
+
+      .modalSection {
+        margin-top: 20px;
+      }
+
+      .modalSection h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+        color: var(--secondary);
+        text-transform: uppercase;
+        letter-spacing: .04em;
+      }
+
+      .modalDescription {
+        white-space: pre-wrap;
+        line-height: 1.5;
+        color: #c7ceda;
+        font-size: 14px;
+      }
+
+      .shotStrip {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+      }
+
+      .shotStrip img {
+        height: 180px;
+        border-radius: 12px;
+        cursor: zoom-in;
+        background: #222;
+        flex-shrink: 0;
+      }
+
+      .versionBlock {
+        background: var(--surface2);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 10px;
+      }
+
+      .versionBlockHeader {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+
+      .versionBlockTitle {
+        font-weight: 700;
+      }
+
+      .versionChangelog {
+        white-space: pre-wrap;
+        font-size: 13px;
+        color: #c7ceda;
+        line-height: 1.45;
+        margin-bottom: 10px;
+      }
+
+      .permList {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-size: 13px;
+      }
+
+      .permItem {
+        background: var(--surface2);
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+
+      .permKey {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        color: #9ec5ff;
+        margin-bottom: 4px;
+        word-break: break-all;
+      }
+
+      .lightbox {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .88);
+        z-index: 200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .lightbox.open {
+        display: flex;
+      }
+
+      .lightbox img {
+        max-width: min(96vw, 1100px);
+        max-height: 90vh;
+        object-fit: contain;
+        border-radius: 8px;
+      }
+
+      .lightboxClose {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+      }
+
+      .lightboxNav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        padding: 0;
+        font-size: 20px;
+      }
+
+      .lightboxNav.prev {
+        left: 16px;
+      }
+
+      .lightboxNav.next {
+        right: 16px;
+      }
+
+      @media(max-width:900px) {
+        .sources {
+          grid-template-columns: 1fr;
+        }
+
+        .newsCard {
+          grid-template-columns: 1fr;
+        }
+
+        .newsCard img {
+          width: 100%;
+          height: 140px;
+        }
+      }
+
+      @media(max-width:600px) {
+        main {
+          padding: 15px;
+          gap: 18px;
+        }
+
+        header {
+          padding: 16px;
+          gap: 12px;
+        }
+
+        h1 {
+          font-size: 22px;
+        }
+
+        .grid,
+        .repoDetailGrid {
+          grid-template-columns: 1fr;
+        }
+
+        .modalHero {
+          flex-direction: column;
+        }
+
+        .cardActions {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <div class="headerTop">
+        <h1>iOS Repository Browser</h1>
+        <button id="toggleHeader" type="button" class="headerToggle" aria-expanded="true">Hide setup</button>
+      </div>
+      <div id="headerBody" class="headerBody">
+        <div class="sources">
+          <div class="sourceGroup">
+            <label for="repoUrls">Repository URLs</label>
+            <textarea id="repoUrls" placeholder="One URL per line&#10;https://example.com/repo1.json&#10;https://example.com/repo2.json"></textarea>
+            <span class="sourceHint">Enter one repository JSON URL per line.</span>
+          </div>
+          <div class="sourceGroup">
+            <label for="repoJson">Raw JSON</label>
+            <textarea id="repoJson" placeholder='Paste repository JSON here&#10;Separate multiple repos with --- on its own line'></textarea>
+            <span class="sourceHint">Optional. Paste full repo JSON or an apps array. Use --- between multiple repos.</span>
+          </div>
+        </div>
+        <div class="controls">
+          <button id="loadButton" class="primary">Load Repositories</button>
+          <input id="searchBox" placeholder="Search name, developer, bundle ID, description…">
+        </div>
+        <div class="filters">
+          <select id="categoryFilter">
+            <option value="">All categories</option>
+          </select>
+          <select id="developerFilter">
+            <option value="">All developers</option>
+          </select>
+          <select id="betaFilter">
+            <option value="">All apps</option>
+            <option value="beta">Beta only</option>
+            <option value="stable">Non-beta only</option>
+          </select>
+          <select id="featuredFilter">
+            <option value="">Featured: any</option>
+            <option value="yes">Featured only</option>
+            <option value="no">Not featured</option>
+          </select>
+          <select id="sortOrder">
+            <option value="name">Sort: Name</option>
+            <option value="developer">Sort: Developer</option>
+            <option value="updated">Sort: Newest version</option>
+            <option value="category">Sort: Category</option>
+          </select>
+          <select id="pageLength">
+            <option value="12">12 apps per page</option>
+            <option value="24">24 apps per page</option>
+            <option value="48">48 apps per page</option>
+            <option value="96">96 apps per page</option>
+          </select>
+          <button type="button" id="clearFilters">Clear filters</button>
+        </div>
+      </div>
+      <div id="headerCompact" class="headerCompact">
+        <input id="searchBoxCompact" placeholder="Search apps…">
+        <select id="categoryFilterCompact">
+          <option value="">All categories</option>
+        </select>
+        <select id="pageLengthCompact">
+          <option value="12">12 per page</option>
+          <option value="24">24 per page</option>
+          <option value="48">48 per page</option>
+          <option value="96">96 per page</option>
+        </select>
+      </div>
+    </header>
+    <main>
+      <div id="repoInfo"></div>
+      <div class="viewTabs">
+        <button type="button" class="viewTab active" data-view="apps">Apps</button>
+        <button type="button" class="viewTab" data-view="repos">Repos &amp; News</button>
+      </div>
+      <div id="appsPanel" class="panel active">
+        <div id="resultMeta" class="resultMeta"></div>
+        <div id="appContainer" class="grid"></div>
+        <div id="pagination" class="pagination"></div>
+      </div>
+      <div id="reposPanel" class="panel">
+        <div id="repoDetailContainer" class="repoDetailGrid"></div>
+      </div>
+    </main>
+
+    <div id="appModal" class="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal">
+        <button type="button" class="modalClose" id="modalClose" aria-label="Close">&times;</button>
+        <div class="modalBody" id="modalBody"></div>
+      </div>
+    </div>
+
+    <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot">
+      <button type="button" class="lightboxClose" id="lightboxClose" aria-label="Close">&times;</button>
+      <button type="button" class="lightboxNav prev" id="lightboxPrev" aria-label="Previous">&#8249;</button>
+      <img id="lightboxImage" alt="Screenshot">
+      <button type="button" class="lightboxNav next" id="lightboxNext" aria-label="Next">&#8250;</button>
+    </div>
+
+    <script>
+      const STORAGE_KEYS = {
+        urls: "repoViewer.urls",
+        json: "repoViewer.json",
+        headerCollapsed: "repoViewer.headerCollapsed"
+      };
+
+      const REPO_SEP = " @ ";
+
+      const state = {
+        apps: [],
+        filteredApps: [],
+        currentPage: 1,
+        pageLength: 12,
+        repos: [],
+        loadErrors: [],
+        globalRepoFilter: null,
+        cardRepoFilters: {},
+        headerCollapsed: false,
+        activeView: "apps",
+        filters: {
+          category: "",
+          developer: "",
+          beta: "",
+          featured: "",
+          sort: "name"
+        },
+        lightboxShots: [],
+        lightboxIndex: 0
+      };
+
+      const repoUrls = document.getElementById("repoUrls");
+      const repoJson = document.getElementById("repoJson");
+      const loadButton = document.getElementById("loadButton");
+      const searchBox = document.getElementById("searchBox");
+      const searchBoxCompact = document.getElementById("searchBoxCompact");
+      const pageLength = document.getElementById("pageLength");
+      const pageLengthCompact = document.getElementById("pageLengthCompact");
+      const categoryFilter = document.getElementById("categoryFilter");
+      const categoryFilterCompact = document.getElementById("categoryFilterCompact");
+      const developerFilter = document.getElementById("developerFilter");
+      const betaFilter = document.getElementById("betaFilter");
+      const featuredFilter = document.getElementById("featuredFilter");
+      const sortOrder = document.getElementById("sortOrder");
+      const toggleHeader = document.getElementById("toggleHeader");
+      const headerBody = document.getElementById("headerBody");
+      const headerCompact = document.getElementById("headerCompact");
+      const appContainer = document.getElementById("appContainer");
+      const pagination = document.getElementById("pagination");
+      const repoInfo = document.getElementById("repoInfo");
+      const resultMeta = document.getElementById("resultMeta");
+      const repoDetailContainer = document.getElementById("repoDetailContainer");
+      const appsPanel = document.getElementById("appsPanel");
+      const reposPanel = document.getElementById("reposPanel");
+      const appModal = document.getElementById("appModal");
+      const modalBody = document.getElementById("modalBody");
+      const modalClose = document.getElementById("modalClose");
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImage = document.getElementById("lightboxImage");
+      const lightboxClose = document.getElementById("lightboxClose");
+      const lightboxPrev = document.getElementById("lightboxPrev");
+      const lightboxNext = document.getElementById("lightboxNext");
+      const clearFilters = document.getElementById("clearFilters");
+
+      function resetFilters() {
+        syncSearchInputs("");
+        state.filters.category = "";
+        state.filters.developer = "";
+        state.filters.beta = "";
+        state.filters.featured = "";
+        state.filters.sort = "name";
+        state.globalRepoFilter = null;
+        state.cardRepoFilters = {};
+        syncCategoryFilter("");
+        developerFilter.value = "";
+        betaFilter.value = "";
+        featuredFilter.value = "";
+        sortOrder.value = "name";
+        updateRepositoryFilters();
+        filterApps();
+      }
+
+      function parseVersionParts(version) {
+        if (!version) return [0];
+        return String(version).split(/[^0-9a-zA-Z]+/).filter(Boolean).map(part => {
+          const num = Number(part);
+          return Number.isNaN(num) ? part.toLowerCase() : num;
+        });
+      }
+
+      function compareVersions(versionA, versionB) {
+        const partsA = parseVersionParts(versionA);
+        const partsB = parseVersionParts(versionB);
+        const length = Math.max(partsA.length, partsB.length);
+        for (let index = 0; index < length; index++) {
+          const partA = partsA[index] ?? 0;
+          const partB = partsB[index] ?? 0;
+          if (partA === partB) continue;
+          if (typeof partA === "number" && typeof partB === "number") {
+            return partA > partB ? 1 : -1;
+          }
+          return String(partA).localeCompare(String(partB));
+        }
+        return 0;
+      }
+
+      function sortVersionsDescending(versions) {
+        return [...versions].sort((left, right) => {
+          const byVersion = compareVersions(right.version, left.version);
+          if (byVersion !== 0) return byVersion;
+          return compareDates(right.date, left.date);
+        });
+      }
+
+      function compareDates(dateA, dateB) {
+        const timeA = Date.parse(dateA);
+        const timeB = Date.parse(dateB);
+        if (Number.isNaN(timeA) && Number.isNaN(timeB)) return 0;
+        if (Number.isNaN(timeA)) return -1;
+        if (Number.isNaN(timeB)) return 1;
+        return timeA - timeB;
+      }
+
+      function getHighestVersion(versions) {
+        return sortVersionsDescending(versions)[0] || null;
+      }
+
+      function uniqueStrings(values) {
+        const seen = new Set();
+        const result = [];
+        values.forEach(value => {
+          if (!value || seen.has(value)) return;
+          seen.add(value);
+          result.push(value);
+        });
+        return result;
+      }
+
+      function normalizeTint(color) {
+        if (!color) return "";
+        const value = String(color).trim();
+        if (!value) return "";
+        return value.startsWith("#") ? value : "#" + value;
+      }
+
+      function collectScreenshots(app) {
+        const shots = [];
+        if (Array.isArray(app.screenshots)) shots.push(...app.screenshots);
+        if (Array.isArray(app.screenshotURLs)) shots.push(...app.screenshotURLs);
+        return uniqueStrings(shots.filter(url => typeof url === "string" && url.trim()));
+      }
+
+      function consolidateRepoEntries(repoEntries) {
+        const byRepo = new Map();
+        repoEntries.forEach(entry => {
+          if (!byRepo.has(entry.sourceRepo)) {
+            byRepo.set(entry.sourceRepo, {
+              ...entry,
+              versions: [...entry.versions],
+              screenshots: [...(entry.screenshots || [])],
+              featuredIn: [...(entry.featuredIn || [])]
+            });
+            return;
+          }
+          const existing = byRepo.get(entry.sourceRepo);
+          existing.versions.push(...entry.versions);
+          existing.screenshots = uniqueStrings([...(existing.screenshots || []), ...(entry.screenshots || [])]);
+          existing.featuredIn = uniqueStrings([...(existing.featuredIn || []), ...(entry.featuredIn || [])]);
+          if (!existing.localizedDescription && entry.localizedDescription) {
+            existing.localizedDescription = entry.localizedDescription;
+          }
+          if (!existing.subtitle && entry.subtitle) existing.subtitle = entry.subtitle;
+          if (!existing.developerName && entry.developerName) existing.developerName = entry.developerName;
+          if (!existing.category && entry.category) existing.category = entry.category;
+          if (!existing.marketplaceID && entry.marketplaceID) existing.marketplaceID = entry.marketplaceID;
+          if (!existing.iconURL && entry.iconURL) existing.iconURL = entry.iconURL;
+          if (!existing.tintColor && entry.tintColor) existing.tintColor = entry.tintColor;
+          if (!existing.appPermissions && entry.appPermissions) existing.appPermissions = entry.appPermissions;
+          if (!existing.permissions && entry.permissions) existing.permissions = entry.permissions;
+          if (!existing.patreon && entry.patreon) existing.patreon = entry.patreon;
+          existing.beta = existing.beta || entry.beta;
+        });
+        return Array.from(byRepo.values()).map(entry => ({
+          ...entry,
+          versions: sortVersionsDescending(dedupeVersions(entry.versions))
+        }));
+      }
+
+      function versionKey(version) {
+        return [
+          version.version || "",
+          version.buildVersion || "",
+          version.downloadURL || "",
+          version.date || ""
+        ].join("|");
+      }
+
+      function dedupeVersions(versions) {
+        const seen = new Set();
+        return versions.filter(version => {
+          const key = versionKey(version);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+
+      function getRepoVersions(app, repoFilter) {
+        const entries = repoFilter
+          ? app.repoEntries.filter(entry => entry.sourceRepo === repoFilter)
+          : app.repoEntries;
+        return sortVersionsDescending(entries.flatMap(entry => entry.versions));
+      }
+
+      function getBestDisplayEntry(repoEntries) {
+        let bestEntry = repoEntries[0];
+        let bestVersion = getHighestVersion(bestEntry.versions);
+        repoEntries.slice(1).forEach(entry => {
+          const entryTop = getHighestVersion(entry.versions);
+          if (entryTop && compareVersions(entryTop.version, bestVersion?.version) > 0) {
+            bestEntry = entry;
+            bestVersion = entryTop;
+          }
+        });
+        return {
+          entry: bestEntry,
+          topVersion: bestVersion || getHighestVersion(bestEntry.versions)
+        };
+      }
+
+      function syncSearchInputs(value) {
+        searchBox.value = value;
+        searchBoxCompact.value = value;
+      }
+
+      function syncPageLength(value) {
+        pageLength.value = String(value);
+        pageLengthCompact.value = String(value);
+      }
+
+      function syncCategoryFilter(value) {
+        categoryFilter.value = value;
+        categoryFilterCompact.value = value;
+        state.filters.category = value;
+      }
+
+      function setHeaderCollapsed(collapsed) {
+        state.headerCollapsed = collapsed;
+        headerBody.classList.toggle("collapsed", collapsed);
+        headerCompact.classList.toggle("visible", collapsed);
+        toggleHeader.textContent = collapsed ? "Show setup" : "Hide setup";
+        toggleHeader.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        localStorage.setItem(STORAGE_KEYS.headerCollapsed, collapsed ? "1" : "0");
+      }
+
+      function restoreHeaderCollapsed() {
+        if (localStorage.getItem(STORAGE_KEYS.headerCollapsed) === "1") {
+          setHeaderCollapsed(true);
+        }
+      }
+
+      function formatSize(bytes) {
+        if (bytes === 0) return "0 B";
+        if (bytes == null || bytes === "") return "Unknown";
+        const sizes = ["B", "KB", "MB", "GB"];
+        let index = 0;
+        let size = Number(bytes);
+        if (Number.isNaN(size)) return "Unknown";
+        while (size >= 1024 && index < sizes.length - 1) {
+          size /= 1024;
+          index++;
+        }
+        return size.toFixed(1) + " " + sizes[index];
+      }
+
+      function formatDate(value) {
+        if (!value || value === "unknown") return "Unknown date";
+        const parsed = Date.parse(value);
+        if (Number.isNaN(parsed)) return String(value);
+        return new Date(parsed).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric"
+        });
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, function(char) {
+          return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+          }[char];
+        });
+      }
+
+      function parseLines(text) {
+        return text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      }
+
+      function repoLabel(repo, fallback) {
+        return repo.name || repo.subtitle || fallback;
+      }
+
+      function normalizeRepoData(data, sourceLabel) {
+        if (Array.isArray(data)) {
+          return {
+            name: sourceLabel,
+            subtitle: "Imported apps array",
+            apps: data,
+            news: [],
+            featuredApps: []
+          };
+        }
+        if (data.apps && Array.isArray(data.apps)) {
+          return {
+            ...data,
+            news: Array.isArray(data.news) ? data.news : [],
+            featuredApps: Array.isArray(data.featuredApps) ? data.featuredApps : []
+          };
+        }
+        throw new Error(
+          "Invalid repository format: expected an apps array or object with an apps array.\n\nKeys found:\n" +
+          Object.keys(data).join(", ")
+        );
+      }
+
+      function tagAppsWithSource(repo, sourceLabel) {
+        const label = repoLabel(repo, sourceLabel);
+        const featured = new Set(repo.featuredApps || []);
+        return repo.apps.map(app => ({
+          ...app,
+          _sourceRepo: label,
+          _featuredInRepo: featured.has(appIdentifier(app)) ? [label] : []
+        }));
+      }
+
+      function parseRawJsonBlocks(text) {
+        const trimmed = text.trim();
+        if (!trimmed) return [];
+
+        const blocks = trimmed.includes("\n---\n") || trimmed.startsWith("---\n") || trimmed.endsWith("\n---")
+          ? trimmed.split(/\r?\n---\r?\n/).map(block => block.trim()).filter(Boolean)
+          : [trimmed];
+
+        return blocks.map((block, index) => {
+          let data;
+          try {
+            data = JSON.parse(block);
+          } catch (parseError) {
+            throw new Error("JSON block " + (index + 1) + ": " + parseError.message);
+          }
+          const repo = normalizeRepoData(data, "Raw JSON " + (index + 1));
+          return {
+            repo,
+            sourceLabel: repoLabel(repo, "Raw JSON " + (index + 1)),
+            sourceType: "json"
+          };
+        });
+      }
+
+      async function fetchRepoFromUrl(url) {
+        const fetchUrl = "/repo?url=" + encodeURIComponent(url);
+        const response = await fetch(fetchUrl);
+        const responseText = await response.text();
+        if (!response.ok) {
+          throw new Error(
+            "HTTP Error " + response.status + " " + response.statusText + "\n\nServer response:\n" + responseText
+          );
+        }
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          throw new Error(
+            "JSON Parse Error:\n" + parseError.message +
+            "\n\nReceived content:\n" + responseText.substring(0, 1000)
+          );
+        }
+        const repo = normalizeRepoData(data, url);
+        return {
+          repo,
+          sourceLabel: repoLabel(repo, url),
+          sourceType: "url",
+          sourceUrl: url
+        };
+      }
+
+      function appIdentifier(app) {
+        return app.bundleIdentifier || app.bundleID || app.name;
+      }
+
+      function normalizeVersion(version, sourceRepo) {
+        return {
+          version: version.version || "Unknown",
+          date: version.date || version.versionDate || "",
+          buildVersion: version.buildVersion || "",
+          localizedDescription: version.localizedDescription || version.versionDescription || "",
+          downloadURL: version.downloadURL || "",
+          size: version.size,
+          minOSVersion: version.minOSVersion || "",
+          maxOSVersion: version.maxOSVersion || "",
+          _sourceRepo: sourceRepo
+        };
+      }
+
+      function buildRepoEntry(app, sourceRepo) {
+        let versions;
+        if (app.versions && Array.isArray(app.versions) && app.versions.length) {
+          versions = app.versions.map(version => normalizeVersion(version, sourceRepo));
+        } else {
+          versions = [normalizeVersion({
+            version: app.version,
+            date: app.versionDate,
+            localizedDescription: app.versionDescription || "",
+            downloadURL: app.downloadURL,
+            size: app.size,
+            minOSVersion: app.minOSVersion,
+            maxOSVersion: app.maxOSVersion
+          }, sourceRepo)];
+        }
+
+        return {
+          sourceRepo,
+          name: app.name,
+          developerName: app.developerName || "",
+          localizedDescription: app.localizedDescription || "",
+          subtitle: app.subtitle || "",
+          iconURL: app.iconURL || app.icon || "",
+          tintColor: normalizeTint(app.tintColor),
+          category: app.category || "",
+          marketplaceID: app.marketplaceID || "",
+          beta: !!app.beta,
+          screenshots: collectScreenshots(app),
+          appPermissions: app.appPermissions || null,
+          permissions: Array.isArray(app.permissions) ? app.permissions : null,
+          patreon: app.patreon || null,
+          featuredIn: app._featuredInRepo || [],
+          versions
+        };
+      }
+
+      function pickPreferred(values, preferLongest) {
+        const filled = values.filter(Boolean);
+        if (!filled.length) return "";
+        if (preferLongest) {
+          return filled.reduce((best, value) => value.length > best.length ? value : best, filled[0]);
+        }
+        return filled[0];
+      }
+
+      function mergeApps(apps) {
+        const map = new Map();
+        apps.forEach(app => {
+          const identifier = appIdentifier(app);
+          const sourceRepo = app._sourceRepo || "Unknown";
+          const entry = buildRepoEntry(app, sourceRepo);
+          if (!map.has(identifier)) {
+            map.set(identifier, {
+              bundleIdentifier: app.bundleIdentifier || "",
+              bundleID: app.bundleID || "",
+              name: app.name,
+              developerName: entry.developerName,
+              localizedDescription: entry.localizedDescription,
+              subtitle: entry.subtitle,
+              iconURL: entry.iconURL,
+              tintColor: entry.tintColor,
+              category: entry.category,
+              marketplaceID: entry.marketplaceID,
+              beta: entry.beta,
+              screenshots: [...entry.screenshots],
+              featuredIn: [...entry.featuredIn],
+              sourceRepos: [sourceRepo],
+              repoEntries: [entry]
+            });
+            return;
+          }
+          const existing = map.get(identifier);
+          if (!existing.sourceRepos.includes(sourceRepo)) {
+            existing.sourceRepos.push(sourceRepo);
+          }
+          existing.repoEntries.push(entry);
+          existing.screenshots = uniqueStrings([...(existing.screenshots || []), ...entry.screenshots]);
+          existing.featuredIn = uniqueStrings([...(existing.featuredIn || []), ...entry.featuredIn]);
+          existing.beta = existing.beta || entry.beta;
+        });
+
+        return Array.from(map.values()).map(app => {
+          const repoEntries = consolidateRepoEntries(app.repoEntries);
+          const { entry: bestEntry, topVersion } = getBestDisplayEntry(repoEntries);
+          const allDescriptions = repoEntries.map(entry => entry.localizedDescription);
+          const allSubtitles = repoEntries.map(entry => entry.subtitle);
+          return {
+            ...app,
+            name: bestEntry.name,
+            developerName: bestEntry.developerName || pickPreferred(repoEntries.map(e => e.developerName)),
+            localizedDescription: pickPreferred(allDescriptions, true) || bestEntry.localizedDescription,
+            subtitle: pickPreferred(allSubtitles, true) || bestEntry.subtitle,
+            iconURL: bestEntry.iconURL || pickPreferred(repoEntries.map(e => e.iconURL)),
+            tintColor: bestEntry.tintColor || pickPreferred(repoEntries.map(e => e.tintColor)),
+            category: bestEntry.category || pickPreferred(repoEntries.map(e => e.category)),
+            marketplaceID: bestEntry.marketplaceID || pickPreferred(repoEntries.map(e => e.marketplaceID)),
+            beta: repoEntries.some(entry => entry.beta),
+            screenshots: uniqueStrings(repoEntries.flatMap(entry => entry.screenshots || [])),
+            featuredIn: uniqueStrings(repoEntries.flatMap(entry => entry.featuredIn || [])),
+            sourceRepos: repoEntries.map(entry => entry.sourceRepo),
+            repoEntries,
+            versions: getRepoVersions({ repoEntries }, null),
+            latestVersion: topVersion
+          };
+        });
+      }
+
+      function getEffectiveRepoFilter(app) {
+        const id = appIdentifier(app);
+        if (Object.prototype.hasOwnProperty.call(state.cardRepoFilters, id)) {
+          return state.cardRepoFilters[id];
+        }
+        return state.globalRepoFilter;
+      }
+
+      function getAppView(app, repoFilter) {
+        if (!repoFilter) {
+          const { entry: bestEntry, topVersion } = getBestDisplayEntry(app.repoEntries);
+          const allPermissions = app.repoEntries.map(entry => entry.permissions).find(Boolean) || null;
+          const allAppPermissions = app.repoEntries.map(entry => entry.appPermissions).find(Boolean) || null;
+          const allPatreon = app.repoEntries.map(entry => entry.patreon).find(Boolean) || null;
+          return {
+            name: bestEntry.name || app.name,
+            developerName: bestEntry.developerName || app.developerName,
+            subtitle: bestEntry.subtitle || app.subtitle,
+            localizedDescription: pickPreferred(
+              app.repoEntries.map(entry => entry.localizedDescription),
+              true
+            ) || app.localizedDescription || "",
+            iconURL: bestEntry.iconURL || app.iconURL,
+            tintColor: bestEntry.tintColor || app.tintColor,
+            category: bestEntry.category || app.category,
+            marketplaceID: bestEntry.marketplaceID || app.marketplaceID,
+            beta: app.beta || bestEntry.beta,
+            screenshots: uniqueStrings(app.repoEntries.flatMap(entry => entry.screenshots || [])),
+            appPermissions: allAppPermissions,
+            permissions: allPermissions,
+            patreon: allPatreon,
+            featuredIn: app.featuredIn || [],
+            versions: getRepoVersions(app, null),
+            topVersion,
+            sourceRepos: app.sourceRepos,
+            activeRepoFilter: null,
+            repoEntries: app.repoEntries
+          };
+        }
+
+        const entries = app.repoEntries.filter(item => item.sourceRepo === repoFilter);
+        if (!entries.length) return getAppView(app, null);
+        const consolidated = consolidateRepoEntries(entries)[0];
+        const topVersion = getHighestVersion(consolidated.versions);
+        return {
+          name: consolidated.name,
+          developerName: consolidated.developerName,
+          subtitle: consolidated.subtitle,
+          localizedDescription: consolidated.localizedDescription || "",
+          iconURL: consolidated.iconURL,
+          tintColor: consolidated.tintColor,
+          category: consolidated.category,
+          marketplaceID: consolidated.marketplaceID,
+          beta: consolidated.beta,
+          screenshots: consolidated.screenshots || [],
+          appPermissions: consolidated.appPermissions,
+          permissions: consolidated.permissions,
+          patreon: consolidated.patreon,
+          featuredIn: consolidated.featuredIn || [],
+          versions: getRepoVersions(app, repoFilter),
+          topVersion,
+          sourceRepos: app.sourceRepos,
+          activeRepoFilter: repoFilter,
+          repoEntries: [consolidated]
+        };
+      }
+
+      function buildAppCardHtml(app) {
+        const bundleId = appIdentifier(app);
+        const repoFilter = getEffectiveRepoFilter(app);
+        const view = getAppView(app, repoFilter);
+        const versions = view.versions || [];
+        const defaultVersion = versions[0] || {};
+        const showRepoOnVersion = !repoFilter;
+        const options = versions.map((version, index) => {
+          const repoSuffix = showRepoOnVersion && version._sourceRepo
+            ? REPO_SEP + version._sourceRepo
+            : "";
+          const build = version.buildVersion ? " build " + version.buildVersion : "";
+          return `
+        <option value="${index}">
+        ${escapeHtml(version.version)}${escapeHtml(build)} (${escapeHtml(formatDate(version.date))})${escapeHtml(repoSuffix)}
+        </option>`;
+        }).join("");
+        const sourceLinks = app.sourceRepos.map(source => {
+          const activeClass = repoFilter === source ? " active" : "";
+          return `<button type="button" class="repoLink${activeClass}" data-bundle-id="${escapeHtml(bundleId)}" data-repo="${escapeHtml(source)}">${escapeHtml(source)}</button>`;
+        }).join("");
+        const sourceBadge = app.sourceRepos.length
+          ? `<div class="badge source">${sourceLinks}</div>`
+          : "";
+        const filteredClass = repoFilter ? " filtered" : "";
+        const cardDescription = view.localizedDescription || "";
+        const subtitleHtml = view.subtitle
+          ? `<div class="subtitle">${escapeHtml(view.subtitle)}</div>`
+          : "";
+        const descriptionHtml = cardDescription
+          ? `<div class="description">${escapeHtml(cardDescription)}</div>`
+          : "";
+        const categoryBadge = view.category
+          ? `<div class="badge category">${escapeHtml(view.category)}</div>`
+          : "";
+        const betaBadge = view.beta ? `<div class="badge beta">Beta</div>` : "";
+        const featuredBadge = (view.featuredIn && view.featuredIn.length)
+          ? `<div class="badge featured">Featured</div>`
+          : "";
+        const iosRange = defaultVersion.maxOSVersion
+          ? `iOS ${defaultVersion.minOSVersion || "?"}–${defaultVersion.maxOSVersion}`
+          : `iOS ${defaultVersion.minOSVersion || "Unknown"}`;
+        const tintStyle = view.tintColor ? ` style="box-shadow: inset 3px 0 0 ${escapeHtml(view.tintColor)}"` : "";
+
+        return `
+        <div class="card${filteredClass}" data-bundle-id="${escapeHtml(bundleId)}"${tintStyle}>
+        <img class="icon" src="${escapeHtml(view.iconURL)}" alt="" onerror="this.style.display='none'">
+        <div class="content">
+        <div class="name">${escapeHtml(view.name)}</div>
+        ${subtitleHtml}
+        <div class="developer">${escapeHtml(view.developerName || "Unknown Developer")}</div>
+        ${descriptionHtml}
+        <div class="meta">
+        <div class="badge">${escapeHtml(bundleId)}</div>
+        ${categoryBadge}${betaBadge}${featuredBadge}
+        <div class="badge iosBadge">${escapeHtml(iosRange)}</div>
+        <div class="badge sizeBadge">${formatSize(defaultVersion.size)}</div>
+        ${sourceBadge}
+        </div>
+        <div class="versionRow">
+        <select class="versionSelect">
+        ${options}
+        </select>
+        </div>
+        <div class="cardActions">
+        <a class="download" target="_blank" rel="noopener noreferrer" href="${escapeHtml(defaultVersion.downloadURL || "#")}">Download</a>
+        <button type="button" class="detailsBtn" data-bundle-id="${escapeHtml(bundleId)}">Details</button>
+        </div>
+        </div>
+        </div>`;
+      }
+
+      function createAppCardElement(app) {
+        const template = document.createElement("template");
+        template.innerHTML = buildAppCardHtml(app).trim();
+        return template.content.firstElementChild;
+      }
+
+      function findAppCard(bundleId) {
+        return appContainer.querySelector(`.card[data-bundle-id="${CSS.escape(bundleId)}"]`);
+      }
+
+      function applyAppViewToCard(card, app) {
+        const bundleId = appIdentifier(app);
+        const repoFilter = getEffectiveRepoFilter(app);
+        const view = getAppView(app, repoFilter);
+        const versions = view.versions || [];
+        const defaultVersion = versions[0] || {};
+        const showRepoOnVersion = !repoFilter;
+
+        card.classList.toggle("filtered", !!repoFilter);
+        if (view.tintColor) {
+          card.style.boxShadow = "inset 3px 0 0 " + view.tintColor;
+        } else {
+          card.style.boxShadow = "";
+        }
+
+        const icon = card.querySelector(".icon");
+        if (icon) {
+          icon.src = view.iconURL || "";
+          icon.style.display = "";
+        }
+
+        const nameEl = card.querySelector(".name");
+        if (nameEl) nameEl.textContent = view.name || "";
+
+        let subtitleEl = card.querySelector(".subtitle");
+        if (view.subtitle) {
+          if (!subtitleEl) {
+            subtitleEl = document.createElement("div");
+            subtitleEl.className = "subtitle";
+            nameEl?.insertAdjacentElement("afterend", subtitleEl);
+          }
+          subtitleEl.textContent = view.subtitle;
+        } else if (subtitleEl) {
+          subtitleEl.remove();
+        }
+
+        const developerEl = card.querySelector(".developer");
+        if (developerEl) developerEl.textContent = view.developerName || "Unknown Developer";
+
+        const description = card.querySelector(".description");
+        if (view.localizedDescription) {
+          if (description) {
+            description.textContent = view.localizedDescription;
+          } else {
+            const developerEl = card.querySelector(".developer");
+            const desc = document.createElement("div");
+            desc.className = "description";
+            desc.textContent = view.localizedDescription;
+            developerEl?.insertAdjacentElement("afterend", desc);
+          }
+        } else if (description) {
+          description.remove();
+        }
+
+        const meta = card.querySelector(".meta");
+        if (meta) {
+          const sourceLinks = app.sourceRepos.map(source => {
+            const activeClass = repoFilter === source ? " active" : "";
+            return `<button type="button" class="repoLink${activeClass}" data-bundle-id="${escapeHtml(bundleId)}" data-repo="${escapeHtml(source)}">${escapeHtml(source)}</button>`;
+          }).join("");
+          const iosRange = defaultVersion.maxOSVersion
+            ? `iOS ${defaultVersion.minOSVersion || "?"}–${defaultVersion.maxOSVersion}`
+            : `iOS ${defaultVersion.minOSVersion || "Unknown"}`;
+          meta.innerHTML = `
+            <div class="badge">${escapeHtml(bundleId)}</div>
+            ${view.category ? `<div class="badge category">${escapeHtml(view.category)}</div>` : ""}
+            ${view.beta ? '<div class="badge beta">Beta</div>' : ""}
+            ${(view.featuredIn && view.featuredIn.length) ? '<div class="badge featured">Featured</div>' : ""}
+            <div class="badge iosBadge">${escapeHtml(iosRange)}</div>
+            <div class="badge sizeBadge">${formatSize(defaultVersion.size)}</div>
+            ${sourceLinks ? `<div class="badge source">${sourceLinks}</div>` : ""}`;
+        }
+
+        const versionSelect = card.querySelector(".versionSelect");
+        if (versionSelect) {
+          versionSelect.innerHTML = versions.map((version, index) => {
+            const repoSuffix = showRepoOnVersion && version._sourceRepo
+              ? REPO_SEP + version._sourceRepo
+              : "";
+            const build = version.buildVersion ? " build " + version.buildVersion : "";
+            return `
+        <option value="${index}">
+        ${escapeHtml(version.version)}${escapeHtml(build)} (${escapeHtml(formatDate(version.date))})${escapeHtml(repoSuffix)}
+        </option>`;
+          }).join("");
+        }
+
+        const download = card.querySelector(".download");
+        if (download) download.href = defaultVersion.downloadURL || "#";
+      }
+
+      function syncAppGrid(pageApps) {
+        appContainer.querySelector(".empty")?.remove();
+        appContainer.querySelector(".loading")?.remove();
+
+        if (!pageApps.length) {
+          appContainer.querySelectorAll(".card").forEach(card => card.remove());
+          if (!appContainer.querySelector(".empty")) {
+            appContainer.insertAdjacentHTML("beforeend", '<div class="empty">No applications found.</div>');
+          }
+          return;
+        }
+
+        const targetIds = pageApps.map(appIdentifier);
+        appContainer.querySelectorAll(".card").forEach(card => {
+          if (!targetIds.includes(card.dataset.bundleId)) {
+            card.remove();
+          }
+        });
+
+        pageApps.forEach((app, index) => {
+          const bundleId = appIdentifier(app);
+          let card = findAppCard(bundleId);
+          if (!card) {
+            card = createAppCardElement(app);
+          } else {
+            applyAppViewToCard(card, app);
+          }
+
+          const currentChild = appContainer.children[index];
+          if (currentChild !== card) {
+            if (index >= appContainer.children.length) {
+              appContainer.appendChild(card);
+            } else {
+              appContainer.insertBefore(card, appContainer.children[index]);
+            }
+          }
+        });
+
+        while (appContainer.children.length > pageApps.length) {
+          appContainer.lastElementChild.remove();
+        }
+      }
+
+      function updateRepositoryFilters() {
+        if (!state.repos.length) return;
+
+        repoInfo.querySelectorAll(".repoChip.clickable").forEach(chip => {
+          chip.classList.toggle("active", chip.dataset.repo === state.globalRepoFilter);
+        });
+
+        let filterNote = repoInfo.querySelector(".globalFilterNote");
+        if (state.globalRepoFilter) {
+          if (!filterNote) {
+            filterNote = document.createElement("div");
+            filterNote.className = "loadWarnings globalFilterNote";
+            filterNote.style.background = "rgba(79,140,255,.1)";
+            filterNote.style.borderColor = "rgba(79,140,255,.25)";
+            filterNote.style.color = "#b8d4ff";
+            repoInfo.appendChild(filterNote);
+          }
+          filterNote.innerHTML =
+            "Showing apps from <strong>" + escapeHtml(state.globalRepoFilter) +
+            "</strong>. Click the repo again to show all.";
+        } else if (filterNote) {
+          filterNote.remove();
+        }
+      }
+
+      function getFilteredApps() {
+        const query = searchBox.value.toLowerCase().trim();
+        const { category, developer, beta, featured, sort } = state.filters;
+
+        let apps = state.apps.filter(app => {
+          if (state.globalRepoFilter && !app.sourceRepos.includes(state.globalRepoFilter)) {
+            return false;
+          }
+          if (category && (app.category || "").toLowerCase() !== category.toLowerCase()) {
+            return false;
+          }
+          if (developer && (app.developerName || "") !== developer) {
+            return false;
+          }
+          if (beta === "beta" && !app.beta) return false;
+          if (beta === "stable" && app.beta) return false;
+          if (featured === "yes" && !(app.featuredIn && app.featuredIn.length)) return false;
+          if (featured === "no" && app.featuredIn && app.featuredIn.length) return false;
+
+          if (!query) return true;
+
+          const haystack = [
+            app.name,
+            app.developerName,
+            app.bundleIdentifier,
+            app.bundleID,
+            app.localizedDescription,
+            app.subtitle,
+            app.category,
+            app.marketplaceID,
+            ...(app.sourceRepos || []),
+            ...(app.featuredIn || []),
+            ...(app.versions || []).flatMap(version => [
+              version.version,
+              version.localizedDescription,
+              version.buildVersion
+            ])
+          ].join(" ").toLowerCase();
+
+          return haystack.includes(query);
+        });
+
+        apps = [...apps].sort((left, right) => {
+          if (sort === "developer") {
+            return (left.developerName || "").localeCompare(right.developerName || "") ||
+              (left.name || "").localeCompare(right.name || "");
+          }
+          if (sort === "category") {
+            return (left.category || "zzz").localeCompare(right.category || "zzz") ||
+              (left.name || "").localeCompare(right.name || "");
+          }
+          if (sort === "updated") {
+            const leftDate = left.latestVersion?.date || "";
+            const rightDate = right.latestVersion?.date || "";
+            const byDate = compareDates(rightDate, leftDate);
+            if (byDate !== 0) return byDate;
+            return compareVersions(right.latestVersion?.version, left.latestVersion?.version);
+          }
+          return (left.name || "").localeCompare(right.name || "");
+        });
+
+        return apps;
+      }
+
+      function getCurrentPageApps() {
+        const start = (state.currentPage - 1) * state.pageLength;
+        const end = start + state.pageLength;
+        return state.filteredApps.slice(start, end);
+      }
+
+      function refreshAppList(resetPage) {
+        if (resetPage) state.currentPage = 1;
+        state.filteredApps = getFilteredApps();
+        resultMeta.textContent = state.apps.length
+          ? `Showing ${state.filteredApps.length} of ${state.apps.length} apps`
+          : "";
+        syncAppGrid(getCurrentPageApps());
+        renderPagination();
+      }
+
+      function populateFilterOptions() {
+        const categories = uniqueStrings(
+          state.apps.map(app => app.category).filter(Boolean)
+        ).sort((a, b) => a.localeCompare(b));
+        const developers = uniqueStrings(
+          state.apps.map(app => app.developerName).filter(Boolean)
+        ).sort((a, b) => a.localeCompare(b));
+
+        const categoryOptions = '<option value="">All categories</option>' +
+          categories.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+        categoryFilter.innerHTML = categoryOptions;
+        categoryFilterCompact.innerHTML = categoryOptions;
+
+        developerFilter.innerHTML = '<option value="">All developers</option>' +
+          developers.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+
+        syncCategoryFilter(state.filters.category);
+        if (state.filters.developer && !developers.includes(state.filters.developer)) {
+          state.filters.developer = "";
+        }
+        developerFilter.value = state.filters.developer;
+        betaFilter.value = state.filters.beta;
+        featuredFilter.value = state.filters.featured;
+        sortOrder.value = state.filters.sort;
+      }
+
+      function saveSources() {
+        localStorage.setItem(STORAGE_KEYS.urls, repoUrls.value);
+        localStorage.setItem(STORAGE_KEYS.json, repoJson.value);
+      }
+
+      function restoreSources() {
+        const savedUrls = localStorage.getItem(STORAGE_KEYS.urls);
+        const savedJson = localStorage.getItem(STORAGE_KEYS.json);
+        if (savedUrls) repoUrls.value = savedUrls;
+        if (savedJson) repoJson.value = savedJson;
+      }
+
+      function setActiveView(view) {
+        state.activeView = view;
+        document.querySelectorAll(".viewTab").forEach(tab => {
+          tab.classList.toggle("active", tab.dataset.view === view);
+        });
+        appsPanel.classList.toggle("active", view === "apps");
+        reposPanel.classList.toggle("active", view === "repos");
+        if (view === "repos") renderRepoDetails();
+      }
+
+      async function loadRepositories() {
+        const urls = parseLines(repoUrls.value);
+        const jsonText = repoJson.value.trim();
+
+        if (!urls.length && !jsonText) {
+          appContainer.innerHTML = '<div class="empty">Add at least one repository URL or paste raw JSON.</div>';
+          repoInfo.innerHTML = "";
+          pagination.innerHTML = "";
+          resultMeta.textContent = "";
+          repoDetailContainer.innerHTML = "";
+          return;
+        }
+
+        saveSources();
+        appContainer.innerHTML = '<div class="loading">Loading repositories...</div>';
+        repoInfo.innerHTML = "";
+        pagination.innerHTML = "";
+        resultMeta.textContent = "";
+
+        const loadedRepos = [];
+        const loadErrors = [];
+        const allTaggedApps = [];
+
+        const jsonSources = [];
+        if (jsonText) {
+          try {
+            jsonSources.push(...parseRawJsonBlocks(jsonText));
+          } catch (error) {
+            loadErrors.push({
+              label: "Raw JSON",
+              message: error.message
+            });
+          }
+        }
+
+        jsonSources.forEach(source => {
+          loadedRepos.push({
+            ...source.repo,
+            _sourceLabel: source.sourceLabel,
+            _sourceType: source.sourceType
+          });
+          allTaggedApps.push(...tagAppsWithSource(source.repo, source.sourceLabel));
+        });
+
+        const urlResults = await Promise.all(
+          urls.map(async url => {
+            try {
+              return await fetchRepoFromUrl(url);
+            } catch (error) {
+              return {
+                error: error.message,
+                sourceLabel: url,
+                sourceUrl: url
+              };
+            }
+          })
+        );
+
+        urlResults.forEach(result => {
+          if (result.error) {
+            loadErrors.push({
+              label: result.sourceLabel,
+              message: result.error
+            });
+            return;
+          }
+          loadedRepos.push({
+            ...result.repo,
+            _sourceLabel: result.sourceLabel,
+            _sourceType: result.sourceType,
+            _sourceUrl: result.sourceUrl
+          });
+          allTaggedApps.push(...tagAppsWithSource(result.repo, result.sourceLabel));
+        });
+
+        if (!allTaggedApps.length) {
+          state.repos = [];
+          state.apps = [];
+          state.filteredApps = [];
+          state.loadErrors = loadErrors;
+          appContainer.innerHTML =
+            '<div class="empty">' +
+            "<h3>No repositories loaded</h3>" +
+            (loadErrors.length
+              ? '<pre style="white-space:pre-wrap;text-align:left;background:#151922;padding:20px;border-radius:12px;overflow:auto;margin-top:16px;">' +
+                escapeHtml(loadErrors.map(item => item.label + ":\n" + item.message).join("\n\n")) +
+                "</pre>"
+              : "") +
+            "</div>";
+          renderRepository();
+          renderRepoDetails();
+          return;
+        }
+
+        state.repos = loadedRepos;
+        state.loadErrors = loadErrors;
+        state.apps = mergeApps(allTaggedApps);
+        state.filteredApps = [...state.apps];
+        state.currentPage = 1;
+        state.globalRepoFilter = null;
+        state.cardRepoFilters = {};
+        state.filters.category = "";
+        state.filters.developer = "";
+        populateFilterOptions();
+        renderRepository();
+        renderRepoDetails();
+        filterApps();
+      }
+
+      function renderRepository() {
+        if (!state.repos.length) {
+          repoInfo.innerHTML = state.loadErrors.length
+            ? '<div class="loadWarnings">Failed to load all sources. See details below.</div>'
+            : "";
+          return;
+        }
+
+        const repoChips = state.repos.map(repo => {
+          const rawLabel = repo._sourceLabel || repo.name || "Unknown repo";
+          const label = escapeHtml(rawLabel);
+          const subtitle = repo.subtitle ? `<span style="color:var(--secondary)"> - ${escapeHtml(repo.subtitle)}</span>` : "";
+          const activeClass = state.globalRepoFilter === rawLabel ? " active" : "";
+          return `<button type="button" class="repoChip clickable${activeClass}" data-repo="${escapeHtml(rawLabel)}">${label}${subtitle}</button>`;
+        }).join("");
+
+        const failedChips = state.loadErrors.map(item =>
+          `<span class="repoChip failed" title="${escapeHtml(item.message)}">${escapeHtml(item.label)}</span>`
+        ).join("");
+
+        const warnings = state.loadErrors.length
+          ? `<div class="loadWarnings">${state.loadErrors.length} source(s) failed to load. Hover failed chips for details.</div>`
+          : "";
+
+        const filterNote = state.globalRepoFilter
+          ? `<div class="loadWarnings globalFilterNote" style="background:rgba(79,140,255,.1);border-color:rgba(79,140,255,.25);color:#b8d4ff;">Showing apps from <strong>${escapeHtml(state.globalRepoFilter)}</strong>. Click the repo again to show all.</div>`
+          : "";
+
+        const newsCount = state.repos.reduce((sum, repo) => sum + ((repo.news || []).length), 0);
+
+        repoInfo.innerHTML = `
+        <div class="repoInfoHeader">
+          <div class="repoSummary">
+            Loaded repositories
+            <span class="repoCount">${state.repos.length} repo(s), ${state.apps.length} unique app(s), ${newsCount} news item(s)</span>
+          </div>
+        </div>
+        <div class="repoList">${repoChips}${failedChips}</div>
+        ${filterNote}
+        ${warnings}`;
+      }
+
+      function renderRepoDetails() {
+        if (!state.repos.length) {
+          repoDetailContainer.innerHTML = '<div class="empty">Load repositories to view source info and news.</div>';
+          return;
+        }
+
+        repoDetailContainer.innerHTML = state.repos.map(repo => {
+          const label = repo._sourceLabel || repo.name || "Unknown repo";
+          const tint = normalizeTint(repo.tintColor);
+          const bannerStyle = [
+            repo.headerURL ? `background-image:url('${escapeHtml(repo.headerURL)}')` : "",
+            !repo.headerURL && tint ? `background:${escapeHtml(tint)}22` : ""
+          ].filter(Boolean).join(";");
+
+          const links = [];
+          if (repo.website) links.push(`<a href="${escapeHtml(repo.website)}" target="_blank" rel="noopener noreferrer">Website</a>`);
+          if (repo.patreonURL) links.push(`<a href="${escapeHtml(repo.patreonURL)}" target="_blank" rel="noopener noreferrer">Patreon</a>`);
+          if (repo._sourceUrl) links.push(`<a href="${escapeHtml(repo._sourceUrl)}" target="_blank" rel="noopener noreferrer">Source JSON</a>`);
+
+          const featured = (repo.featuredApps || []).map(id => {
+            const app = state.apps.find(item => appIdentifier(item) === id);
+            const name = app ? app.name : id;
+            return `<button type="button" class="featuredItem" data-open-app="${escapeHtml(id)}">${escapeHtml(name)} <span style="color:var(--secondary)">${escapeHtml(id)}</span></button>`;
+          }).join("");
+
+          const news = (repo.news || []).slice().sort((a, b) => compareDates(b.date, a.date)).map(item => {
+            const newsTint = normalizeTint(item.tintColor) || tint;
+            const hasImage = !!item.imageURL;
+            const linkedApp = item.appID
+              ? `<button type="button" class="repoLink" data-open-app="${escapeHtml(item.appID)}">App: ${escapeHtml(item.appID)}</button>`
+              : "";
+            const urlLink = item.url
+              ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">Open link</a>`
+              : "";
+            return `
+            <div class="newsCard${hasImage ? "" : " noImage"}" style="${newsTint ? `border-color:${escapeHtml(newsTint)}55` : ""}">
+              ${hasImage ? `<img src="${escapeHtml(item.imageURL)}" alt="" onerror="this.parentElement.classList.add('noImage');this.remove()">` : ""}
+              <div>
+                <div class="newsTitle">${escapeHtml(item.title || "Untitled")}</div>
+                <div class="newsMeta">
+                  ${escapeHtml(formatDate(item.date))}
+                  ${item.notify ? " · Notify" : ""}
+                  ${item.identifier ? " · " + escapeHtml(item.identifier) : ""}
+                </div>
+                <div class="newsCaption">${escapeHtml(item.caption || "")}</div>
+                <div class="repoLinks" style="margin-top:8px">${linkedApp}${urlLink}</div>
+              </div>
+            </div>`;
+          }).join("") || '<div class="empty" style="padding:12px">No news for this repository.</div>';
+
+          const userInfoKeys = repo.userInfo && typeof repo.userInfo === "object"
+            ? Object.keys(repo.userInfo)
+            : [];
+
+          return `
+          <article class="repoDetailCard">
+            <div class="repoHeaderBanner" style="${bannerStyle}">
+              ${repo.iconURL ? `<img class="repoIcon" src="${escapeHtml(repo.iconURL)}" alt="" onerror="this.style.display='none'">` : ""}
+            </div>
+            <div class="repoDetailBody">
+              <h2>${escapeHtml(repo.name || label)}</h2>
+              ${repo.subtitle ? `<div class="subtitle">${escapeHtml(repo.subtitle)}</div>` : ""}
+              ${repo.identifier ? `<div class="badge">${escapeHtml(repo.identifier)}</div>` : ""}
+              ${repo.description ? `<div class="modalDescription">${escapeHtml(repo.description)}</div>` : ""}
+              ${links.length ? `<div class="repoLinks">${links.join("")}</div>` : ""}
+              <div class="meta">
+                <div class="badge">${(repo.apps || []).length} apps</div>
+                <div class="badge">${(repo.news || []).length} news</div>
+                ${(repo.featuredApps || []).length ? `<div class="badge featured">${repo.featuredApps.length} featured</div>` : ""}
+                ${tint ? `<div class="badge" style="border:1px solid ${escapeHtml(tint)}">Tint ${escapeHtml(tint)}</div>` : ""}
+                ${repo._sourceType ? `<div class="badge">${escapeHtml(repo._sourceType)}</div>` : ""}
+              </div>
+              ${(repo.featuredApps || []).length ? `<div class="sectionLabel">Featured apps</div><div class="featuredList">${featured}</div>` : ""}
+              <div class="sectionLabel">News</div>
+              <div class="newsList">${news}</div>
+              ${userInfoKeys.length ? `<div class="sectionLabel">userInfo</div><div class="modalDescription">${escapeHtml(JSON.stringify(repo.userInfo, null, 2))}</div>` : ""}
+            </div>
+          </article>`;
+        }).join("");
+      }
+
+      function toggleGlobalRepoFilter(repoLabelValue) {
+        state.globalRepoFilter = state.globalRepoFilter === repoLabelValue ? null : repoLabelValue;
+        state.cardRepoFilters = {};
+        updateRepositoryFilters();
+        refreshAppList(true);
+      }
+
+      function toggleCardRepoFilter(bundleId, repoLabelValue) {
+        const current = Object.prototype.hasOwnProperty.call(state.cardRepoFilters, bundleId)
+          ? state.cardRepoFilters[bundleId]
+          : state.globalRepoFilter;
+        if (current === repoLabelValue) {
+          state.cardRepoFilters[bundleId] = null;
+        } else {
+          state.cardRepoFilters[bundleId] = repoLabelValue;
+        }
+        const app = state.apps.find(item => appIdentifier(item) === bundleId);
+        const card = findAppCard(bundleId);
+        if (app && card) {
+          applyAppViewToCard(card, app);
+        }
+      }
+
+      function renderApps() {
+        syncAppGrid(getCurrentPageApps());
+        renderPagination();
+      }
+
+      function updateCardForVersion(card, selected) {
+        if (!selected) return;
+        const iosBadge = card.querySelector(".iosBadge");
+        const sizeBadge = card.querySelector(".sizeBadge");
+        const button = card.querySelector(".download");
+        if (iosBadge) {
+          iosBadge.textContent = selected.maxOSVersion
+            ? `iOS ${selected.minOSVersion || "?"}–${selected.maxOSVersion}`
+            : `iOS ${selected.minOSVersion || "Unknown"}`;
+        }
+        if (sizeBadge) sizeBadge.textContent = formatSize(selected.size);
+        if (button) button.href = selected.downloadURL || "#";
+      }
+
+      function renderPermissions(view) {
+        const blocks = [];
+        const entitlements = view.appPermissions?.entitlements;
+        const privacy = view.appPermissions?.privacy;
+        if (Array.isArray(entitlements) && entitlements.length) {
+          blocks.push(`
+            <div class="modalSection">
+              <h3>Entitlements</h3>
+              <div class="permList">
+                ${entitlements.map(item => `<div class="permItem"><div class="permKey">${escapeHtml(item)}</div></div>`).join("")}
+              </div>
+            </div>`);
+        }
+        if (privacy && typeof privacy === "object" && Object.keys(privacy).length) {
+          blocks.push(`
+            <div class="modalSection">
+              <h3>Privacy usage</h3>
+              <div class="permList">
+                ${Object.entries(privacy).map(([key, value]) => `
+                  <div class="permItem">
+                    <div class="permKey">${escapeHtml(key)}</div>
+                    <div>${escapeHtml(value)}</div>
+                  </div>`).join("")}
+              </div>
+            </div>`);
+        }
+        if (Array.isArray(view.permissions) && view.permissions.length) {
+          blocks.push(`
+            <div class="modalSection">
+              <h3>Permissions</h3>
+              <div class="permList">
+                ${view.permissions.map(item => `
+                  <div class="permItem">
+                    <div class="permKey">${escapeHtml(item.type || "permission")}</div>
+                    <div>${escapeHtml(item.usageDescription || "")}</div>
+                  </div>`).join("")}
+              </div>
+            </div>`);
+        }
+        if (view.patreon?.tiers?.length) {
+          blocks.push(`
+            <div class="modalSection">
+              <h3>Patreon tiers</h3>
+              <div class="meta">${view.patreon.tiers.map(tier => `<div class="badge">${escapeHtml(tier)}</div>`).join("")}</div>
+            </div>`);
+        }
+        return blocks.join("");
+      }
+
+      function openAppModal(bundleId) {
+        const app = state.apps.find(item => appIdentifier(item) === bundleId);
+        if (!app) return;
+        const view = getAppView(app, getEffectiveRepoFilter(app));
+        const shots = view.screenshots || [];
+        const tint = view.tintColor;
+
+        const shotHtml = shots.length
+          ? `<div class="modalSection"><h3>Screenshots</h3><div class="shotStrip">${
+              shots.map((url, index) =>
+                `<img src="${escapeHtml(url)}" alt="Screenshot ${index + 1}" data-shot-index="${index}" onerror="this.style.display='none'">`
+              ).join("")
+            }</div></div>`
+          : "";
+
+        const versionHtml = (view.versions || []).map(version => {
+          const changelog = version.localizedDescription || "No changelog provided.";
+          const os = version.maxOSVersion
+            ? `iOS ${version.minOSVersion || "?"}–${version.maxOSVersion}`
+            : `iOS ${version.minOSVersion || "Unknown"}`;
+          const build = version.buildVersion ? ` · Build ${escapeHtml(version.buildVersion)}` : "";
+          return `
+            <div class="versionBlock">
+              <div class="versionBlockHeader">
+                <div class="versionBlockTitle">v${escapeHtml(version.version)}${build}</div>
+                <div class="meta">
+                  <div class="badge">${escapeHtml(formatDate(version.date))}</div>
+                  <div class="badge">${escapeHtml(os)}</div>
+                  <div class="badge">${formatSize(version.size)}</div>
+                  ${version._sourceRepo ? `<div class="badge">${escapeHtml(version._sourceRepo)}</div>` : ""}
+                </div>
+              </div>
+              <div class="versionChangelog">${escapeHtml(changelog)}</div>
+              ${version.downloadURL
+                ? `<a class="download" style="display:inline-block;min-width:140px" target="_blank" rel="noopener noreferrer" href="${escapeHtml(version.downloadURL)}">Download v${escapeHtml(version.version)}</a>`
+                : "<div class=\"badge\">No download URL</div>"}
+            </div>`;
+        }).join("");
+
+        modalBody.innerHTML = `
+          <div class="modalHero">
+            <img src="${escapeHtml(view.iconURL || "")}" alt="" onerror="this.style.display='none'" style="${tint ? `box-shadow:0 0 0 3px ${escapeHtml(tint)}55` : ""}">
+            <div>
+              <h2 id="modalTitle">${escapeHtml(view.name || "")}</h2>
+              ${view.subtitle ? `<div class="subtitle">${escapeHtml(view.subtitle)}</div>` : ""}
+              <div class="developer">${escapeHtml(view.developerName || "Unknown Developer")}</div>
+              <div class="meta" style="margin-top:10px">
+                <div class="badge">${escapeHtml(bundleId)}</div>
+                ${view.category ? `<div class="badge category">${escapeHtml(view.category)}</div>` : ""}
+                ${view.beta ? '<div class="badge beta">Beta</div>' : ""}
+                ${(view.featuredIn || []).length ? '<div class="badge featured">Featured</div>' : ""}
+                ${view.marketplaceID ? `<div class="badge">Marketplace ${escapeHtml(view.marketplaceID)}</div>` : ""}
+                ${tint ? `<div class="badge">Tint ${escapeHtml(tint)}</div>` : ""}
+              </div>
+            </div>
+          </div>
+          <div class="modalSection">
+            <h3>Description</h3>
+            <div class="modalDescription">${escapeHtml(view.localizedDescription || view.subtitle || "No description provided.")}</div>
+          </div>
+          ${shotHtml}
+          <div class="modalSection">
+            <h3>Sources</h3>
+            <div class="meta">${(view.sourceRepos || []).map(source => `<div class="badge">${escapeHtml(source)}</div>`).join("")}</div>
+            ${(view.featuredIn || []).length
+              ? `<div class="sectionLabel" style="margin-top:10px">Featured in</div><div class="meta">${view.featuredIn.map(source => `<div class="badge featured">${escapeHtml(source)}</div>`).join("")}</div>`
+              : ""}
+          </div>
+          ${renderPermissions(view)}
+          <div class="modalSection">
+            <h3>Versions (${(view.versions || []).length})</h3>
+            ${versionHtml || '<div class="empty" style="padding:12px">No versions listed.</div>'}
+          </div>`;
+
+        appModal.dataset.shots = JSON.stringify(shots);
+        appModal.classList.add("open");
+        document.body.classList.add("modalOpen");
+      }
+
+      function closeAppModal() {
+        appModal.classList.remove("open");
+        document.body.classList.remove("modalOpen");
+      }
+
+      function openLightbox(shots, index) {
+        if (!shots.length) return;
+        state.lightboxShots = shots;
+        state.lightboxIndex = index;
+        lightboxImage.src = shots[index];
+        const multi = shots.length > 1;
+        lightboxPrev.style.display = multi ? "" : "none";
+        lightboxNext.style.display = multi ? "" : "none";
+        lightbox.classList.add("open");
+      }
+
+      function closeLightbox() {
+        lightbox.classList.remove("open");
+        lightboxImage.src = "";
+      }
+
+      function stepLightbox(delta) {
+        if (!state.lightboxShots.length) return;
+        const length = state.lightboxShots.length;
+        state.lightboxIndex = (state.lightboxIndex + delta + length) % length;
+        lightboxImage.src = state.lightboxShots[state.lightboxIndex];
+      }
+
+      function renderPagination() {
+        const totalPages = Math.ceil(state.filteredApps.length / state.pageLength) || 1;
+        if (totalPages <= 1) {
+          pagination.innerHTML = state.filteredApps.length
+            ? `<span>Page 1 / 1 · ${state.filteredApps.length} apps</span>`
+            : "";
+          return;
+        }
+        pagination.innerHTML = `
+          <button type="button" data-page="${state.currentPage - 1}" ${state.currentPage === 1 ? "disabled" : ""}>Previous</button>
+          <span>Page ${state.currentPage} / ${totalPages}</span>
+          <button type="button" data-page="${state.currentPage + 1}" ${state.currentPage === totalPages ? "disabled" : ""}>Next</button>`;
+      }
+
+      function changePage(page) {
+        const totalPages = Math.ceil(state.filteredApps.length / state.pageLength) || 1;
+        if (page < 1 || page > totalPages) return;
+        state.currentPage = page;
+        renderApps();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function filterApps() {
+        refreshAppList(true);
+      }
+
+      function openAppFromId(bundleId) {
+        setActiveView("apps");
+        const app = state.apps.find(item => appIdentifier(item) === bundleId);
+        if (!app) return;
+        openAppModal(bundleId);
+      }
+
+      document.querySelectorAll(".viewTab").forEach(tab => {
+        tab.addEventListener("click", () => setActiveView(tab.dataset.view));
+      });
+
+      repoInfo.addEventListener("click", event => {
+        const chip = event.target.closest(".repoChip.clickable");
+        if (!chip) return;
+        toggleGlobalRepoFilter(chip.dataset.repo);
+      });
+
+      repoDetailContainer.addEventListener("click", event => {
+        const openApp = event.target.closest("[data-open-app]");
+        if (openApp) {
+          openAppFromId(openApp.dataset.openApp);
+        }
+      });
+
+      appContainer.addEventListener("click", event => {
+        const repoLink = event.target.closest(".repoLink");
+        if (repoLink) {
+          event.stopPropagation();
+          toggleCardRepoFilter(repoLink.dataset.bundleId, repoLink.dataset.repo);
+          return;
+        }
+
+        const detailsBtn = event.target.closest(".detailsBtn");
+        if (detailsBtn) {
+          event.stopPropagation();
+          openAppModal(detailsBtn.dataset.bundleId);
+          return;
+        }
+
+        if (
+          event.target.closest(".download") ||
+          event.target.closest(".versionSelect") ||
+          event.target.closest(".versionRow")
+        ) {
+          event.stopPropagation();
+          return;
+        }
+
+        const card = event.target.closest(".card");
+        if (card) {
+          openAppModal(card.dataset.bundleId);
+        }
+      });
+
+      appContainer.addEventListener("change", event => {
+        if (!event.target.classList.contains("versionSelect")) return;
+        const card = event.target.closest(".card");
+        if (!card) return;
+        const bundleId = card.dataset.bundleId;
+        const app = state.apps.find(item => appIdentifier(item) === bundleId);
+        if (!app) return;
+        const view = getAppView(app, getEffectiveRepoFilter(app));
+        const selected = view.versions[event.target.value];
+        updateCardForVersion(card, selected);
+      });
+
+      modalBody.addEventListener("click", event => {
+        const shot = event.target.closest("[data-shot-index]");
+        if (!shot) return;
+        let shots = [];
+        try {
+          shots = JSON.parse(appModal.dataset.shots || "[]");
+        } catch (error) {
+          shots = [];
+        }
+        openLightbox(shots, Number(shot.dataset.shotIndex) || 0);
+      });
+
+      modalClose.addEventListener("click", closeAppModal);
+      appModal.addEventListener("click", event => {
+        if (event.target === appModal) closeAppModal();
+      });
+
+      lightboxClose.addEventListener("click", closeLightbox);
+      lightboxPrev.addEventListener("click", () => stepLightbox(-1));
+      lightboxNext.addEventListener("click", () => stepLightbox(1));
+      lightbox.addEventListener("click", event => {
+        if (event.target === lightbox) closeLightbox();
+      });
+
+      pagination.addEventListener("click", event => {
+        const button = event.target.closest("button[data-page]");
+        if (!button || button.disabled) return;
+        changePage(Number(button.dataset.page));
+      });
+
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          if (lightbox.classList.contains("open")) {
+            closeLightbox();
+            return;
+          }
+          if (appModal.classList.contains("open")) closeAppModal();
+        }
+        if (!lightbox.classList.contains("open")) return;
+        if (event.key === "ArrowLeft") stepLightbox(-1);
+        if (event.key === "ArrowRight") stepLightbox(1);
+      });
+
+      toggleHeader.addEventListener("click", () => {
+        setHeaderCollapsed(!state.headerCollapsed);
+      });
+
+      searchBox.addEventListener("input", () => {
+        syncSearchInputs(searchBox.value);
+        filterApps();
+      });
+
+      searchBoxCompact.addEventListener("input", () => {
+        syncSearchInputs(searchBoxCompact.value);
+        filterApps();
+      });
+
+      categoryFilter.addEventListener("change", () => {
+        syncCategoryFilter(categoryFilter.value);
+        filterApps();
+      });
+
+      categoryFilterCompact.addEventListener("change", () => {
+        syncCategoryFilter(categoryFilterCompact.value);
+        filterApps();
+      });
+
+      developerFilter.addEventListener("change", () => {
+        state.filters.developer = developerFilter.value;
+        filterApps();
+      });
+
+      betaFilter.addEventListener("change", () => {
+        state.filters.beta = betaFilter.value;
+        filterApps();
+      });
+
+      featuredFilter.addEventListener("change", () => {
+        state.filters.featured = featuredFilter.value;
+        filterApps();
+      });
+
+      sortOrder.addEventListener("change", () => {
+        state.filters.sort = sortOrder.value;
+        filterApps();
+      });
+
+      clearFilters.addEventListener("click", resetFilters);
+
+      pageLength.addEventListener("change", () => {
+        state.pageLength = parseInt(pageLength.value, 10);
+        syncPageLength(state.pageLength);
+        state.currentPage = 1;
+        renderApps();
+      });
+
+      pageLengthCompact.addEventListener("change", () => {
+        state.pageLength = parseInt(pageLengthCompact.value, 10);
+        syncPageLength(state.pageLength);
+        state.currentPage = 1;
+        renderApps();
+      });
+
+      restoreSources();
+      restoreHeaderCollapsed();
+      syncPageLength(state.pageLength);
+      loadButton.addEventListener("click", loadRepositories);
+    </script>
+  </body>
+
+</html>
