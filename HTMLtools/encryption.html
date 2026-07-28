@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Local File Encryptor</title>
+<style>
+*{
+    box-sizing:border-box;
+}
+body{
+    font-family:sans-serif;
+    background:#10131a;
+    color:#e8ecf5;
+    max-width:800px;
+    margin:auto;
+    padding:40px 20px;
+}
+.card{
+    background:#181d27;
+    border:1px solid #30394d;
+    border-radius:16px;
+    padding:30px;
+    margin-bottom:20px;
+}
+h1{
+    margin-top:0;
+}
+input,button,textarea{
+    width:100%;
+    margin-top:12px;
+    padding:12px;
+    border-radius:8px;
+    border:1px solid #30394d;
+    background:#202735;
+    color:white;
+}
+button{
+    background:#4f7cff;
+    border:0;
+    cursor:pointer;
+}
+button:hover{
+    background:#638cff;
+}
+textarea{
+    height:100px;
+    resize:none;
+}
+#status{
+    margin-top:15px;
+    color:#b9c2d6;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+<h1>Encrypt File</h1>
+
+<input id="encryptFile" type="file">
+
+<button onclick="encryptFile()">
+Encrypt
+</button>
+
+<textarea id="keyOutput" readonly placeholder="Decryption string appears here"></textarea>
+
+<button onclick="copyKey()">
+Copy Decryption String
+</button>
+
+</div>
+
+
+<div class="card">
+<h1>Decrypt File</h1>
+
+<input id="decryptFile" type="file">
+
+<textarea id="keyInput" placeholder="Paste decryption string"></textarea>
+
+<button onclick="decryptFile()">
+Decrypt
+</button>
+
+</div>
+
+
+<div id="status"></div>
+
+
+<script>
+function bytesToBase64(bytes){
+    return btoa(
+        String.fromCharCode(...bytes)
+    )
+    .replace(/\+/g,"-")
+    .replace(/\//g,"_")
+    .replace(/=/g,"");
+}
+
+function base64ToBytes(str){
+    str=str
+        .replace(/-/g,"+")
+        .replace(/_/g,"/");
+
+    while(str.length%4)
+        str+="=";
+
+    return Uint8Array.from(
+        atob(str),
+        c=>c.charCodeAt(0)
+    );
+}
+
+
+function textToBase64(text){
+    return bytesToBase64(
+        new TextEncoder().encode(text)
+    );
+}
+
+
+function base64ToText(text){
+    return new TextDecoder().decode(
+        base64ToBytes(text)
+    );
+}
+
+
+async function encryptFile(){
+
+    const file=
+        document.getElementById("encryptFile").files[0];
+
+    if(!file)
+        return;
+
+
+    status.textContent="Encrypting...";
+
+
+    const data=
+        await file.arrayBuffer();
+
+
+    const key=
+        await crypto.subtle.generateKey(
+            {
+                name:"AES-GCM",
+                length:256
+            },
+            true,
+            [
+                "encrypt",
+                "decrypt"
+            ]
+        );
+
+
+    const rawKey=
+        await crypto.subtle.exportKey(
+            "raw",
+            key
+        );
+
+
+    const iv=
+        crypto.getRandomValues(
+            new Uint8Array(12)
+        );
+
+
+    const encrypted=
+        await crypto.subtle.encrypt(
+            {
+                name:"AES-GCM",
+                iv
+            },
+            key,
+            data
+        );
+
+
+    const output=
+        new Uint8Array(
+            iv.length+
+            encrypted.byteLength
+        );
+
+
+    output.set(
+        iv,
+        0
+    );
+
+
+    output.set(
+        new Uint8Array(encrypted),
+        iv.length
+    );
+
+
+    const blob=
+        new Blob(
+            [output],
+            {
+                type:"application/octet-stream"
+            }
+        );
+
+
+    downloadBlob(
+        blob,
+        file.name+".encrypted"
+    );
+
+
+    const decryptString=
+        textToBase64(file.name)
+        +"."+
+        bytesToBase64(
+            new Uint8Array(rawKey)
+        );
+
+
+    document.getElementById("keyOutput").value=
+        decryptString;
+
+
+    status.textContent=
+        "Encrypted successfully";
+}
+
+
+
+async function decryptFile(){
+
+    const file=
+        document.getElementById("decryptFile").files[0];
+
+
+    const keyString=
+        document.getElementById("keyInput").value;
+
+
+    if(!file || !keyString)
+        return;
+
+
+    status.textContent="Decrypting...";
+
+
+    const parts=
+        keyString.split(".");
+
+
+    if(parts.length!==2){
+        status.textContent=
+            "Invalid decryption string";
+        return;
+    }
+
+
+    const filename=
+        base64ToText(parts[0]);
+
+
+    const key=
+        await crypto.subtle.importKey(
+            "raw",
+            base64ToBytes(parts[1]),
+            "AES-GCM",
+            false,
+            [
+                "decrypt"
+            ]
+        );
+
+
+    const encrypted=
+        new Uint8Array(
+            await file.arrayBuffer()
+        );
+
+
+    const iv=
+        encrypted.slice(
+            0,
+            12
+        );
+
+
+    const data=
+        encrypted.slice(
+            12
+        );
+
+
+    try{
+
+        const decrypted=
+            await crypto.subtle.decrypt(
+                {
+                    name:"AES-GCM",
+                    iv
+                },
+                key,
+                data
+            );
+
+
+        downloadBlob(
+            new Blob(
+                [
+                    decrypted
+                ]
+            ),
+            filename
+        );
+
+
+        status.textContent=
+            "Decrypted successfully";
+
+    }catch(e){
+
+        status.textContent=
+            "Wrong key or corrupted file";
+
+    }
+}
+
+
+
+function downloadBlob(blob,name){
+
+    const a=
+        document.createElement("a");
+
+    a.href=
+        URL.createObjectURL(blob);
+
+    a.download=name;
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    a.remove();
+
+    setTimeout(
+        ()=>URL.revokeObjectURL(a.href),
+        1000
+    );
+}
+
+
+
+function copyKey(){
+
+    navigator.clipboard.writeText(
+        document.getElementById("keyOutput").value
+    );
+}
+</script>
+
+</body>
+</html>
