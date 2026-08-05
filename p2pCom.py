@@ -43,7 +43,6 @@ import time
 import uuid
 import os
 import shutil
-import hashlib
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
 from cryptography.fernet import Fernet
