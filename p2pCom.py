@@ -5,6 +5,9 @@ import sys
 requiredModules = {
     "prompt_toolkit": {
         "package": "prompt_toolkit"
+    },
+    "cryptography": {
+        "package": "cryptography"
     }
 }
 
@@ -32,6 +35,7 @@ def installMissingModules(modules):
 
 installMissingModules(requiredModules)
 
+from typing import cast
 import socket
 import threading
 import json
@@ -39,8 +43,13 @@ import time
 import uuid
 import os
 import shutil
+import hashlib
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
+from cryptography.fernet import Fernet
+
+lastSize = shutil.get_terminal_size()
+redrawEvent = threading.Event()
 
 MESSAGE_PORT = 5000
 DISCOVERY_PORT = 5001
@@ -52,7 +61,58 @@ HISTORY_CHUNK_SIZE = 50
 
 SIGNATURE = "P2PMSG1"
 
-peerId = str(uuid.uuid4())[:8]
+def getIdentityKey():
+    keyFile = "identity.key"
+
+    if os.path.exists(keyFile):
+        with open(keyFile, "rb") as file:
+            return file.read()
+
+    key = Fernet.generate_key()
+
+    with open(keyFile, "wb") as file:
+        file.write(key)
+
+    return key
+
+
+def generateId():
+    identityFile = "identity.json.enc"
+
+    cipher = Fernet(getIdentityKey())
+
+    if os.path.exists(identityFile):
+        try:
+            with open(identityFile, "rb") as file:
+                encrypted = file.read()
+
+            data = cipher.decrypt(encrypted)
+            identity = json.loads(data.decode())
+
+            if "id" not in identity:
+                raise ValueError()
+
+            return identity["id"]
+
+        except:
+            print("Identity file invalid or corrupted.")
+            sys.exit(1)
+
+    identity = {
+        "id": str(uuid.uuid4())[:8],
+        "created": time.time()
+    }
+
+    encrypted = cipher.encrypt(
+        json.dumps(identity).encode()
+    )
+
+    with open(identityFile, "wb") as file:
+        file.write(encrypted)
+
+    return identity["id"]
+
+peerId = generateId()
 nick = ""
 
 peers = {}
@@ -64,7 +124,6 @@ receivedHistory = {}
 
 lock = threading.Lock()
 running = True
-redrawNeeded = True
 
 session = PromptSession()
 
@@ -74,7 +133,7 @@ def getLocalIps():
     try:
         hostname = socket.gethostname()
         for info in socket.getaddrinfo(hostname, None, socket.AF_INET):
-            ips.add(info[4][0])
+            ips.add(cast(str, info[4][0]))
     except:
         pass
 
@@ -93,31 +152,32 @@ localIps = getLocalIps()
 def clearScreen():
     os.system("cls" if os.name == "nt" else "clear")
 
+def shortId(pid):
+    return pid[:4]
+
 def requestRedraw():
-    global redrawNeeded
-    redrawNeeded = True
+    redrawEvent.set()
 
 def displayName(pid):
     if pid == peerId:
-        return nick or peerId
+        base = nick or peerId
+    elif pid in peers:
+        base = peers[pid].get("nick") or pid
+    else:
+        base = pid
 
-    if pid in peers:
-        return peers[pid].get("nick") or pid
-
-    return pid
+    return f"{base}#{shortId(pid)}"
 
 def formatMessage(message):
     return f"[{displayName(message['sender'])}] {message['text']}"
 
 def drawChat():
-    global redrawNeeded
-
     with lock:
         clearScreen()
-        names = [nick or peerId]
+        names = [displayName(peerId)]
 
         for peer in peers.values():
-            names.append(peer.get("nick") or peer["id"])
+            names.append(displayName(peer["id"]))
 
         print("Peers: " + ", ".join(names))
         print("-" * shutil.get_terminal_size().columns)
@@ -128,26 +188,44 @@ def drawChat():
 
         print("-" * shutil.get_terminal_size().columns)
 
-    redrawNeeded = False
-
 def redrawLoop():
+    global lastSize
+
     while running:
-        if redrawNeeded:
-            with patch_stdout():
-                drawChat()
+        redrawEvent.wait(timeout=1)
 
-        time.sleep(0.2)
+        size = shutil.get_terminal_size()
+        if size != lastSize:
+            lastSize = size
+        elif not redrawEvent.is_set():
+            continue
 
-def addChat(sender, text, messageId=None, senderNick=""):
+        redrawEvent.clear()
+
+        with patch_stdout():
+            drawChat()
+
+def addChat(sender, text, messageId=None, senderNick="", timestamp=None):
     if not messageId:
         messageId = str(uuid.uuid4())
+
+    if timestamp is None:
+        timestamp = time.time()
 
     with lock:
         if messageId in messageIds:
             return
 
         messageIds.add(messageId)
-        messages.append({"id": messageId,"sender": sender,"nick": senderNick,"text": text})
+        messages.append({
+            "id": messageId,
+            "sender": sender,
+            "nick": senderNick,
+            "text": text,
+            "timestamp": timestamp
+        })
+
+        messages.sort(key=lambda m: (m["timestamp"], m["id"]))
 
     requestRedraw()
 
@@ -177,16 +255,32 @@ def updatePeer(ip, pid, peerNick=""):
     if not pid or pid == peerId:
         return
 
+    changed = False
+
     with lock:
-        if pid in peers:
-            peers[pid]["ip"] = ip
-            peers[pid]["time"] = time.time()
-            peers[pid]["nick"] = peerNick
+        peer = peers.get(pid)
 
+        if peer is None:
+            peers[pid] = {
+                "id": pid,
+                "nick": peerNick,
+                "ip": ip,
+                "time": time.time()
+            }
+            changed = True
         else:
-            peers[pid] = {"id": pid,"nick": peerNick,"ip": ip,"time": time.time()}
+            if peer["ip"] != ip:
+                peer["ip"] = ip
+                changed = True
 
-    requestRedraw()
+            if peer["nick"] != peerNick:
+                peer["nick"] = peerNick
+                changed = True
+
+            peer["time"] = time.time()
+
+    if changed:
+        requestRedraw()
 
 def sendDiscovery():
     sendBroadcast({"type": "discover","id": peerId,"nick": nick})
@@ -371,7 +465,8 @@ def handlePacket(packet, addr):
                         msg["sender"],
                         msg["text"],
                         msg["id"],
-                        msg.get("nick", "")
+                        msg.get("nick", ""),
+                        msg.get("timestamp")
                     )
     
             sendDirect(
@@ -388,9 +483,15 @@ def handlePacket(packet, addr):
 
     elif packetType == "message":
         msgId = packet.get("id")
-        updatePeer(ip,packet.get("sender"),packet.get("nick", ""))
-        addChat(packet["sender"],packet["text"],msgId,packet.get("nick", ""))
-        sendDirect(ip,{"type": "ack","id": msgId})
+        updatePeer(ip, packet.get("sender"), packet.get("nick", ""))
+        addChat(
+            packet["sender"],
+            packet["text"],
+            msgId,
+            packet.get("nick", ""),
+            packet.get("timestamp")
+        )
+        sendDirect(ip, {"type": "ack", "id": msgId})
 
     elif packetType == "ack":
         with lock:
@@ -447,25 +548,31 @@ def discoveryLoop():
 def cleanupPeers():
     while running:
         now = time.time()
+        changed = False
 
         with lock:
             for pid in list(peers):
                 if now - peers[pid]["time"] > PEER_TIMEOUT:
                     del peers[pid]
+                    changed = True
 
             for packetId in list(pendingPackets):
                 if now - pendingPackets[packetId]["time"] > PEER_TIMEOUT:
                     del pendingPackets[packetId]
+                    changed = True
 
             for historyId in list(pendingHistory):
                 if now - pendingHistory[historyId]["time"] > PEER_TIMEOUT:
                     del pendingHistory[historyId]
+                    changed = True
             """
             for historyId in list(receivedHistory):
                 if historyId not in pendingHistory:
                     del receivedHistory[historyId]
             """
-        requestRedraw()
+        if changed:
+            requestRedraw()
+
         time.sleep(2)
 
 def setNick(name):
@@ -482,10 +589,18 @@ def removeNick():
 
 def sendChat(text):
     msgId = str(uuid.uuid4())
+    timestamp = time.time()
 
-    addChat(peerId,text,msgId,nick)
+    addChat(peerId, text, msgId, nick, timestamp)
 
-    broadcast({"type": "message","id": msgId,"sender": peerId,"nick": nick,"text": text})
+    broadcast({
+        "type": "message",
+        "id": msgId,
+        "sender": peerId,
+        "nick": nick,
+        "text": text,
+        "timestamp": timestamp
+    })
 
 def inputLoop():
     global running
