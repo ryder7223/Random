@@ -83,7 +83,6 @@ def drawChat():
 
     with lock:
         clearScreen()
-
         names = [nick or peerId]
 
         for peer in peers.values():
@@ -91,7 +90,6 @@ def drawChat():
 
         print("Peers: " + ", ".join(names))
         print("-" * shutil.get_terminal_size().columns)
-
         height = shutil.get_terminal_size().lines - 4
 
         for message in messages[-height:]:
@@ -118,16 +116,13 @@ def addChat(sender, text, messageId=None, senderNick=""):
             return
 
         messageIds.add(messageId)
-
         messages.append({"id": messageId,"sender": sender,"nick": senderNick,"text": text})
 
     requestRedraw()
 
 def sendUdp(ip, packet, retry=False):
     packet["signature"] = SIGNATURE
-
     data = json.dumps(packet).encode()
-
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.sendto(data, (ip, MESSAGE_PORT))
@@ -181,9 +176,7 @@ def sendBroadcast(packet):
 def sendDirect(ip, packet, port=MESSAGE_PORT):
     try:
         packet["signature"] = SIGNATURE
-
         data = json.dumps(packet).encode()
-
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.sendto(data, (ip, port))
         s.close()
@@ -196,7 +189,6 @@ def discoveryResponse(ip):
 
 def discoveryServer():
     server = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-
     server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
 
     try:
@@ -207,7 +199,6 @@ def discoveryServer():
     while running:
         try:
             data, addr = server.recvfrom(65535)
-
             packet = json.loads(data.decode())
 
             if packet.get("signature") != SIGNATURE:
@@ -220,9 +211,7 @@ def discoveryServer():
 
             if packet.get("type") == "discover":
                 updatePeer(ip,packet.get("id"),packet.get("nick", ""))
-
                 discoveryResponse(ip)
-
                 historyId = str(uuid.uuid4())
 
                 with lock:
@@ -231,14 +220,30 @@ def discoveryServer():
                 sendDirect(ip,{"type": "historyRequest","id": peerId,"requestId": historyId})
 
             elif packet.get("type") == "discoverResponse":
-                updatePeer(ip,packet.get("id"),packet.get("nick", ""))
+                updatePeer(ip, packet.get("id"), packet.get("nick", ""))
+            
+                historyId = str(uuid.uuid4())
+            
+                with lock:
+                    pendingHistory[historyId] = {
+                        "ip": ip,
+                        "time": time.time()
+                    }
+            
+                sendDirect(
+                    ip,
+                    {
+                        "type": "historyRequest",
+                        "id": peerId,
+                        "requestId": historyId
+                    }
+                )
 
         except:
             pass
 
 def messageServer():
     server = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-
     server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
 
     try:
@@ -249,7 +254,6 @@ def messageServer():
     while running:
         try:
             data, addr = server.recvfrom(65535)
-
             packet = json.loads(data.decode())
 
             if packet.get("signature") == SIGNATURE:
@@ -280,7 +284,7 @@ def handlePacket(packet, addr):
             chunks = [[]]
     
         total = len(chunks)
-    
+
         for index, chunk in enumerate(chunks):
             sendDirect(
                 ip,
@@ -307,7 +311,6 @@ def handlePacket(packet, addr):
                 receivedHistory[historyId] = {}
     
             receivedHistory[historyId][chunk] = packet.get("messages", [])
-    
             complete = len(receivedHistory[historyId]) == total
     
         if complete:
@@ -337,11 +340,8 @@ def handlePacket(packet, addr):
 
     elif packetType == "message":
         msgId = packet.get("id")
-
         updatePeer(ip,packet.get("sender"),packet.get("nick", ""))
-
         addChat(packet["sender"],packet["text"],msgId,packet.get("nick", ""))
-
         sendDirect(ip,{"type": "ack","id": msgId})
 
     elif packetType == "ack":
@@ -357,13 +357,11 @@ def handlePacket(packet, addr):
 def heartbeat():
     while running:
         broadcast({"type": "heartbeat","id": peerId,"nick": nick})
-
         time.sleep(5)
 
 def resendLoop():
     while running:
         now = time.time()
-
         with lock:
             packets = list(pendingPackets.values())
 
@@ -380,7 +378,6 @@ def resendLoop():
 def historyResendLoop():
     while running:
         now = time.time()
-
         with lock:
             requests = list(pendingHistory.items())
 
@@ -415,30 +412,24 @@ def cleanupPeers():
             for historyId in list(pendingHistory):
                 if now - pendingHistory[historyId]["time"] > PEER_TIMEOUT:
                     del pendingHistory[historyId]
-
+            """
             for historyId in list(receivedHistory):
                 if historyId not in pendingHistory:
                     del receivedHistory[historyId]
-
+            """
         requestRedraw()
         time.sleep(2)
 
 def setNick(name):
     global nick
-
     nick = name
-
     broadcast({"type": "nick","id": peerId,"nick": nick})
-
     requestRedraw()
 
 def removeNick():
     global nick
-
     nick = ""
-
     broadcast({"type": "nick","id": peerId,"nick": ""})
-
     requestRedraw()
 
 def sendChat(text):
@@ -450,7 +441,6 @@ def sendChat(text):
 
 def inputLoop():
     global running
-
     while running:
         try:
             with patch_stdout():
