@@ -97,12 +97,9 @@ def requestRedraw():
     global redrawNeeded
     redrawNeeded = True
 
-def displayName(pid, storedNick=""):
+def displayName(pid):
     if pid == peerId:
         return nick or peerId
-
-    if storedNick:
-        return storedNick
 
     if pid in peers:
         return peers[pid].get("nick") or pid
@@ -110,7 +107,7 @@ def displayName(pid, storedNick=""):
     return pid
 
 def formatMessage(message):
-    return f"[{displayName(message['sender'], message.get('nick', ''))}] {message['text']}"
+    return f"[{displayName(message['sender'])}] {message['text']}"
 
 def drawChat():
     global redrawNeeded
@@ -184,9 +181,7 @@ def updatePeer(ip, pid, peerNick=""):
         if pid in peers:
             peers[pid]["ip"] = ip
             peers[pid]["time"] = time.time()
-
-            if peerNick:
-                peers[pid]["nick"] = peerNick
+            peers[pid]["nick"] = peerNick
 
         else:
             peers[pid] = {"id": pid,"nick": peerNick,"ip": ip,"time": time.time()}
@@ -244,34 +239,53 @@ def discoveryServer():
                 continue
 
             if packet.get("type") == "discover":
-                updatePeer(ip,packet.get("id"),packet.get("nick", ""))
+                updatePeer(ip, packet.get("id"), packet.get("nick", ""))
                 discoveryResponse(ip)
-                historyId = str(uuid.uuid4())
-
+            
                 with lock:
-                    pendingHistory[historyId] = {"ip": ip,"time": time.time()}
-                
-                sendDirect(ip,{"type": "historyRequest","id": peerId,"requestId": historyId})
+                    alreadyPending = any(r["ip"] == ip for r in pendingHistory.values())
+            
+                if not alreadyPending:
+                    historyId = str(uuid.uuid4())
+            
+                    with lock:
+                        pendingHistory[historyId] = {
+                            "ip": ip,
+                            "time": time.time()
+                        }
+            
+                    sendDirect(
+                        ip,
+                        {
+                            "type": "historyRequest",
+                            "id": peerId,
+                            "requestId": historyId
+                        }
+                    )
 
             elif packet.get("type") == "discoverResponse":
                 updatePeer(ip, packet.get("id"), packet.get("nick", ""))
             
-                historyId = str(uuid.uuid4())
-            
                 with lock:
-                    pendingHistory[historyId] = {
-                        "ip": ip,
-                        "time": time.time()
-                    }
+                    alreadyPending = any(r["ip"] == ip for r in pendingHistory.values())
             
-                sendDirect(
-                    ip,
-                    {
-                        "type": "historyRequest",
-                        "id": peerId,
-                        "requestId": historyId
-                    }
-                )
+                if not alreadyPending:
+                    historyId = str(uuid.uuid4())
+            
+                    with lock:
+                        pendingHistory[historyId] = {
+                            "ip": ip,
+                            "time": time.time()
+                        }
+                
+                    sendDirect(
+                        ip,
+                        {
+                            "type": "historyRequest",
+                            "id": peerId,
+                            "requestId": historyId
+                        }
+                    )
 
         except:
             pass
