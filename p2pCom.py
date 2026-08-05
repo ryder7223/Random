@@ -1,3 +1,37 @@
+import subprocess
+import importlib
+import sys
+
+requiredModules = {
+    "prompt_toolkit": {
+        "package": "prompt_toolkit"
+    }
+}
+
+def installMissingModules(modules):
+    installedSomething = False
+    for importName, moduleInfo in modules.items():
+        try:
+            importlib.import_module(importName)
+            
+        except ImportError:
+            packageName = moduleInfo["package"]
+            extraArgs = moduleInfo.get("args", [])
+            print(f"{packageName} is not installed. Installing...")
+            subprocess.check_call([
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                *extraArgs,
+                packageName])
+            installedSomething = True
+    if installedSomething:
+        subprocess.check_call([sys.executable] + sys.argv)
+        sys.exit()
+
+installMissingModules(requiredModules)
+
 import socket
 import threading
 import json
