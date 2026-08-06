@@ -1,4 +1,4 @@
-# 1.1
+# 1.2
 
 import sys
 import requests
@@ -251,6 +251,8 @@ def displayName(pid):
     return f"{base}#{shortId(pid)}"
 
 def formatMessage(message):
+    if len(message['text']) > 100:
+        message['text'] = message['text'][:100]
     return f"[{displayName(message['sender'])}] {message['text']}"
 
 def drawChat():
@@ -293,6 +295,9 @@ def addChat(sender, text, messageId=None, senderNick="", timestamp=None):
 
     if timestamp is None:
         timestamp = time.time()
+
+    if len(text) > 100:
+        text = text[:100]
 
     with lock:
         if messageId in messageIds:
