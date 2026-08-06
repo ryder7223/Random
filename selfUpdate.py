@@ -82,5 +82,4 @@ def checkForUpdate(force: int):
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
-checkForUpdate()
-
+checkForUpdate(0)
