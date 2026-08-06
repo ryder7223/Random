@@ -587,6 +587,8 @@ def removeNick():
     requestRedraw()
 
 def sendChat(text):
+    if len(text) > 100:
+        text = text[:100]
     msgId = str(uuid.uuid4())
     timestamp = time.time()
 
