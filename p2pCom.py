@@ -1,4 +1,4 @@
-# 1.0
+# 1.1
 
 import sys
 import requests
@@ -86,7 +86,6 @@ checkForUpdate(0)
 
 import subprocess
 import importlib
-import sys
 
 requiredModules = {
     "prompt_toolkit": {
@@ -125,9 +124,7 @@ from typing import cast
 import socket
 import threading
 import json
-import time
 import uuid
-import os
 import shutil
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
