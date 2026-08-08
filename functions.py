@@ -348,7 +348,7 @@ def subnetCoverage(x) -> int:
 
 import math
 
-def fallDistance(totalTime, speedOfSound=343.0, gravity=9.81):
+def fallDistance(totalTime: int | float, speedOfSound=343.0, gravity=9.81) -> float:
 	"""
 	Calculates the distance traveled by a falling object when
 	your only information is when it started falling and
@@ -357,19 +357,13 @@ def fallDistance(totalTime, speedOfSound=343.0, gravity=9.81):
 	if totalTime < 0:
 		raise ValueError("Time must be non-negative")
 
-	low = 0.0
-	high = gravity * totalTime ** 2 / 2 + speedOfSound * totalTime
-
-	for _ in range(1000):
-		mid = (low + high) / 2
-		calculatedTime = math.sqrt(2 * mid / gravity) + mid / speedOfSound
-
-		if calculatedTime < totalTime:
-			low = mid
-		else:
-			high = mid
-
-	return (low + high) / 2
+	return (
+		(speedOfSound ** 2) / (2 * gravity)
+		* (
+			math.sqrt(1 + (2 * gravity * totalTime) / speedOfSound)
+			- 1
+		) ** 2
+	)
 
 class Sort:
 	"""
