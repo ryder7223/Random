@@ -40,8 +40,8 @@ def functionTime(
 	data = [1778637131, 1778637132, 1778637133, 1778637134]
 	
 	times, results = functionTime(
-		lambda x: unixToRelativeTime(x),
-		iterableArgs=[(x,) for x in data]
+	    lambda x: unixToRelativeTime(x),
+	    iterableArgs=[(x,) for x in data]
 	)
 	```
 	Iterating through a list of tuples for func:
@@ -340,13 +340,44 @@ def diff(a: int, b: int):
 		result *= -1
 	return result
 
+def subnetCoverage(x) -> int:
+	"""
+	Returns the amount of available IPs for a subnet using CIDR notation.
+	"""
+	return 2 ** (32 - x)
+
+import math
+
+def fallDistance(totalTime, speedOfSound=343.0, gravity=9.81):
+	"""
+	Calculates the distance traveled by a falling object when
+	your only information is when it started falling and
+	when you hear it hit the ground from the starting point.
+	"""
+	if totalTime < 0:
+		raise ValueError("Time must be non-negative")
+
+	low = 0.0
+	high = gravity * totalTime ** 2 / 2 + speedOfSound * totalTime
+
+	for _ in range(1000):
+		mid = (low + high) / 2
+		calculatedTime = math.sqrt(2 * mid / gravity) + mid / speedOfSound
+
+		if calculatedTime < totalTime:
+			low = mid
+		else:
+			high = mid
+
+	return (low + high) / 2
+
 class Sort:
 	"""
 	Sorting utilities and visualised sorting algorithms.
 	"""
 
 	@staticmethod
-	def lpad(list_, index, step: int | None = None, pad: str | None = None):
+	def _lpad(list_, index, step: int | None = None, pad: str | None = None):
 		"""
 		Left pads up to a specific index for lists using spaces by default.
 		"""
@@ -388,14 +419,14 @@ class Sort:
 	@staticmethod
 	def _printStepSwap(values: list, index: int, step: int):
 		print(f"{step}. " + str(values))
-		print(Sort.lpad(values, index, step) + f"{values[index]}--{values[index + 1]}")
+		print(Sort._lpad(values, index, step) + f"{values[index]}--{values[index + 1]}")
 
 	@staticmethod
 	def _printStepSelectionSwap(values: list, left: int, right: int, step: int):
-		pad2 = (diff(len(Sort.lpad(values, left, step)), len(Sort.lpad(values, right, step))) - 1) * " "
+		pad2 = (diff(len(Sort._lpad(values, left, step)), len(Sort._lpad(values, right, step))) - 1) * " "
 		print(f"{step}. {values}")
 		print(
-			Sort.lpad(values, left, step)
+			Sort._lpad(values, left, step)
 			+ f"^{pad2}^"
 		)
 
