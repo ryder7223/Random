@@ -346,24 +346,23 @@ def subnetCoverage(x) -> int:
 	"""
 	return 2 ** (32 - x)
 
-import math
-
 def fallDistance(totalTime: int | float, speedOfSound=343.0, gravity=9.81) -> float:
-	"""
-	Calculates the distance traveled by a falling object when
-	your only information is when it started falling and
-	when you hear it hit the ground from the starting point.
-	"""
-	if totalTime < 0:
-		raise ValueError("Time must be non-negative")
-
-	return (
-		(speedOfSound ** 2) / (2 * gravity)
-		* (
-			math.sqrt(1 + (2 * gravity * totalTime) / speedOfSound)
-			- 1
-		) ** 2
-	)
+    """
+    Calculates the distance traveled by a falling object accounting
+    for the speed of sound. It assumes time starts when the object
+    begins to fall, and ends when the sound of it hitting it's destination
+    reaches the starting height.
+    """
+    if totalTime < 0:
+        raise ValueError("Time must be non-negative")
+    
+    return (
+        (speedOfSound ** 2) / (2 * gravity)
+        * (
+            math.sqrt(1 + (2 * gravity * totalTime) / speedOfSound)
+            - 1
+        ) ** 2
+    )
 
 class Sort:
 	"""
