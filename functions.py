@@ -1,7 +1,6 @@
-from typing import Generator, Any, Callable, Iterable
+from typing import Generator, Any, Callable, Iterable, Sequence, TypeVar, cast
 import time
 import ast
-import operator
 import math
 import uuid
 import sys
@@ -22,11 +21,13 @@ def printGenerator(gen: Generator[Any, Any, Any], limit: int | None = None, dot:
 		if limit is not None and count >= limit:
 			return
 
+ResultT = TypeVar("ResultT")
+
 def functionTime(
-	func: Callable[..., Any],
+	func: Callable[..., ResultT],
 	runs: int = 10,
-	iterableArgs: Iterable[tuple[Any, ...]] | None = None
-) -> tuple[list[float], list[Any | Exception]]:
+	iterableArgs: Iterable[tuple[Any, ...]] | None = None,
+) -> tuple[list[float], list[ResultT | Exception]]:
 
 	"""
 	Measures execution time over multiple runs.
@@ -61,17 +62,17 @@ def functionTime(
 	```
 	"""
 
-	times = []
-	results = []
+	times: list[float] = []
+	results: list[ResultT | Exception] = []
 
 	if iterableArgs is not None:
 		iterableArgs = list(iterableArgs)
 		runs = len(iterableArgs)
-		actualRuns = iterableArgs
+		actualRuns: list[tuple[Any, ...]] = iterableArgs
 	else:
 		if runs <= 0:
 			raise ValueError("runs must be greater than 0")
-		actualRuns = [()] * runs
+		actualRuns: list[tuple[Any, ...]] = [()] * runs
 
 	for i in range(runs):
 		start = time.perf_counter()
@@ -92,7 +93,7 @@ def functionTime(
 
 	return times, results
 
-def printFunctionTime(func: Callable[..., Any], runs: int = 10, iterableArgs: Iterable[tuple[Any, ...]] | None = None) -> tuple[list[float], list[Any | Exception]]:
+def printFunctionTime(func: Callable[..., ResultT], runs: int = 10, iterableArgs: Iterable[tuple[Any, ...]] | None = None) -> tuple[list[float], list[ResultT | Exception]]:
 	"""
 	Calls functionTime() and prints the shortest, longest, and average runtimes.
 	Functions exactly the same as functionTime() so returns the same data.
@@ -105,7 +106,7 @@ def printFunctionTime(func: Callable[..., Any], runs: int = 10, iterableArgs: It
 
 	return times, result
 
-def printTree(node, indent=0):
+def printTree(node: object, indent: int = 4) -> None:
 	"""
 	Visualises lists through indented printing.
 	"""
@@ -117,7 +118,7 @@ def printTree(node, indent=0):
 
 	print(prefix + "[")
 
-	for item in node:
+	for item in cast(Sequence[Any], node):
 		printTree(item, indent + 1)
 
 	print(prefix + "]")
@@ -128,26 +129,28 @@ def polygonalNumber(order: int, sides: int) -> int:
 	"""
 	return ((sides - 2) * order * order - (sides - 4) * order) // 2
 
-def calcPerc(*values: tuple[int], decimals: int = 2) -> None:
+def calcPerc(*values: int | str, decimals: int = 2) -> None:
 	"""
 	Prints the relative percentages of any amount of integers out of their added total.
 	"""
-	numericValues = []
+	numericValues: list[float] = []
 	try:
 		for v in values:
 			if isinstance(v, str) and v.isdigit():
 				decimals = int(v)
+			elif isinstance(v, (int, float)):
+				numericValues.append(float(v))
 			else:
-				numericValues.append(v)
+				raise ValueError("Invalid input type")
 		
 		total = sum(numericValues)
 		for value in numericValues:
 			percentage = round(100 * (value / total), decimals)
 			print(f"{value}: {percentage}%")
-	except:
+	except Exception:
 		print("Invalid input")
 
-def generateIp(public: bool = True):
+def generateIp(public: bool = True) -> str:
 	"""
 	Generates ip addresses with the option to include ips that aren't public.
 	"""
@@ -167,20 +170,45 @@ def generateIp(public: bool = True):
 
 		return f"{firstOctet}.{secondOctet}.{random.randint(0,255)}.{random.randint(0,255)}"
 
-def mcStacks(amountInput: str, stackSizeInput: int):
+def mcStacks(amountInput: str | int | float, stackSizeInput: int | str | float) -> list[int]:
 	"""
 	Calculates stacks of items, supporting arithmatic in the input. e.g.
 	`mcStacks(\"8*8*5 + 45\", 64)`
 	"""
-	allowedOps = {
-		ast.Add: operator.add,
-		ast.Sub: operator.sub,
-		ast.Mult: operator.mul,
-		ast.Div: operator.truediv,
-		ast.FloorDiv: operator.floordiv,
-		ast.Mod: operator.mod,
-		ast.Pow: operator.pow,
-		ast.USub: operator.neg,
+
+	def _add(a: float, b: float) -> float:
+		return a + b
+
+	def _sub(a: float, b: float) -> float:
+		return a - b
+
+	def _mul(a: float, b: float) -> float:
+		return a * b
+
+	def _div(a: float, b: float) -> float:
+		return a / b
+
+	def _floordiv(a: float, b: float) -> float:
+		return a // b
+
+	def _mod(a: float, b: float) -> float:
+		return a % b
+
+	def _pow(a: float, b: float) -> float:
+		return a ** b
+
+	def _neg(a: float) -> float:
+		return -a
+
+	allowedOps: dict[type[ast.AST], Callable[..., float]] = {
+		ast.Add: _add,
+		ast.Sub: _sub,
+		ast.Mult: _mul,
+		ast.Div: _div,
+		ast.FloorDiv: _floordiv,
+		ast.Mod: _mod,
+		ast.Pow: _pow,
+		ast.USub: _neg,
 	}
 
 	def evalArithmetic(expr: str) -> float:
@@ -206,22 +234,22 @@ def mcStacks(amountInput: str, stackSizeInput: int):
 
 		return evalNode(tree.body)
 
-	def fixValue(value):
+	def fixValue(value: int | float | None) -> int:
 		if value is None:
-			return 0.0
-		return math.floor(value)
+			return 0
+		return math.floor(float(value))
 
-	def findStacks(amount, stackSize):
-		return [amount // stackSize, amount % stackSize]
+	def findStacks(amount: int, stackSize: int) -> tuple[int, int]:
+		return amount // stackSize, amount % stackSize
 
 
 	# --- parse inputs ---
-	def resolve(value):
+	def resolve(value: int | float | str) -> float:
 		if isinstance(value, (int, float)):
-			return value
-		if isinstance(value, str):
+			return float(value)
+		else:
 			try:
-				return int(value)
+				return float(int(value))
 			except ValueError:
 				return evalArithmetic(value)
 		raise TypeError("Input must be int, float, or str expression")
@@ -292,7 +320,7 @@ def unixToRelativeTime(unixTime: int) -> str:
 		("second", 1),
 	]
 
-	values = []
+	values: list[tuple[str, int]] = []
 	remaining = deltaSeconds
 
 	for name, secondsPerUnit in units:
@@ -304,7 +332,7 @@ def unixToRelativeTime(unixTime: int) -> str:
 	if not values:
 		return "now"
 
-	parts = []
+	parts: list[str] = []
 	for name, count in values:
 		parts.append(f"{count} {name}" if count == 1 else f"{count} {name}s")
 
@@ -315,7 +343,7 @@ def unixToRelativeTime(unixTime: int) -> str:
 
 	return f"in {result}" if isFuture else f"{result} ago"
 
-def intToHexRev(n):
+def intToHexRev(n: int) -> str:
 	"""
 	Converts integers to hex and reverses the hex in pairs of two,
 	only accepts integers that convert to an even length hex. e.g.
@@ -324,7 +352,7 @@ def intToHexRev(n):
 	reversedHex = bytes.fromhex(str(hex(n))[2:])[::-1].hex()
 	return " ".join([reversedHex[i:i+2] for i in range(0, len(reversedHex), 2)])
 
-def randomList(length: int, minimum: int, maximum: int) -> list:
+def randomList(length: int, minimum: int, maximum: int) -> list[int]:
 	"""
 	Generates a list of random numbers.
 	"""
@@ -340,29 +368,22 @@ def diff(a: int, b: int):
 		result *= -1
 	return result
 
-def subnetCoverage(x) -> int:
+def subnetCoverage(x: int) -> int:
 	"""
 	Returns the amount of available IPs for a subnet using CIDR notation.
 	"""
 	return 2 ** (32 - x)
 
-def fallDistance(totalTime: int | float, speedOfSound=343.0, gravity=9.81) -> float:
+def fallDistance(totalTime: float, speedOfSound: float = 343.0, gravity: float = 9.81) -> float:
     """
-    Calculates the distance traveled by a falling object accounting
-    for the speed of sound. It assumes time starts when the object
-    begins to fall, and ends when the sound of it hitting it's destination
-    reaches the starting height.
+    Calculate the distance fallen from the elapsed time between release
+    and hearing the impact, accounting for the speed of sound.
     """
     if totalTime < 0:
         raise ValueError("Time must be non-negative")
-    
-    return (
-        (speedOfSound ** 2) / (2 * gravity)
-        * (
-            math.sqrt(1 + (2 * gravity * totalTime) / speedOfSound)
-            - 1
-        ) ** 2
-    )
+
+    root = math.sqrt(1.0 + (2.0 * gravity * totalTime) / speedOfSound) - 1.0
+    return (speedOfSound * speedOfSound * root * root) / (2.0 * gravity)
 
 class Sort:
 	"""
@@ -370,7 +391,7 @@ class Sort:
 	"""
 
 	@staticmethod
-	def _lpad(list_, index, step: int | None = None, pad: str | None = None):
+	def _lpad(list_: Sequence[int], index: int, step: int | None = None, pad: str | None = None) -> str:
 		"""
 		Left pads up to a specific index for lists using spaces by default.
 		"""
@@ -397,25 +418,25 @@ class Sort:
 		return resultLength * padder
 
 	@staticmethod
-	def _isSorted(list_: list) -> bool:
+	def _isSorted(list_: list[int]) -> bool:
 		return all(list_[i] <= list_[i + 1] for i in range(len(list_) - 1))
 
 	@staticmethod
-	def _swap(list_, index):
+	def _swap(list_: list[int], index: int) -> None:
 		list_[index], list_[index + 1] = list_[index + 1], list_[index]
 
 	@staticmethod
-	def _listInfo(values: list):
+	def _listInfo(values: list[int]) -> None:
 		print(f"Length: {len(values)}")
 		print(f"Range: {min(values)} to {max(values)} ({max(values) - min(values)})")
 
 	@staticmethod
-	def _printStepSwap(values: list, index: int, step: int):
+	def _printStepSwap(values: list[int], index: int, step: int) -> None:
 		print(f"{step}. " + str(values))
 		print(Sort._lpad(values, index, step) + f"{values[index]}--{values[index + 1]}")
 
 	@staticmethod
-	def _printStepSelectionSwap(values: list, left: int, right: int, step: int):
+	def _printStepSelectionSwap(values: list[int], left: int, right: int, step: int) -> None:
 		pad2 = (diff(len(Sort._lpad(values, left, step)), len(Sort._lpad(values, right, step))) - 1) * " "
 		print(f"{step}. {values}")
 		print(
@@ -424,7 +445,7 @@ class Sort:
 		)
 
 	@staticmethod
-	def bubble(values: list):
+	def bubble(values: list[int]) -> list[int]:
 		Sort._listInfo(values)
 		print("\nSorting...")
 		step = 1
@@ -443,7 +464,7 @@ class Sort:
 		return values
 
 	@staticmethod
-	def selection(values: list):
+	def selection(values: list[int]) -> list[int]:
 		Sort._listInfo(values)
 		print("\nSorting...")
 		step = 1
