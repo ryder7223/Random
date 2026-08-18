@@ -375,15 +375,21 @@ def subnetCoverage(x: int) -> int:
 	return 2 ** (32 - x)
 
 def fallDistance(totalTime: float, speedOfSound: float = 343.0, gravity: float = 9.81) -> float:
-    """
-    Calculate the distance fallen from the elapsed time between release
-    and hearing the impact, accounting for the speed of sound.
-    """
-    if totalTime < 0:
-        raise ValueError("Time must be non-negative")
+	"""
+	Calculate the distance fallen from the elapsed time between release
+	and hearing the impact, accounting for the speed of sound.
+	"""
+	if totalTime < 0:
+		raise ValueError("Time must be non-negative")
 
-    root = math.sqrt(1.0 + (2.0 * gravity * totalTime) / speedOfSound) - 1.0
-    return (speedOfSound * speedOfSound * root * root) / (2.0 * gravity)
+	root = math.sqrt(1.0 + (2.0 * gravity * totalTime) / speedOfSound) - 1.0
+	return (speedOfSound * speedOfSound * root * root) / (2.0 * gravity)
+
+def toBytes(data: bytes) -> str:
+	"""
+	Returns the \\x representation of bytes.
+	"""
+	return "".join(f"\\x{b:02x}" for b in data)
 
 class Sort:
 	"""
