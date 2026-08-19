@@ -7,6 +7,9 @@ import sys
 from datetime import datetime, timezone
 import random
 
+
+ResultT = TypeVar("ResultT")
+
 def printGenerator(gen: Generator[Any, Any, Any], limit: int | None = None, dot: str = ".", sep: str = "", splitFirst: bool = True) -> None:
 	"""
 	Prints the values of generators up to any point.
@@ -20,8 +23,6 @@ def printGenerator(gen: Generator[Any, Any, Any], limit: int | None = None, dot:
 		count += 1
 		if limit is not None and count >= limit:
 			return
-
-ResultT = TypeVar("ResultT")
 
 def functionTime(
 	func: Callable[..., ResultT],
@@ -390,6 +391,162 @@ def toBytes(data: bytes) -> str:
 	Returns the \\x representation of bytes.
 	"""
 	return "".join(f"\\x{b:02x}" for b in data)
+
+def _all(items: Iterable[object]) -> bool:
+	for item in items:
+		if not item:
+			return False
+	return True
+
+class customStr:
+	uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	lowercase = "abcdefghijklmnopqrstuvwxyz"
+	numbers = "0123456789"
+
+	def __init__(self, string: Sequence):
+		self.string = string
+
+	def isdigit(self: customStr):
+		numbers = self.numbers
+		return all(i in numbers for i in self.string)
+
+	def capitalise(self: customStr):
+		uppercase = self.uppercase
+		lowercase = self.lowercase
+
+		if not self.string:
+			return ""
+
+		result = []
+
+		for index, letter in enumerate(self.string):
+			if index == 0:
+				if letter in lowercase:
+					pos = lowercase.index(letter)
+					result.append(uppercase[pos])
+				else:
+					result.append(letter)
+			else:
+				if letter in uppercase:
+					pos = uppercase.index(letter)
+					result.append(lowercase[pos])
+				else:
+					result.append(letter)
+		
+		return "".join(result)
+
+	def upper(self: customStr):
+		uppercase = self.uppercase
+		lowercase = self.lowercase
+
+		if not self.string:
+			return ""
+
+		result = []
+
+		for letter in self.string:
+			if letter in lowercase:
+				pos = lowercase.index(letter)
+				result.append(uppercase[pos])
+			else:
+				result.append(letter)
+
+		return "".join(result)
+
+	def lower(self: customStr):
+		uppercase = self.uppercase
+		lowercase = self.lowercase
+
+		if not self.string:
+			return ""
+
+		result = []
+
+		for letter in self.string:
+			if letter in uppercase:
+				pos = uppercase.index(letter)
+				result.append(lowercase[pos])
+			else:
+				result.append(letter)
+
+		return "".join(result)
+
+	def find(self: customStr, sub: Sequence, start: int | None = None, end: int | None = None) -> int:
+		subLength = len(sub)
+		storedString = self.string
+		
+		if start is not None:
+			storedString = storedString[start:]
+
+		if end is not None:
+			storedString = storedString[:end]
+
+		for index, _ in enumerate(storedString):
+			if storedString[index:index+subLength] == sub:
+				if start and start <= index or end and end > index:
+					return index
+
+		return -1
+
+	def index(self: customStr, sub: Sequence, start: int | None = None, end: int | None = None) -> int | ValueError:
+		subLength = len(sub)
+		storedString = self.string
+
+		if start is not None:
+			storedString = storedString[start:]
+
+		if end is not None:
+			storedString = storedString[:end]
+
+		for index, _ in enumerate(storedString):
+			if storedString[index:index+subLength] == sub:
+				if start and start <= index or end and end > index:
+					return index
+
+		return ValueError("substring not found")
+
+	def endswith(self: customStr, suffix: Sequence, start: int | None = None, end: int | None = None) -> bool:
+		storedString = self.string
+		
+		if start is not None:
+			storedString = storedString[start:]
+
+		if end is not None:
+			if start is not None:
+				storedString = storedString[:(end - start)]
+			else:
+				storedString = storedString[:end]
+
+		strLen, suffLen = len(storedString), len(suffix)
+
+		if suffLen > strLen:
+			return False
+
+		endSlice = storedString[(strLen - suffLen):]
+
+		return endSlice == suffix
+
+	def startswith(self: customStr, prefix: Sequence, start: int | None = None, end: int | None = None) -> bool:
+		storedString = self.string
+		
+		if start is not None:
+			storedString = storedString[start:]
+
+		if end is not None:
+			if start is not None:
+				storedString = storedString[:(end - start)]
+			else:
+				storedString = storedString[:end]
+
+		strLen, prefLen = len(storedString), len(prefix)
+
+		if prefLen > strLen:
+			return False
+
+		startSlice = storedString[:prefLen]
+
+		return startSlice == prefix
+
 
 class Sort:
 	"""
