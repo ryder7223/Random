@@ -366,7 +366,7 @@ def diff(a: int, b: int):
 	"""
 	result = a - b
 	if result < 0:
-		result *= -1
+		return -result
 	return result
 
 def subnetCoverage(x: int) -> int:
