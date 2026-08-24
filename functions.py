@@ -6,7 +6,7 @@ import uuid
 import sys
 from datetime import datetime, timezone
 import random
-
+import re
 
 ResultT = TypeVar("ResultT")
 
@@ -397,6 +397,64 @@ def _all(items: Iterable[object]) -> bool:
 		if not item:
 			return False
 	return True
+
+def timeToSeconds(timeValue: str) -> int:
+	timeValue = timeValue.strip().lower()
+	validPattern = r"^(\d{1,2}):(\d{2})(?:\s*(am|pm))?$"
+	match = re.match(validPattern, timeValue)
+
+	if not match:
+		raise ValueError("Invalid Input")
+
+	hours, minutes, period = match.groups()
+	hours = int(hours)
+	minutes = int(minutes)
+
+	if minutes > 59:
+		raise ValueError("Invalid Input")
+
+	if period:
+		if hours < 1 or hours > 12:
+			raise ValueError("Invalid 12-hour time")
+
+		if period == "am":
+			hours = 0 if hours == 12 else hours
+		else:
+			hours = 12 if hours == 12 else hours + 12
+	elif hours > 23:
+		raise ValueError("Invalid 24-hour time")
+
+	return hours * 3600 + minutes * 60
+
+def secondsToTime(seconds: int, use12Hour: bool = False) -> str:
+	seconds %= 86400
+
+	hours = seconds // 3600
+	minutes = (seconds % 3600) // 60
+
+	if use12Hour:
+		period = "AM" if hours < 12 else "PM"
+		displayHours = hours % 12 or 12
+		return f"{displayHours}:{minutes:02d} {period}"
+
+	return f"{hours:02d}:{minutes:02d}"
+
+
+def calculateTime(time1: str, time2: str, operation: str, use12Hour: bool = False) -> str:
+	operation = operation.strip().lower()
+
+	if operation not in ("+", "-", "add", "minus"):
+		raise ValueError("Operation must be '+' or '-'")
+
+	seconds1 = timeToSeconds(time1)
+	seconds2 = timeToSeconds(time2)
+
+	if operation in ("+", "add"):
+		result = seconds1 + seconds2
+	else:
+		result = seconds1 - seconds2
+
+	return secondsToTime(result, use12Hour)
 
 class customStr:
 	uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
