@@ -465,11 +465,11 @@ class customStr:
 	def __init__(self, string: Sequence):
 		self.string = string
 
-	def isdigit(self: customStr):
+	def isdigit(self):
 		numbers = self.numbers
 		return all(i in numbers for i in self.string)
 
-	def capitalise(self: customStr):
+	def capitalise(self):
 		uppercase = self.uppercase
 		lowercase = self.lowercase
 
@@ -494,7 +494,7 @@ class customStr:
 		
 		return "".join(result)
 
-	def upper(self: customStr):
+	def upper(self):
 		uppercase = self.uppercase
 		lowercase = self.lowercase
 
@@ -512,7 +512,7 @@ class customStr:
 
 		return "".join(result)
 
-	def lower(self: customStr):
+	def lower(self):
 		uppercase = self.uppercase
 		lowercase = self.lowercase
 
@@ -530,7 +530,7 @@ class customStr:
 
 		return "".join(result)
 
-	def find(self: customStr, sub: Sequence, start: int | None = None, end: int | None = None) -> int:
+	def find(self, sub: Sequence, start: int | None = None, end: int | None = None) -> int:
 		subLength = len(sub)
 		storedString = self.string
 		
@@ -547,7 +547,7 @@ class customStr:
 
 		return -1
 
-	def index(self: customStr, sub: Sequence, start: int | None = None, end: int | None = None) -> int | ValueError:
+	def index(self, sub: Sequence, start: int | None = None, end: int | None = None) -> int | ValueError:
 		subLength = len(sub)
 		storedString = self.string
 
@@ -564,7 +564,7 @@ class customStr:
 
 		return ValueError("substring not found")
 
-	def endswith(self: customStr, suffix: Sequence, start: int | None = None, end: int | None = None) -> bool:
+	def endswith(self, suffix: Sequence, start: int | None = None, end: int | None = None) -> bool:
 		storedString = self.string
 		
 		if start is not None:
@@ -585,7 +585,7 @@ class customStr:
 
 		return endSlice == suffix
 
-	def startswith(self: customStr, prefix: Sequence, start: int | None = None, end: int | None = None) -> bool:
+	def startswith(self, prefix: Sequence, start: int | None = None, end: int | None = None) -> bool:
 		storedString = self.string
 		
 		if start is not None:
