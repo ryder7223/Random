@@ -1,3 +1,4 @@
+from types import ClassMethodDescriptorType
 from typing import Generator, Any, Callable, Iterable, Sequence, TypeVar, cast
 import time
 import ast
@@ -606,30 +607,27 @@ class customStr:
 		return startSlice == prefix
 
 
-class percent:
+class Percent:
 	"""
 	Support for arithmetic with percentages
 	"""
 
 	def __init__(self, value: str, precision: int = 0):
-		self.value = value
+		self.value = value.strip()
 		self.precision = precision
+		self.float = float(self.value.rstrip("%")) / 100
 
 	def get(self):
 		"""
 		Returns the float representation of a percentage
 		"""
-		return float(self.value.rstrip("%")) / 100
+		return self.float
 
 	def print(self):
 		"""
 		Prints and returns a percentage
 		"""
-		if isinstance(self.value, int):
-			print(str(self.value) + "%")
-			return str(self.value) + "%"
 		if isinstance(self.value, str):
-
 			print(self.value.rstrip("%") + "%")
 			return self.value.rstrip("%") + "%"
 		return ValueError
@@ -646,6 +644,11 @@ class percent:
 		string = cls.format(num, precision)
 		return cls(string, precision=precision)
 
+	@classmethod
+	def _float(cls, num: float, precision: int = 0):
+		string = cls.format(num, precision)
+		return cls(string, precision=precision)
+
 	def of(self, value):
 		return value * self.get()
 
@@ -655,119 +658,72 @@ class percent:
 	def decrease(self, value):
 		return value * (1 - self.get())
 
-	def __add__(self, other):
-		if isinstance(other, percent):
-			totalf = self.get() + other.get()
+	def _combine(self, other, op):
+		if isinstance(other, Percent):
+			totalf = op(self.get(), other.get())
 			precision = max(self.precision, other.precision)
-			totalp = self.format(totalf, precision)
-			return percent(totalp, precision=precision)
+			return Percent(self.format(totalf, precision), precision)
 		return NotImplemented
 
-	def __sub__(self, other):
-		if isinstance(other, percent):
-			totalf = self.get() - other.get()
-			precision = max(self.precision, other.precision)
-			totalp = self.format(totalf, precision)
-			return percent(totalp, precision=precision)
-		return NotImplemented
-
-	def __mul__(self, other):
-		if isinstance(other, percent):
-			totalf = self.get() * other.get()
-			precision = max(self.precision, other.precision)
-			totalp = self.format(totalf, precision)
-			return percent(totalp, precision=precision)
-		return NotImplemented
-
-	def __truediv__(self, other):
-		if isinstance(other, percent):
-			totalf = self.get() / other.get()
-			precision = max(self.precision, other.precision)
-			totalp = self.format(totalf, precision)
-			return percent(totalp, precision=precision)
-		return NotImplemented
-
-	def __mod__(self, other):
-		if isinstance(other, percent):
-			totalf = self.get() % other.get()
-			precision = max(self.precision, other.precision)
-			return percent(self.format(totalf, precision), precision)
-		return NotImplemented
+	def __add__(self, other): return self._combine(other, lambda a, b: a + b)
+	def __sub__(self, other): return self._combine(other, lambda a, b: a - b)
+	def __mul__(self, other): return self._combine(other, lambda a, b: a * b)
+	def __truediv__(self, other): return self._combine(other, lambda a, b: a / b)
+	def __mod__(self, other): return self._combine(other, lambda a, b: a % b)
 	
 	def __pow__(self, other):
-		if isinstance(other, percent):
-			totalf = self.get() ** other.get()
-			precision = max(self.precision, other.precision)
-			return percent(self.format(totalf, precision), precision)
+		if isinstance(other, Percent):
+			return self._combine(other, lambda a, b: a ** b)
 		if isinstance(other, (int, float)):
 			totalf = self.get() ** other
-			return percent(self.format(totalf, self.precision), self.precision)
+			return Percent(self.format(totalf, self.precision), self.precision)
 		return NotImplemented
 
 	def __radd__(self, other):
 		if isinstance(other, (int, float)):
-			return other + self.get()
+			return Percent._float(other + self.get(), self.precision)
 		return NotImplemented
 	
 	def __rsub__(self, other):
 		if isinstance(other, (int, float)):
-			return other - self.get()
+			return Percent._float(other - self.get(), self.precision)
 		return NotImplemented
 	
 	def __rmul__(self, other):
 		if isinstance(other, (int, float)):
-			return other * self.get()
+			return Percent._float(other * self.get(), self.precision)
 		return NotImplemented
 	
 	def __rtruediv__(self, other):
 		if isinstance(other, (int, float)):
-			return other / self.get()
+			return Percent._float(other / self.get(), self.precision)
 		return NotImplemented
 
 	def __neg__(self):
-		return percent(self.format(-self.get(), self.precision), self.precision)
+		return Percent(self.format(-self.get(), self.precision), self.precision)
 
 	def __abs__(self):
-		return percent(self.format(abs(self.get()), self.precision), self.precision)
+		return Percent(self.format(abs(self.get()), self.precision), self.precision)
 
 	def __eq__(self, other):
-		if isinstance(other, percent):
-			return self.get() == other.get()
-		return NotImplemented
+		return self.get() == other.get() if isinstance(other, Percent) else NotImplemented
 	
 	def __lt__(self, other):
-		if isinstance(other, percent):
-			return self.get() < other.get()
-		return NotImplemented
+		return self.get() < other.get() if isinstance(other, Percent) else NotImplemented
 	
 	def __le__(self, other):
-		if isinstance(other, percent):
-			return self.get() <= other.get()
-		return NotImplemented
+		return self.get() <= other.get() if isinstance(other, Percent) else NotImplemented
 	
 	def __gt__(self, other):
-		if isinstance(other, percent):
-			return self.get() > other.get()
-		return NotImplemented
+		return self.get() > other.get() if isinstance(other, Percent) else NotImplemented
 	
 	def __ge__(self, other):
-		if isinstance(other, percent):
-			return self.get() >= other.get()
-		return NotImplemented
+		return self.get() >= other.get() if isinstance(other, Percent) else NotImplemented
 
-	def __float__(self):
-		return self.get()
-
-	def __int__(self):
-		return int(self.get())
-
-	def __str__(self):
-		try:
-			num = float(self.value.rstrip("%"))
-			return f"{num:.{self.precision}f}%"
-		except ValueError:
-			return self.value
-
+	def __float__(self): return self.get()
+	def __int__(self): return int(self.get())
+	def __str__(self): return f"{self.float * 100:.{self.precision}f}%"
+	def __repr__(self): return f"Percent('{self.__str__()}', precision={self.precision})"
 
 class Sort:
 	"""
@@ -877,3 +833,6 @@ class Sort:
 	
 		print("Sorted!\n")
 		return values
+
+
+print(Percent("100") + Percent("15"))
