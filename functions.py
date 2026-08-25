@@ -673,7 +673,6 @@ class Percent:
 
 		return Percent(self.format(op(self.get(), value), precision), precision)
 
-
 	def __add__(self, other): return self._combine(other, lambda a, b: a + b)
 	def __sub__(self, other): return self._combine(other, lambda a, b: a - b)
 	def __mul__(self, other): return self._combine(other, lambda a, b: a * b)
@@ -720,10 +719,7 @@ class Percent:
 
 		quotient, remainder = divmod(self.get(), value)
 
-		return (
-			quotient,
-			Percent(remainder, precision)
-		)
+		return quotient, Percent(remainder, precision)
 
 	def __rdivmod__(self, other):
 		if isinstance(other, Percent):
@@ -737,10 +733,7 @@ class Percent:
 
 		quotient, remainder = divmod(value, self.get())
 
-		return (
-			quotient,
-			Percent(remainder, precision)
-		)
+		return quotient, Percent(remainder, precision)
 
 	def __neg__(self):
 		return Percent(self.format(-self.get(), self.precision), self.precision)
@@ -894,3 +887,5 @@ class Sort:
 	
 		print("Sorted!\n")
 		return values
+
+print(Percent("50%").increase(10))
