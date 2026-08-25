@@ -612,10 +612,14 @@ class Percent:
 	Support for arithmetic with percentages
 	"""
 
-	def __init__(self, value: str, precision: int = 0):
-		self.value = value.strip()
+	def __init__(self, value, precision: int = 0):
+		if isinstance(value, str):
+			value = float(value.rstrip("%")) / 100
+		elif isinstance(value, (int, float)):
+			value = float(value)
+
+		self.float = value
 		self.precision = precision
-		self.float = float(self.value.rstrip("%")) / 100
 
 	def get(self):
 		"""
@@ -627,10 +631,9 @@ class Percent:
 		"""
 		Prints and returns a percentage
 		"""
-		if isinstance(self.value, str):
-			print(self.value.rstrip("%") + "%")
-			return self.value.rstrip("%") + "%"
-		return ValueError
+		result = str(self)
+		print(result)
+		return result
 
 	@staticmethod
 	def format(value: float, precision: int = 0):
@@ -660,10 +663,16 @@ class Percent:
 
 	def _combine(self, other, op):
 		if isinstance(other, Percent):
-			totalf = op(self.get(), other.get())
+			value = other.get()
 			precision = max(self.precision, other.precision)
-			return Percent(self.format(totalf, precision), precision)
-		return NotImplemented
+		elif isinstance(other, (int, float)):
+			value = other
+			precision = self.precision
+		else:
+			return NotImplemented
+
+		return Percent(self.format(op(self.get(), value), precision), precision)
+
 
 	def __add__(self, other): return self._combine(other, lambda a, b: a + b)
 	def __sub__(self, other): return self._combine(other, lambda a, b: a - b)
@@ -699,6 +708,40 @@ class Percent:
 			return Percent._float(other / self.get(), self.precision)
 		return NotImplemented
 
+	def __divmod__(self, other):
+		if isinstance(other, Percent):
+			value = other.get()
+			precision = max(self.precision, other.precision)
+		elif isinstance(other, (int, float)):
+			value = other
+			precision = self.precision
+		else:
+			return NotImplemented
+
+		quotient, remainder = divmod(self.get(), value)
+
+		return (
+			quotient,
+			Percent(remainder, precision)
+		)
+
+	def __rdivmod__(self, other):
+		if isinstance(other, Percent):
+			value = other.get()
+			precision = max(self.precision, other.precision)
+		elif isinstance(other, (int, float)):
+			value = other
+			precision = self.precision
+		else:
+			return NotImplemented
+
+		quotient, remainder = divmod(value, self.get())
+
+		return (
+			quotient,
+			Percent(remainder, precision)
+		)
+
 	def __neg__(self):
 		return Percent(self.format(-self.get(), self.precision), self.precision)
 
@@ -719,6 +762,24 @@ class Percent:
 	
 	def __ge__(self, other):
 		return self.get() >= other.get() if isinstance(other, Percent) else NotImplemented
+
+	def __hash__(self):
+		return hash(self.get())
+
+	def __round__(self, ndigits=None):
+		return Percent(round(self.get(), ndigits), self.precision)
+
+	def __bool__(self):
+		return self.get() != 0
+
+	def __floor__(self):
+		return Percent(math.floor(self.get()), self.precision)
+
+	def __ceil__(self):
+		return Percent(math.ceil(self.get()), self.precision)
+
+	def __trunc__(self):
+		return Percent(math.trunc(self.get()), self.precision)
 
 	def __float__(self): return self.get()
 	def __int__(self): return int(self.get())
@@ -833,6 +894,3 @@ class Sort:
 	
 		print("Sorted!\n")
 		return values
-
-
-print(Percent("100") + Percent("15"))
