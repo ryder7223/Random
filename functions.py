@@ -606,6 +606,169 @@ class customStr:
 		return startSlice == prefix
 
 
+class percent:
+	"""
+	Support for arithmetic with percentages
+	"""
+
+	def __init__(self, value: str, precision: int = 0):
+		self.value = value
+		self.precision = precision
+
+	def get(self):
+		"""
+		Returns the float representation of a percentage
+		"""
+		return float(self.value.rstrip("%")) / 100
+
+	def print(self):
+		"""
+		Prints and returns a percentage
+		"""
+		if isinstance(self.value, int):
+			print(str(self.value) + "%")
+			return str(self.value) + "%"
+		if isinstance(self.value, str):
+
+			print(self.value.rstrip("%") + "%")
+			return self.value.rstrip("%") + "%"
+		return ValueError
+
+	@staticmethod
+	def format(value: float, precision: int = 0):
+		return f"{value * 100:.{precision}f}%"
+
+	@classmethod
+	def percent(cls, num: float, precision: int = 0):
+		"""
+		Returns the percentage representation of a float
+		"""
+		string = cls.format(num, precision)
+		return cls(string, precision=precision)
+
+	def of(self, value):
+		return value * self.get()
+
+	def increase(self, value):
+		return value * (1 + self.get())
+	
+	def decrease(self, value):
+		return value * (1 - self.get())
+
+	def __add__(self, other):
+		if isinstance(other, percent):
+			totalf = self.get() + other.get()
+			precision = max(self.precision, other.precision)
+			totalp = self.format(totalf, precision)
+			return percent(totalp, precision=precision)
+		return NotImplemented
+
+	def __sub__(self, other):
+		if isinstance(other, percent):
+			totalf = self.get() - other.get()
+			precision = max(self.precision, other.precision)
+			totalp = self.format(totalf, precision)
+			return percent(totalp, precision=precision)
+		return NotImplemented
+
+	def __mul__(self, other):
+		if isinstance(other, percent):
+			totalf = self.get() * other.get()
+			precision = max(self.precision, other.precision)
+			totalp = self.format(totalf, precision)
+			return percent(totalp, precision=precision)
+		return NotImplemented
+
+	def __truediv__(self, other):
+		if isinstance(other, percent):
+			totalf = self.get() / other.get()
+			precision = max(self.precision, other.precision)
+			totalp = self.format(totalf, precision)
+			return percent(totalp, precision=precision)
+		return NotImplemented
+
+	def __mod__(self, other):
+		if isinstance(other, percent):
+			totalf = self.get() % other.get()
+			precision = max(self.precision, other.precision)
+			return percent(self.format(totalf, precision), precision)
+		return NotImplemented
+	
+	def __pow__(self, other):
+		if isinstance(other, percent):
+			totalf = self.get() ** other.get()
+			precision = max(self.precision, other.precision)
+			return percent(self.format(totalf, precision), precision)
+		if isinstance(other, (int, float)):
+			totalf = self.get() ** other
+			return percent(self.format(totalf, self.precision), self.precision)
+		return NotImplemented
+
+	def __radd__(self, other):
+		if isinstance(other, (int, float)):
+			return other + self.get()
+		return NotImplemented
+	
+	def __rsub__(self, other):
+		if isinstance(other, (int, float)):
+			return other - self.get()
+		return NotImplemented
+	
+	def __rmul__(self, other):
+		if isinstance(other, (int, float)):
+			return other * self.get()
+		return NotImplemented
+	
+	def __rtruediv__(self, other):
+		if isinstance(other, (int, float)):
+			return other / self.get()
+		return NotImplemented
+
+	def __neg__(self):
+		return percent(self.format(-self.get(), self.precision), self.precision)
+
+	def __abs__(self):
+		return percent(self.format(abs(self.get()), self.precision), self.precision)
+
+	def __eq__(self, other):
+		if isinstance(other, percent):
+			return self.get() == other.get()
+		return NotImplemented
+	
+	def __lt__(self, other):
+		if isinstance(other, percent):
+			return self.get() < other.get()
+		return NotImplemented
+	
+	def __le__(self, other):
+		if isinstance(other, percent):
+			return self.get() <= other.get()
+		return NotImplemented
+	
+	def __gt__(self, other):
+		if isinstance(other, percent):
+			return self.get() > other.get()
+		return NotImplemented
+	
+	def __ge__(self, other):
+		if isinstance(other, percent):
+			return self.get() >= other.get()
+		return NotImplemented
+
+	def __float__(self):
+		return self.get()
+
+	def __int__(self):
+		return int(self.get())
+
+	def __str__(self):
+		try:
+			num = float(self.value.rstrip("%"))
+			return f"{num:.{self.precision}f}%"
+		except ValueError:
+			return self.value
+
+
 class Sort:
 	"""
 	Sorting utilities and visualised sorting algorithms.
