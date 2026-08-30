@@ -1,5 +1,5 @@
 """
-Use only for sublime text.
+Use only for sublime text. This will handle setting up and removing SQL Relational Notation syntax highlighting. Running it with no arguments will default it to the install option.
 """
 
 from pathlib import Path
@@ -635,8 +635,8 @@ def main():
 	if len(arguments) > 1:
 		print(
 		 "Usage:\n"
-		 "  python installSqlrel.py install\n"
-		 "  python installSqlrel.py uninstall"
+		 "  python installSQLRelSyntax.py install\n"
+		 "  python installSQLRelSyntax.py uninstall"
 		)
 		sys.exit(1)
 
@@ -653,8 +653,8 @@ def main():
 			print(
 			 f"Unknown command: {mode}\n\n"
 			 "Usage:\n"
-			 "  python installSqlrel.py install\n"
-			 "  python installSqlrel.py uninstall"
+			 "  python installSQLRelSyntax.py install\n"
+			 "  python installSQLRelSyntax.py uninstall"
 			)
 			sys.exit(1)
 
