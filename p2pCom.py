@@ -2,6 +2,7 @@
 
 import subprocess
 import importlib
+import sys
 
 requiredModules = {
     "prompt_toolkit": {
@@ -39,7 +40,6 @@ def installMissingModules(modules):
 
 installMissingModules(requiredModules)
 
-import sys
 import requests
 import os
 import time
