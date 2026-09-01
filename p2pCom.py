@@ -1,4 +1,43 @@
-# 1.2
+# 1.3
+
+import subprocess
+import importlib
+
+requiredModules = {
+    "prompt_toolkit": {
+        "package": "prompt_toolkit"
+    },
+    "cryptography": {
+        "package": "cryptography"
+    },
+    "requests": {
+        "package": "requests"
+    }
+}
+
+def installMissingModules(modules):
+    installedSomething = False
+    for importName, moduleInfo in modules.items():
+        try:
+            importlib.import_module(importName)
+            
+        except ImportError:
+            packageName = moduleInfo["package"]
+            extraArgs = moduleInfo.get("args", [])
+            print(f"{packageName} is not installed. Installing...")
+            subprocess.check_call([
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                *extraArgs,
+                packageName])
+            installedSomething = True
+    if installedSomething:
+        subprocess.check_call([sys.executable] + sys.argv)
+        sys.exit()
+
+installMissingModules(requiredModules)
 
 import sys
 import requests
@@ -81,44 +120,7 @@ def checkForUpdate(force: int):
         # Restart script
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
-
 checkForUpdate(0)
-
-import subprocess
-import importlib
-
-requiredModules = {
-    "prompt_toolkit": {
-        "package": "prompt_toolkit"
-    },
-    "cryptography": {
-        "package": "cryptography"
-    }
-}
-
-def installMissingModules(modules):
-    installedSomething = False
-    for importName, moduleInfo in modules.items():
-        try:
-            importlib.import_module(importName)
-            
-        except ImportError:
-            packageName = moduleInfo["package"]
-            extraArgs = moduleInfo.get("args", [])
-            print(f"{packageName} is not installed. Installing...")
-            subprocess.check_call([
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                *extraArgs,
-                packageName])
-            installedSomething = True
-    if installedSomething:
-        subprocess.check_call([sys.executable] + sys.argv)
-        sys.exit()
-
-installMissingModules(requiredModules)
 
 from typing import cast
 import socket
@@ -156,7 +158,6 @@ def getIdentityKey():
         file.write(key)
 
     return key
-
 
 def generateId():
     identityFile = "identity.json.enc"
