@@ -11,7 +11,12 @@ requiredModules = {
     },
     "GDReq": {
         "package": "GDReq",
-        "args": ["-i", "https://test.pypi.org/simple/"]
+        "args": [
+            "--index-url",
+            "https://pypi.org/simple/",
+            "--extra-index-url",
+            "https://test.pypi.org/simple/"
+        ]
     }
 }
 
