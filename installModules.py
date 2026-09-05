@@ -3,9 +3,6 @@ import importlib
 import sys
 
 requiredModules = {
-    "requests": {
-        "package": "requests"
-    },
     "colorama": {
         "package": "colorama"
     },
