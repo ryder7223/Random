@@ -6,6 +6,9 @@ requiredModules = {
     "colorama": {
         "package": "colorama"
     },
+	"PIL": {
+		"package": "Pillow"
+	},
     "GDReq": {
         "package": "GDReq",
         "args": [
