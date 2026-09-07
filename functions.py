@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import random
 import re
 
+
 ResultT = TypeVar("ResultT")
 
 def printGenerator(gen: Generator[Any, Any, Any], limit: int | None = None, dot: str = ".", sep: str = "", splitFirst: bool = True) -> None:
@@ -131,7 +132,7 @@ def polygonalNumber(order: int, sides: int) -> int:
 	"""
 	return ((sides - 2) * order * order - (sides - 4) * order) // 2
 
-def calcPerc(*values: int | str, decimals: int = 2) -> None:
+def calcPerc(*values: int | str | float, decimals: int = 2) -> None:
 	"""
 	Prints the relative percentages of any amount of integers out of their added total.
 	"""
@@ -457,6 +458,85 @@ def calculateTime(time1: str, time2: str, operation: str, use12Hour: bool = Fals
 
 	return secondsToTime(result, use12Hour)
 
+def isEfficient(find: str, replace: str, count: int, extra: int):
+	"""
+	Returns characters saved by a change, used for optimising script size.
+	count: The number of occurances of `find`
+	extra: Amount of other characters required to add the definition, e.g. =, ;
+	"""
+	startSize = len(find) * count
+	endSize = len(replace) * count
+	net = (startSize - endSize) - (len(find) + len(replace) + extra)
+	return net
+
+def HSLToRGB(h, s, l):
+    """
+    Convert HSL color values to RGB.
+    
+    Arguments:
+    h -- Hue as a degree between 0 and 360
+    s -- Saturation as a percentage between 0 and 100
+    l -- Lightness as a percentage between 0 and 100
+    
+    Returns:
+    A tuple of (R, G, B) integers between 0 and 255.
+    """
+    # Convert percentages to fractions
+    s /= 100.0
+    l /= 100.0
+
+    # Achromatic (gray)
+    if s == 0:
+        r = g = b = l
+    else:
+        def hueToRGB(p, q, t):
+            if t < 0: t += 1
+            if t > 1: t -= 1
+            if t < 1/6: return p + (q - p) * 6 * t
+            if t < 1/2: return q
+            if t < 2/3: return p + (q - p) * (2/3 - t) * 6
+            return p
+
+        q = l * (1 + s) if l < 0.5 else l + s - l * s
+        p = 2 * l - q
+
+        # Convert hue to a 0-1 range
+        hNormalized = h / 360.0
+
+        r = hueToRGB(p, q, hNormalized + 1/3)
+        g = hueToRGB(p, q, hNormalized)
+        b = hueToRGB(p, q, hNormalized - 1/3)
+
+    return int(round(r * 255)), int(round(g * 255)), int(round(b * 255))
+
+def batched(iterable, n, *, strict=False):
+    # batched('ABCDEFG', 3) → ABC DEF G
+    if n < 1:
+        raise ValueError('n must be at least one')
+    
+    iterator = iter(iterable)
+    while True:
+        # Create a batch of up to n elements
+        batch = []
+        for _ in range(n):
+            try:
+                batch.append(next(iterator))
+            except StopIteration:
+                break
+        
+        # If no elements were added, the iterator is completely empty
+        if not batch:
+            break
+            
+        # Enforce strict length matching on the final batch if requested
+        if strict and len(batch) < n:
+            raise ValueError('batched() argument len(iterable) must be a multiple of n')
+            
+        yield tuple(batch)
+
+def halflifeToLifetime(halflife: int | float) -> float:
+	return halflife / math.log(2)
+
 class customStr:
 	uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	lowercase = "abcdefghijklmnopqrstuvwxyz"
@@ -606,7 +686,6 @@ class customStr:
 
 		return startSlice == prefix
 
-
 class Percent:
 	"""
 	Support for arithmetic with percentages
@@ -678,6 +757,7 @@ class Percent:
 	def __mul__(self, other): return self._combine(other, lambda a, b: a * b)
 	def __truediv__(self, other): return self._combine(other, lambda a, b: a / b)
 	def __mod__(self, other): return self._combine(other, lambda a, b: a % b)
+	def __floordiv__(self, other): return self._combine(other, lambda a, b: a // b)
 	
 	def __pow__(self, other):
 		if isinstance(other, Percent):
@@ -888,4 +968,11 @@ class Sort:
 		print("Sorted!\n")
 		return values
 
-print(Percent("50%").increase(10))
+class bytes(bytes):
+
+
+	def toBytes(self) -> str:
+		"""
+		Returns the \\x representation of bytes.
+		"""
+		return "".join(f"\\x{b:02x}" for b in self)
